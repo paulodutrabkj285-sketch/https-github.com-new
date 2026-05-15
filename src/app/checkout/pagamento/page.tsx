@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
-export default function PagamentoPage() {
+export default function PagamentoConteudo() {
   const searchParams = useSearchParams();
   const [metodo, setMetodo] = useState<"pix" | "cartao" | "">("");
   const [carregando, setCarregando] = useState(false);
