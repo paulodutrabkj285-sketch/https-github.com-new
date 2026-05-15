@@ -1,228 +1,140 @@
-"use client";
-
-import Link from "next/link";
-
-type IngressoCard = {
-  titulo: string;
-  descricao: string;
-  precoPrincipal: string;
-  precoSecundario?: string;
-  href: string;
-};
-
-const ingressos: IngressoCard[] = [
-  {
-    titulo: "Ingresso Parque",
-    descricao: "Entrada para visitar o parque na data escolhida.",
-    precoPrincipal: "R$ 60,00",
-    href: "/ingressos/parque",
-  },
-  {
-    titulo: "Meia Entrada Idoso",
-    descricao: "Ingresso com valor reduzido para idosos, com comprovação na entrada.",
-    precoPrincipal: "R$ 30,00",
-    href: "/ingressos/idoso",
-  },
-  {
-    titulo: "Camping",
-    descricao:
-      "Hospedagem no camping do parque. 1ª diária por pessoa com valor integral e, a partir da 2ª diária, valor promocional.",
-    precoPrincipal: "1ª diária: R$ 100,00 por pessoa",
-    precoSecundario: "A partir da 2ª diária: R$ 80,00 por pessoa",
-    href: "/ingressos/camping",
-  },
-  {
-    titulo: "Elevador Panorâmico",
-    descricao:
-      "Experiência vendida separadamente, com possibilidade de remarcação ou crédito.",
-    precoPrincipal: "R$ 75,00",
-    href: "/ingressos/elevador",
-  },
-];
-
 export default function IngressosPage() {
+  const cards = [
+    {
+      titulo: "Ingresso Parque",
+      descricao: "Entrada para visitar o parque na data escolhida.",
+      preco: "R$ 60,00",
+    },
+    {
+      titulo: "Meia Entrada Idoso",
+      descricao:
+        "Ingresso com valor reduzido para idosos, com comprovação na entrada.",
+      preco: "R$ 30,00",
+    },
+    {
+      titulo: "Camping",
+      descricao:
+        "Hospedagem no camping do parque. 1ª diária por pessoa com valor integral.",
+      preco: "R$ 100,00",
+    },
+    {
+      titulo: "Elevador Panorâmico",
+      descricao:
+        "Experiência vendida separadamente com possibilidade de remarcação.",
+      preco: "R$ 75,00",
+    },
+  ];
+
   return (
     <main
       style={{
+        background: "#eef3ed",
         minHeight: "100vh",
-        background: "linear-gradient(to bottom, #edf7ed, #ffffff)",
-        padding: "28px 20px 50px",
+        padding: "20px",
+        fontFamily: "Arial",
       }}
     >
-      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
-        <section
+      <div
+        style={{
+          background: "#5f7f61",
+          borderRadius: "30px",
+          padding: "30px",
+          color: "white",
+          marginBottom: "30px",
+        }}
+      >
+        <img
+          src="/logo.png"
+          alt="logo"
           style={{
-            background: "linear-gradient(135deg, #5a7a60, #4f6f57)",
-            borderRadius: "30px",
-            padding: "36px",
-            marginBottom: "34px",
-            boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
+            width: "120px",
+            borderRadius: "20px",
+            marginBottom: "20px",
+          }}
+        />
+
+        <h1
+          style={{
+            fontSize: "48px",
+            marginBottom: "10px",
           }}
         >
+          Parque Mundo Novo
+        </h1>
+
+        <p
+          style={{
+            fontSize: "22px",
+          }}
+        >
+          Compre seu ingresso online com praticidade.
+        </p>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+          gap: "20px",
+        }}
+      >
+        {cards.map((item, index) => (
           <div
+            key={index}
             style={{
-              display: "grid",
-              gridTemplateColumns: "220px 1fr",
-              gap: "32px",
-              alignItems: "center",
+              background: "white",
+              borderRadius: "20px",
+              padding: "25px",
+              boxShadow: "0 5px 15px rgba(0,0,0,0.1)",
             }}
           >
-            <div
+            <h2
               style={{
-                background: "rgba(255,255,255,0.08)",
-                borderRadius: "24px",
-                padding: "12px",
-                minHeight: "170px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                border: "1px solid rgba(255,255,255,0.14)",
+                color: "#1f6b38",
+                marginBottom: "15px",
+                fontSize: "32px",
               }}
             >
-              <img
-                src="/logo-final.png"
-                alt="Logo Parque Mundo Novo"
-                style={{
-                  width: "100%",
-                  maxWidth: "145px",
-                  height: "auto",
-                  display: "block",
-                  borderRadius: "14px",
-                }}
-              />
-            </div>
+              {item.titulo}
+            </h2>
 
-            <div>
-              <h1
-                style={{
-                  fontSize: "clamp(36px, 5vw, 62px)",
-                  lineHeight: 1.05,
-                  fontWeight: "bold",
-                  color: "#ffffff",
-                  margin: "0 0 18px 0",
-                }}
-              >
-                Parque Mundo Novo
-              </h1>
+            <p
+              style={{
+                color: "#333",
+                lineHeight: "1.6",
+                minHeight: "120px",
+              }}
+            >
+              {item.descricao}
+            </p>
 
-              <p
-                style={{
-                  fontSize: "clamp(19px, 2vw, 24px)",
-                  color: "#f3f4f6",
-                  lineHeight: 1.5,
-                  margin: "0 0 10px 0",
-                }}
-              >
-                Compre seu ingresso online com praticidade e organize sua visita com antecedência.
-              </p>
+            <h3
+              style={{
+                marginTop: "20px",
+                fontSize: "32px",
+              }}
+            >
+              {item.preco}
+            </h3>
 
-              <p
-                style={{
-                  fontSize: "15px",
-                  color: "#d1d5db",
-                  margin: 0,
-                }}
-              >
-                Tirolesa continua com venda no local.
-              </p>
-            </div>
+            <button
+              style={{
+                marginTop: "20px",
+                width: "100%",
+                padding: "15px",
+                borderRadius: "12px",
+                border: "none",
+                background: "#1f6b38",
+                color: "white",
+                fontWeight: "bold",
+                fontSize: "18px",
+                cursor: "pointer",
+              }}
+            >
+              Comprar
+            </button>
           </div>
-        </section>
-
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: "24px",
-          }}
-        >
-          {ingressos.map((item) => (
-            <article
-              key={item.titulo}
-              style={{
-                backgroundColor: "#ffffff",
-                borderRadius: "20px",
-                padding: "28px",
-                boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
-                border: "1px solid #dbe5db",
-                display: "flex",
-                flexDirection: "column",
-                minHeight: "380px",
-              }}
-            >
-              <h2
-                style={{
-                  fontSize: "clamp(28px, 2.2vw, 34px)",
-                  fontWeight: "bold",
-                  color: "#166534",
-                  margin: "0 0 18px 0",
-                  lineHeight: 1.2,
-                }}
-              >
-                {item.titulo}
-              </h2>
-
-              <p
-                style={{
-                  color: "#374151",
-                  fontSize: "18px",
-                  lineHeight: 1.65,
-                  margin: "0 0 24px 0",
-                  flexGrow: 1,
-                }}
-              >
-                {item.descricao}
-              </p>
-
-              <div style={{ marginBottom: "26px" }}>
-                <p
-                  style={{
-                    fontSize: "22px",
-                    fontWeight: "bold",
-                    color: "#111827",
-                    margin: "0 0 10px 0",
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {item.precoPrincipal}
-                </p>
-
-                {item.precoSecundario && (
-                  <p
-                    style={{
-                      fontSize: "22px",
-                      fontWeight: "bold",
-                      color: "#111827",
-                      margin: 0,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {item.precoSecundario}
-                  </p>
-                )}
-              </div>
-
-              <Link
-                href={item.href}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: "fit-content",
-                  padding: "16px 26px",
-                  borderRadius: "16px",
-                  backgroundColor: "#15803d",
-                  color: "#ffffff",
-                  textDecoration: "none",
-                  fontSize: "18px",
-                  fontWeight: "bold",
-                }}
-              >
-                Comprar
-              </Link>
-            </article>
-          ))}
-        </section>
+        ))}
       </div>
     </main>
   );
