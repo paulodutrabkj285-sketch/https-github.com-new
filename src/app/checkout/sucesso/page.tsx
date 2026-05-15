@@ -1,163 +1,88 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function SucessoPage() {
-  const searchParams = useSearchParams();
-  const pedidoId = searchParams.get("pedidoId") || "";
+  const [pedidoId, setPedidoId] = useState("");
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    setPedidoId(params.get("pedidoId") || "");
+    setStatus(params.get("status") || "Pagamento aprovado");
+  }, []);
 
   return (
     <main
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(to bottom, #edf7ed, #ffffff)",
-        padding: "34px 20px 50px",
+        background: "#0f2f1f",
+        color: "#ffffff",
+        padding: "40px 20px",
+        fontFamily: "Arial, sans-serif",
       }}
     >
-      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-        <section
+      <div
+        style={{
+          maxWidth: "700px",
+          margin: "0 auto",
+          background: "#ffffff",
+          color: "#1f2937",
+          borderRadius: "20px",
+          padding: "30px",
+          textAlign: "center",
+        }}
+      >
+        <h1 style={{ color: "#15803d", marginBottom: "20px" }}>
+          Compra realizada com sucesso!
+        </h1>
+
+        <p>Seu ingresso foi gerado.</p>
+
+        {pedidoId && (
+          <p>
+            <strong>Pedido:</strong> {pedidoId}
+          </p>
+        )}
+
+        <p>
+          <strong>Status:</strong> {status}
+        </p>
+
+        <div
           style={{
-            background: "linear-gradient(135deg, #5a7a60, #4f6f57)",
-            borderRadius: "28px",
-            padding: "30px",
-            marginBottom: "30px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-            textAlign: "center",
+            margin: "30px auto",
+            width: "220px",
+            height: "220px",
+            background: "#f3f4f6",
+            border: "2px dashed #9ca3af",
+            borderRadius: "16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#6b7280",
+            fontWeight: "bold",
           }}
         >
-          <img
-            src="/logo-final.png"
-            alt="Logo Parque Mundo Novo"
-            style={{
-              width: "100%",
-              maxWidth: "120px",
-              height: "auto",
-              display: "block",
-              margin: "0 auto 20px",
-              borderRadius: "12px",
-            }}
-          />
+          QR CODE
+        </div>
 
-          <h1
-            style={{
-              fontSize: "clamp(32px, 4.4vw, 56px)",
-              lineHeight: 1.1,
-              fontWeight: "bold",
-              color: "#ffffff",
-              margin: "0 0 16px 0",
-            }}
-          >
-            Pagamento concluído
-          </h1>
-
-          <p
-            style={{
-              fontSize: "clamp(18px, 2vw, 22px)",
-              color: "#f3f4f6",
-              lineHeight: 1.5,
-              margin: 0,
-            }}
-          >
-            Quando a integração estiver completa, essa confirmação virá automaticamente do PagBank.
-          </p>
-        </section>
-
-        <section
+        <Link
+          href="/"
           style={{
-            backgroundColor: "#ffffff",
-            borderRadius: "18px",
-            padding: "28px",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-            border: "1px solid #dbe5db",
-            textAlign: "center",
+            padding: "14px 20px",
+            borderRadius: "14px",
+            textDecoration: "none",
+            backgroundColor: "#15803d",
+            color: "#ffffff",
+            fontWeight: "bold",
+            display: "inline-block",
           }}
         >
-          <h2
-            style={{
-              fontSize: "28px",
-              fontWeight: "bold",
-              color: "#166534",
-              marginTop: 0,
-              marginBottom: "18px",
-            }}
-          >
-            Pedido confirmado
-          </h2>
-
-          <p
-            style={{
-              fontSize: "18px",
-              color: "#4b5563",
-              marginBottom: "10px",
-            }}
-          >
-            ID do pedido:
-          </p>
-
-          <p
-            style={{
-              fontSize: "30px",
-              fontWeight: "bold",
-              color: "#111827",
-              marginBottom: "24px",
-              wordBreak: "break-word",
-            }}
-          >
-            {pedidoId || "-"}
-          </p>
-
-          <div
-            style={{
-              backgroundColor: "#f9fafb",
-              border: "1px solid #e5e7eb",
-              borderRadius: "14px",
-              padding: "18px",
-              marginBottom: "24px",
-            }}
-          >
-            <p style={{ color: "#4b5563", lineHeight: 1.6, margin: 0 }}>
-              Depois, essa tela vai mostrar automaticamente o código do ingresso e o QR Code gerado somente após o pagamento confirmado.
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              gap: "14px",
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <Link
-              href="/ingressos"
-              style={{
-                padding: "14px 20px",
-                borderRadius: "14px",
-                textDecoration: "none",
-                backgroundColor: "#15803d",
-                color: "#ffffff",
-                fontWeight: "bold",
-              }}
-            >
-              Voltar para ingressos
-            </Link>
-
-            <Link
-              href="/admin/pedidos"
-              style={{
-                padding: "14px 20px",
-                borderRadius: "14px",
-                textDecoration: "none",
-                backgroundColor: "#e5e7eb",
-                color: "#111827",
-                fontWeight: "bold",
-              }}
-            >
-              Ver pedidos no admin
-            </Link>
-          </div>
-        </section>
+          Voltar para o início
+        </Link>
       </div>
     </main>
   );
