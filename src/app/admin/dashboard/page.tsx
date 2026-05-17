@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const resumo = calcularResumoFinanceiro(pedidos);
   const dicasFinanceiras = gerarDicasFinanceiras(resumo, pedidos);
   const estatisticas = gerarEstatisticasProdutos(pedidos);
+  const faturamentoPorDia = gerarFaturamentoPorDia(pedidos);
 
   function formatarMoeda(valor: number) {
     return valor.toLocaleString("pt-BR", {
@@ -67,12 +68,10 @@ export default function DashboardPage() {
                 titulo="Faturamento bruto"
                 valor={formatarMoeda(resumo.faturamentoBruto)}
               />
-
               <Card
                 titulo={`Taxas estimadas (${resumo.taxaPercentual}%)`}
                 valor={formatarMoeda(resumo.valorTaxas)}
               />
-
               <Card
                 titulo="Valor líquido estimado"
                 valor={formatarMoeda(resumo.faturamentoLiquido)}
@@ -101,12 +100,10 @@ export default function DashboardPage() {
                 titulo="Produto mais vendido"
                 valor={estatisticas.produtoMaisVendido}
               />
-
               <Card
                 titulo="Participação Camping"
                 valor={`${estatisticas.percentualCamping}%`}
               />
-
               <Card
                 titulo="Pedidos do Elevador"
                 valor={estatisticas.totalElevador}
@@ -130,9 +127,7 @@ export default function DashboardPage() {
                       <div className="h-4 overflow-hidden rounded-full bg-gray-200">
                         <div
                           className="h-full rounded-full bg-[#166534]"
-                          style={{
-                            width: `${produto.percentual}%`,
-                          }}
+                          style={{ width: `${produto.percentual}%` }}
                         />
                       </div>
                     </div>
@@ -150,17 +145,11 @@ export default function DashboardPage() {
                     <div
                       className="w-24 rounded-t-2xl bg-green-600"
                       style={{
-                        height: `${Math.max(
-                          resumo.totalPagos * 15,
-                          30
-                        )}px`,
+                        height: `${Math.max(resumo.totalPagos * 15, 30)}px`,
                       }}
                     />
 
-                    <p className="mt-3 font-bold text-green-700">
-                      Pagos
-                    </p>
-
+                    <p className="mt-3 font-bold text-green-700">Pagos</p>
                     <span>{resumo.totalPagos}</span>
                   </div>
 
@@ -178,10 +167,44 @@ export default function DashboardPage() {
                     <p className="mt-3 font-bold text-yellow-700">
                       Pendentes
                     </p>
-
                     <span>{resumo.totalPendentes}</span>
                   </div>
                 </div>
+              </div>
+            </section>
+
+            <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
+              <h2 className="text-2xl font-bold text-[#166534]">
+                Faturamento por Dia
+              </h2>
+
+              <p className="mt-2 text-sm text-gray-500">
+                Baseado nos pedidos registrados. Quando o pagamento real for
+                integrado, este gráfico poderá considerar apenas pedidos pagos.
+              </p>
+
+              <div className="mt-6 grid gap-4">
+                {faturamentoPorDia.length === 0 ? (
+                  <p className="text-gray-500">
+                    Ainda não há pedidos suficientes para gerar o gráfico.
+                  </p>
+                ) : (
+                  faturamentoPorDia.map((item) => (
+                    <div key={item.data}>
+                      <div className="mb-1 flex justify-between text-sm font-semibold">
+                        <span>{item.data}</span>
+                        <span>{formatarMoeda(item.valor)}</span>
+                      </div>
+
+                      <div className="h-5 overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className="h-full rounded-full bg-[#1f6b38]"
+                          style={{ width: `${item.percentual}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
 
@@ -206,22 +229,12 @@ export default function DashboardPage() {
                   <tbody>
                     {pedidos.slice(0, 10).map((pedido) => (
                       <tr key={pedido.id} className="border-b text-sm">
-                        <td className="p-3 font-semibold">
-                          {pedido.nome}
-                        </td>
-
+                        <td className="p-3 font-semibold">{pedido.nome}</td>
                         <td className="p-3">{pedido.produto}</td>
-
+                        <td className="p-3">{pedido.quantidade}</td>
                         <td className="p-3">
-                          {pedido.quantidade}
+                          {formatarMoeda(Number(pedido.valorTotal || 0))}
                         </td>
-
-                        <td className="p-3">
-                          {formatarMoeda(
-                            Number(pedido.valorTotal || 0)
-                          )}
-                        </td>
-
                         <td className="p-3">
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-bold ${
@@ -233,12 +246,11 @@ export default function DashboardPage() {
                             {pedido.statusPagamento || "pendente"}
                           </span>
                         </td>
-
                         <td className="p-3">
                           {pedido.createdAt
-                            ? new Date(
-                                pedido.createdAt
-                              ).toLocaleDateString("pt-BR")
+                            ? new Date(pedido.createdAt).toLocaleDateString(
+                                "pt-BR"
+                              )
                             : "-"}
                         </td>
                       </tr>
@@ -254,30 +266,16 @@ export default function DashboardPage() {
   );
 }
 
-function Card({
-  titulo,
-  valor,
-}: {
-  titulo: string;
-  valor: string | number;
-}) {
+function Card({ titulo, valor }: { titulo: string; valor: string | number }) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md">
-      <p className="text-sm font-semibold text-gray-500">
-        {titulo}
-      </p>
-
-      <h2 className="mt-3 text-2xl font-bold text-[#166534]">
-        {valor}
-      </h2>
+      <p className="text-sm font-semibold text-gray-500">{titulo}</p>
+      <h2 className="mt-3 text-2xl font-bold text-[#166534]">{valor}</h2>
     </div>
   );
 }
 
-function gerarDicasFinanceiras(
-  resumo: any,
-  pedidos: Pedido[]
-) {
+function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
   const dicas: string[] = [];
 
   if (resumo.totalPendentes > 10) {
@@ -297,9 +295,7 @@ function gerarDicasFinanceiras(
   ).length;
 
   if (elevador > 0) {
-    dicas.push(
-      `Foram registrados ${elevador} pedidos para o Elevador Panorâmico.`
-    );
+    dicas.push(`Foram registrados ${elevador} pedidos para o Elevador Panorâmico.`);
   }
 
   dicas.push(
@@ -315,37 +311,27 @@ function gerarDicasFinanceiras(
 
 function gerarEstatisticasProdutos(pedidos: Pedido[]) {
   const totalPedidos = pedidos.length;
-
   const contagem: Record<string, number> = {};
 
   pedidos.forEach((pedido) => {
-    contagem[pedido.produto] =
-      (contagem[pedido.produto] || 0) + 1;
+    contagem[pedido.produto] = (contagem[pedido.produto] || 0) + 1;
   });
 
-  const produtos = Object.entries(contagem).map(
-    ([nome, quantidade]) => ({
-      nome,
-      quantidade,
-      percentual:
-        totalPedidos > 0
-          ? Math.round((quantidade / totalPedidos) * 100)
-          : 0,
-    })
-  );
+  const produtos = Object.entries(contagem).map(([nome, quantidade]) => ({
+    nome,
+    quantidade,
+    percentual:
+      totalPedidos > 0 ? Math.round((quantidade / totalPedidos) * 100) : 0,
+  }));
 
   const produtoMaisVendido =
-    produtos.sort((a, b) => b.quantidade - a.quantidade)[0]
-      ?.nome || "Sem vendas";
+    produtos.sort((a, b) => b.quantidade - a.quantidade)[0]?.nome ||
+    "Sem vendas";
 
-  const totalCamping = pedidos.filter(
-    (p) => p.produto === "Camping"
-  ).length;
+  const totalCamping = pedidos.filter((p) => p.produto === "Camping").length;
 
   const percentualCamping =
-    totalPedidos > 0
-      ? Math.round((totalCamping / totalPedidos) * 100)
-      : 0;
+    totalPedidos > 0 ? Math.round((totalCamping / totalPedidos) * 100) : 0;
 
   const totalElevador = pedidos.filter(
     (p) => p.produto === "Elevador Panorâmico"
@@ -357,4 +343,34 @@ function gerarEstatisticasProdutos(pedidos: Pedido[]) {
     totalElevador,
     produtos,
   };
+}
+
+function gerarFaturamentoPorDia(pedidos: Pedido[]) {
+  const agrupado: Record<string, number> = {};
+
+  pedidos.forEach((pedido) => {
+    if (!pedido.createdAt) return;
+
+    const data = new Date(pedido.createdAt).toLocaleDateString("pt-BR");
+    agrupado[data] = (agrupado[data] || 0) + Number(pedido.valorTotal || 0);
+  });
+
+  const lista = Object.entries(agrupado)
+    .map(([data, valor]) => ({ data, valor }))
+    .sort((a, b) => {
+      const [diaA, mesA, anoA] = a.data.split("/").map(Number);
+      const [diaB, mesB, anoB] = b.data.split("/").map(Number);
+
+      return (
+        new Date(anoB, mesB - 1, diaB).getTime() -
+        new Date(anoA, mesA - 1, diaA).getTime()
+      );
+    });
+
+  const maiorValor = Math.max(...lista.map((item) => item.valor), 1);
+
+  return lista.map((item) => ({
+    ...item,
+    percentual: Math.round((item.valor / maiorValor) * 100),
+  }));
 }
