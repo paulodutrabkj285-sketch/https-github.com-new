@@ -152,7 +152,7 @@ export default function DashboardPage() {
                                 : "bg-yellow-100 text-yellow-800"
                             }`}
                           >
-                            {pedido.statusPagamento}
+                            {pedido.statusPagamento || "pendente"}
                           </span>
                         </td>
 
@@ -201,7 +201,6 @@ function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
   }
 
   const totalPedidos = pedidos.length;
-
   const pedidosCamping = pedidos.filter((p) => p.produto === "Camping").length;
 
   const percentualCamping =
@@ -248,7 +247,6 @@ function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
 
 function gerarEstatisticasProdutos(pedidos: Pedido[]) {
   const totalPedidos = pedidos.length;
-
   const contagem: Record<string, number> = {};
 
   pedidos.forEach((pedido) => {

@@ -93,7 +93,7 @@ export function calcularResumoFinanceiro(pedidos: Pedido[]) {
   );
 
   const pedidosPendentes = pedidos.filter(
-    (pedido) => pedido.statusPagamento === "pendente"
+    (pedido) => pedido.statusPagamento !== "pago"
   );
 
   const faturamentoBruto = pedidosPagos.reduce(
