@@ -30,6 +30,13 @@ export default function DashboardPage() {
   const dicasFinanceiras = gerarDicasFinanceiras(resumo, pedidos);
   const estatisticas = gerarEstatisticasProdutos(pedidos);
 
+  function formatarMoeda(valor: number) {
+    return valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
       <div className="mx-auto max-w-6xl">
@@ -58,15 +65,17 @@ export default function DashboardPage() {
             <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
               <Card
                 titulo="Faturamento bruto"
-                valor={`R$ ${resumo.faturamentoBruto.toFixed(2)}`}
+                valor={formatarMoeda(resumo.faturamentoBruto)}
               />
+
               <Card
                 titulo={`Taxas estimadas (${resumo.taxaPercentual}%)`}
-                valor={`R$ ${resumo.valorTaxas.toFixed(2)}`}
+                valor={formatarMoeda(resumo.valorTaxas)}
               />
+
               <Card
                 titulo="Valor líquido estimado"
-                valor={`R$ ${resumo.faturamentoLiquido.toFixed(2)}`}
+                valor={formatarMoeda(resumo.faturamentoLiquido)}
               />
             </section>
 
@@ -97,10 +106,12 @@ export default function DashboardPage() {
                 titulo="Produto mais vendido"
                 valor={estatisticas.produtoMaisVendido}
               />
+
               <Card
                 titulo="Participação Camping"
                 valor={`${estatisticas.percentualCamping}%`}
               />
+
               <Card
                 titulo="Pedidos do Elevador"
                 valor={estatisticas.totalElevador}
@@ -141,7 +152,9 @@ export default function DashboardPage() {
                         </td>
 
                         <td className="p-3 text-gray-700">
-                          R$ {Number(pedido.valorTotal || 0).toFixed(2)}
+                          {formatarMoeda(
+                            Number(pedido.valorTotal || 0)
+                          )}
                         </td>
 
                         <td className="p-3">
@@ -176,11 +189,20 @@ export default function DashboardPage() {
   );
 }
 
-function Card({ titulo, valor }: { titulo: string; valor: string | number }) {
+function Card({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string | number;
+}) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md">
       <p className="text-sm font-semibold text-gray-500">{titulo}</p>
-      <h2 className="mt-3 text-2xl font-bold text-[#166534]">{valor}</h2>
+
+      <h2 className="mt-3 text-2xl font-bold text-[#166534]">
+        {valor}
+      </h2>
     </div>
   );
 }
@@ -201,10 +223,15 @@ function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
   }
 
   const totalPedidos = pedidos.length;
-  const pedidosCamping = pedidos.filter((p) => p.produto === "Camping").length;
+
+  const pedidosCamping = pedidos.filter(
+    (p) => p.produto === "Camping"
+  ).length;
 
   const percentualCamping =
-    totalPedidos > 0 ? Math.round((pedidosCamping / totalPedidos) * 100) : 0;
+    totalPedidos > 0
+      ? Math.round((pedidosCamping / totalPedidos) * 100)
+      : 0;
 
   if (percentualCamping > 40) {
     dicas.push(
@@ -219,14 +246,6 @@ function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
   if (pedidosElevador > 0) {
     dicas.push(
       `Foram registrados ${pedidosElevador} pedidos para o Elevador Panorâmico. Essa atração pode ter controle separado de acesso e remarcação.`
-    );
-  }
-
-  if (resumo.faturamentoBruto > 0) {
-    dicas.push(
-      `A previsão de repasse líquido estimado é de R$ ${resumo.faturamentoLiquido.toFixed(
-        2
-      )}, considerando a taxa estimada de ${resumo.taxaPercentual}%.`
     );
   }
 
@@ -247,20 +266,26 @@ function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
 
 function gerarEstatisticasProdutos(pedidos: Pedido[]) {
   const totalPedidos = pedidos.length;
+
   const contagem: Record<string, number> = {};
 
   pedidos.forEach((pedido) => {
-    contagem[pedido.produto] = (contagem[pedido.produto] || 0) + 1;
+    contagem[pedido.produto] =
+      (contagem[pedido.produto] || 0) + 1;
   });
 
   const produtoMaisVendido =
     Object.entries(contagem).sort((a, b) => b[1] - a[1])[0]?.[0] ||
     "Sem vendas";
 
-  const totalCamping = pedidos.filter((p) => p.produto === "Camping").length;
+  const totalCamping = pedidos.filter(
+    (p) => p.produto === "Camping"
+  ).length;
 
   const percentualCamping =
-    totalPedidos > 0 ? Math.round((totalCamping / totalPedidos) * 100) : 0;
+    totalPedidos > 0
+      ? Math.round((totalCamping / totalPedidos) * 100)
+      : 0;
 
   const totalElevador = pedidos.filter(
     (p) => p.produto === "Elevador Panorâmico"
