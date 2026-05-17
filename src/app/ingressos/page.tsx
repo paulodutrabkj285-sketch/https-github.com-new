@@ -33,58 +33,50 @@ export default function IngressosPage() {
   ];
 
   return (
-    <main style={{ background: "#eef3ed", minHeight: "100vh", padding: "20px", fontFamily: "Arial" }}>
-      <div style={{ background: "#5f7f61", borderRadius: "30px", padding: "30px", color: "white", marginBottom: "30px" }}>
+    <main className="min-h-screen bg-[#eef3ed] px-4 py-6 sm:px-6 lg:px-10">
+      <section className="mx-auto max-w-6xl rounded-3xl bg-[#5f7f61] p-6 text-white shadow-lg sm:p-8 lg:p-10">
         <img
           src="/logo-final.png"
           alt="Parque Mundo Novo"
-          style={{ width: "140px", borderRadius: "20px", marginBottom: "20px" }}
+          className="mb-5 w-24 rounded-2xl sm:w-32 lg:w-36"
         />
 
-        <h1 style={{ fontSize: "48px", marginBottom: "10px" }}>
+        <h1 className="text-3xl font-bold sm:text-4xl lg:text-5xl">
           Parque Mundo Novo
         </h1>
 
-        <p style={{ fontSize: "22px" }}>
+        <p className="mt-3 text-base sm:text-xl">
           Compre seu ingresso online com praticidade.
         </p>
-      </div>
+      </section>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px" }}>
+      <section className="mx-auto mt-6 grid max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((item, index) => (
-          <div key={index} style={{ background: "white", borderRadius: "20px", padding: "25px", boxShadow: "0 5px 15px rgba(0,0,0,0.1)" }}>
-            <h2 style={{ color: "#1f6b38", marginBottom: "15px", fontSize: "32px" }}>
+          <div
+            key={index}
+            className="flex flex-col rounded-2xl bg-white p-5 shadow-md"
+          >
+            <h2 className="text-2xl font-bold text-[#1f6b38]">
               {item.titulo}
             </h2>
 
-            <p style={{ color: "#333", lineHeight: "1.6", minHeight: "120px" }}>
+            <p className="mt-4 flex-1 text-base leading-relaxed text-gray-700">
               {item.descricao}
             </p>
 
-            <h3 style={{ marginTop: "20px", fontSize: "32px" }}>
+            <h3 className="mt-6 text-2xl font-bold text-gray-900">
               {item.preco}
             </h3>
 
             <button
               onClick={() => router.push(item.rota)}
-              style={{
-                marginTop: "20px",
-                width: "100%",
-                padding: "15px",
-                borderRadius: "12px",
-                border: "none",
-                background: "#1f6b38",
-                color: "white",
-                fontWeight: "bold",
-                fontSize: "18px",
-                cursor: "pointer",
-              }}
+              className="mt-5 w-full rounded-xl bg-[#1f6b38] px-4 py-4 text-base font-bold text-white transition hover:bg-[#18572d]"
             >
               Comprar
             </button>
           </div>
         ))}
-      </div>
+      </section>
     </main>
   );
 }
