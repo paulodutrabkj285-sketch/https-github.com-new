@@ -27,6 +27,7 @@ export default function DashboardPage() {
   }, []);
 
   const resumo = calcularResumoFinanceiro(pedidos);
+  const dicasFinanceiras = gerarDicasFinanceiras(resumo);
 
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
@@ -47,7 +48,10 @@ export default function DashboardPage() {
               <Card titulo="Pedidos" valor={resumo.totalPedidos} />
               <Card titulo="Pagos" valor={resumo.totalPagos} />
               <Card titulo="Pendentes" valor={resumo.totalPendentes} />
-              <Card titulo="Ingressos vendidos" valor={resumo.quantidadeIngressos} />
+              <Card
+                titulo="Ingressos vendidos"
+                valor={resumo.quantidadeIngressos}
+              />
             </section>
 
             <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -63,6 +67,28 @@ export default function DashboardPage() {
                 titulo="Valor líquido estimado"
                 valor={`R$ ${resumo.faturamentoLiquido.toFixed(2)}`}
               />
+            </section>
+
+            <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
+              <h2 className="text-2xl font-bold text-[#166534]">
+                Assistente Financeiro IA
+              </h2>
+
+              <p className="mt-2 text-gray-600">
+                Análise automática com dicas para acompanhamento operacional,
+                financeiro e contábil.
+              </p>
+
+              <div className="mt-5 grid gap-3">
+                {dicasFinanceiras.map((dica, index) => (
+                  <div
+                    key={index}
+                    className="rounded-xl border border-green-100 bg-green-50 p-4 text-gray-700"
+                  >
+                    {dica}
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
@@ -89,19 +115,36 @@ export default function DashboardPage() {
                         <td className="p-3 font-semibold text-gray-800">
                           {pedido.nome}
                         </td>
-                        <td className="p-3 text-gray-700">{pedido.produto}</td>
-                        <td className="p-3 text-gray-700">{pedido.quantidade}</td>
+
+                        <td className="p-3 text-gray-700">
+                          {pedido.produto}
+                        </td>
+
+                        <td className="p-3 text-gray-700">
+                          {pedido.quantidade}
+                        </td>
+
                         <td className="p-3 text-gray-700">
                           R$ {Number(pedido.valorTotal || 0).toFixed(2)}
                         </td>
+
                         <td className="p-3">
-                          <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-bold text-yellow-800">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${
+                              pedido.statusPagamento === "pago"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
                             {pedido.statusPagamento}
                           </span>
                         </td>
+
                         <td className="p-3 text-gray-600">
                           {pedido.createdAt
-                            ? new Date(pedido.createdAt).toLocaleDateString("pt-BR")
+                            ? new Date(pedido.createdAt).toLocaleDateString(
+                                "pt-BR"
+                              )
                             : "-"}
                         </td>
                       </tr>
@@ -124,4 +167,60 @@ function Card({ titulo, valor }: { titulo: string; valor: string | number }) {
       <h2 className="mt-3 text-2xl font-bold text-[#166534]">{valor}</h2>
     </div>
   );
+}
+
+function gerarDicasFinanceiras(resumo: {
+  totalPedidos: number;
+  totalPagos: number;
+  totalPendentes: number;
+  faturamentoBruto: number;
+  taxaPercentual: number;
+  valorTaxas: number;
+  faturamentoLiquido: number;
+}) {
+  const dicas: string[] = [];
+
+  if (resumo.totalPendentes > 0) {
+    dicas.push(
+      `Existem ${resumo.totalPendentes} pedidos pendentes. É importante acompanhar esses pagamentos para evitar divergência entre pedidos gerados e valores recebidos.`
+    );
+  }
+
+  if (resumo.totalPagos === 0) {
+    dicas.push(
+      "Ainda não há pedidos pagos registrados. O faturamento bruto e líquido permanecem zerados até a confirmação dos pagamentos."
+    );
+  }
+
+  if (resumo.faturamentoBruto > 0) {
+    dicas.push(
+      `O faturamento bruto registrado é de R$ ${resumo.faturamentoBruto.toFixed(
+        2
+      )}. Após taxas estimadas, o valor líquido previsto é de R$ ${resumo.faturamentoLiquido.toFixed(
+        2
+      )}.`
+    );
+  }
+
+  if (resumo.valorTaxas > 0) {
+    dicas.push(
+      `As taxas estimadas somam R$ ${resumo.valorTaxas.toFixed(
+        2
+      )}. Confira se esse valor bate com as taxas reais cobradas pela plataforma, PagBank ou maquininha.`
+    );
+  }
+
+  dicas.push(
+    "Recomendação: realizar fechamento semanal comparando pedidos pagos, valores recebidos no banco e taxas descontadas."
+  );
+
+  dicas.push(
+    "Para controle contábil, mantenha separado: valor bruto vendido, taxas, valor líquido recebido e data prevista de repasse."
+  );
+
+  dicas.push(
+    "Antes do fechamento mensal, confira se todos os pedidos pagos possuem comprovante, status atualizado e valor líquido conciliado."
+  );
+
+  return dicas;
 }
