@@ -16,10 +16,7 @@ export default function ParquePage() {
   const [salvando, setSalvando] = useState(false);
 
   const valorUnitario = 60;
-
-  const valorTotal = useMemo(() => {
-    return quantidade * valorUnitario;
-  }, [quantidade]);
+  const valorTotal = useMemo(() => quantidade * valorUnitario, [quantidade]);
 
   async function continuarParaResumo() {
     if (!nome || !cpf || !telefone || !email || !dataVisita) {
@@ -41,15 +38,12 @@ export default function ParquePage() {
         quantidade,
         valorUnitario,
         valorTotal,
-
         statusPagamento: "pendente",
         statusOperacional: "ativo",
-
         pagbankCheckoutId: "",
         pagbankReferenceId: "",
         pagbankPayUrl: "",
         pagbankStatus: "",
-
         codigoIngresso: "",
         qrCodeIngresso: "",
       });
@@ -78,264 +72,131 @@ export default function ParquePage() {
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(to bottom, #edf7ed, #ffffff)",
-        padding: "34px 20px 50px",
-      }}
-    >
-      <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
-        <section
-          style={{
-            background: "linear-gradient(135deg, #5a7a60, #4f6f57)",
-            borderRadius: "28px",
-            padding: "30px",
-            marginBottom: "30px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "220px 1fr",
-              gap: "28px",
-              alignItems: "center",
-            }}
-          >
-            <div
-              style={{
-                background: "rgba(255, 255, 255, 0.08)",
-                borderRadius: "22px",
-                padding: "10px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                minHeight: "160px",
-                border: "1px solid rgba(255,255,255,0.14)",
-              }}
-            >
+    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#edf7ed] to-white px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl">
+        <section className="rounded-3xl bg-gradient-to-br from-[#5a7a60] to-[#4f6f57] p-5 text-white shadow-xl sm:p-8">
+          <div className="flex flex-col items-center gap-5 text-center md:flex-row md:text-left">
+            <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-3 sm:max-w-[220px]">
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
-                style={{
-                  width: "100%",
-                  maxWidth: "140px",
-                  height: "auto",
-                  display: "block",
-                  borderRadius: "12px",
-                }}
+                className="w-full max-w-[140px] rounded-xl"
               />
             </div>
 
             <div>
-              <h1
-                style={{
-                  fontSize: "clamp(34px, 5vw, 60px)",
-                  lineHeight: 1.1,
-                  fontWeight: "bold",
-                  color: "#ffffff",
-                  margin: "0 0 14px 0",
-                }}
-              >
+              <h1 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
                 Ingresso Parque
               </h1>
 
-              <p
-                style={{
-                  fontSize: "clamp(18px, 2vw, 22px)",
-                  color: "#f3f4f6",
-                  lineHeight: 1.5,
-                  margin: "0 0 10px 0",
-                }}
-              >
+              <p className="mt-3 text-base leading-relaxed text-gray-100 sm:text-xl">
                 Preencha os dados abaixo para simular a compra do ingresso de entrada do Parque Mundo Novo.
               </p>
 
-              <p
-                style={{
-                  fontSize: "15px",
-                  color: "#d1d5db",
-                  margin: 0,
-                }}
-              >
+              <p className="mt-3 text-sm leading-relaxed text-gray-200 sm:text-base">
                 O QR Code do ingresso será gerado somente após a confirmação do pagamento.
               </p>
             </div>
           </div>
         </section>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr",
-            gap: "24px",
-            alignItems: "start",
-          }}
-        >
-          <section
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: "18px",
-              padding: "24px",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-              border: "1px solid #dbe5db",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "28px",
-                fontWeight: "bold",
-                color: "#166534",
-                marginBottom: "20px",
-              }}
-            >
+        <section className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
+          <div className="rounded-2xl border border-[#dbe5db] bg-white p-5 shadow-md sm:p-6">
+            <h2 className="mb-5 text-2xl font-bold text-[#166534] sm:text-3xl">
               Dados do comprador
             </h2>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "16px",
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Nome completo</label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Campo label="Nome completo">
                 <input
                   type="text"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Digite seu nome"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>CPF</label>
+              <Campo label="CPF">
                 <input
                   type="text"
                   value={cpf}
                   onChange={(e) => setCpf(e.target.value)}
                   placeholder="Digite seu CPF"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>Telefone / WhatsApp</label>
+              <Campo label="Telefone / WhatsApp">
                 <input
                   type="text"
                   value={telefone}
                   onChange={(e) => setTelefone(e.target.value)}
                   placeholder="Digite seu telefone"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>E-mail</label>
+              <Campo label="E-mail">
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Digite seu e-mail"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>Data da visita</label>
+              <Campo label="Data da visita">
                 <input
                   type="date"
                   value={dataVisita}
                   onChange={(e) => setDataVisita(e.target.value)}
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>Quantidade de ingressos</label>
-                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              <Campo label="Quantidade de ingressos">
+                <div className="flex items-center justify-between rounded-xl border border-gray-300 px-3 py-2">
                   <button
                     type="button"
                     onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
-                    style={contadorButtonStyle}
+                    className={contadorClass}
                   >
                     -
                   </button>
 
-                  <div
-                    style={{
-                      minWidth: "60px",
-                      textAlign: "center",
-                      fontSize: "20px",
-                      fontWeight: "bold",
-                      color: "#111827",
-                    }}
-                  >
+                  <span className="text-xl font-bold text-gray-900">
                     {quantidade}
-                  </div>
+                  </span>
 
                   <button
                     type="button"
                     onClick={() => setQuantidade((q) => q + 1)}
-                    style={contadorButtonStyle}
+                    className={contadorClass}
                   >
                     +
                   </button>
                 </div>
-              </div>
+              </Campo>
             </div>
-          </section>
+          </div>
 
-          <aside
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: "18px",
-              padding: "24px",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-              border: "1px solid #dbe5db",
-              position: "sticky",
-              top: "20px",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "24px",
-                fontWeight: "bold",
-                color: "#166534",
-                marginBottom: "20px",
-              }}
-            >
+          <aside className="rounded-2xl border border-[#dbe5db] bg-white p-5 shadow-md sm:p-6 lg:sticky lg:top-5">
+            <h2 className="mb-5 text-2xl font-bold text-[#166534]">
               Resumo
             </h2>
 
-            <div style={{ display: "grid", gap: "12px", color: "#374151" }}>
-              <p>
-                <strong>Produto:</strong> Ingresso Parque
-              </p>
-              <p>
-                <strong>Valor unitário:</strong> R$ 60,00
-              </p>
-              <p>
-                <strong>Quantidade:</strong> {quantidade}
-              </p>
-              <p>
-                <strong>Data da visita:</strong> {dataVisita || "Não informada"}
-              </p>
+            <div className="grid gap-3 text-gray-700">
+              <p><strong>Produto:</strong> Ingresso Parque</p>
+              <p><strong>Valor unitário:</strong> R$ 60,00</p>
+              <p><strong>Quantidade:</strong> {quantidade}</p>
+              <p><strong>Data da visita:</strong> {dataVisita || "Não informada"}</p>
             </div>
 
-            <hr style={{ margin: "20px 0", borderColor: "#e5e7eb" }} />
+            <hr className="my-5 border-gray-200" />
 
-            <p
-              style={{
-                fontSize: "28px",
-                fontWeight: "bold",
-                color: "#111827",
-                marginBottom: "20px",
-              }}
-            >
+            <p className="mb-5 text-3xl font-bold text-gray-950">
               Total: R$ {valorTotal},00
             </p>
 
@@ -343,63 +204,40 @@ export default function ParquePage() {
               type="button"
               onClick={continuarParaResumo}
               disabled={salvando}
-              style={{
-                width: "100%",
-                padding: "14px 18px",
-                border: "none",
-                borderRadius: "14px",
-                backgroundColor: "#15803d",
-                color: "#ffffff",
-                fontSize: "16px",
-                fontWeight: "bold",
-                cursor: salvando ? "not-allowed" : "pointer",
-                opacity: salvando ? 0.7 : 1,
-              }}
+              className="w-full rounded-xl bg-[#15803d] px-5 py-4 text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {salvando ? "Salvando pedido..." : "Continuar para pagamento"}
             </button>
 
-            <p
-              style={{
-                marginTop: "14px",
-                fontSize: "13px",
-                color: "#6b7280",
-                lineHeight: 1.5,
-              }}
-            >
+            <p className="mt-4 text-sm leading-relaxed text-gray-500">
               O ingresso só será liberado após o pagamento ser confirmado.
             </p>
           </aside>
-        </div>
+        </section>
       </div>
     </main>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
-  fontWeight: 600,
-  color: "#374151",
-};
+function Campo({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block font-semibold text-gray-700">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "14px 16px",
-  borderRadius: "12px",
-  border: "1px solid #d1d5db",
-  outline: "none",
-  fontSize: "16px",
-  boxSizing: "border-box",
-};
+const inputClass =
+  "w-full rounded-xl border border-gray-300 px-4 py-4 text-base outline-none focus:border-[#166534]";
 
-const contadorButtonStyle: React.CSSProperties = {
-  width: "44px",
-  height: "44px",
-  borderRadius: "10px",
-  border: "none",
-  backgroundColor: "#166534",
-  color: "#ffffff",
-  fontSize: "24px",
-  cursor: "pointer",
-};
+const contadorClass =
+  "h-11 w-11 rounded-xl bg-[#166534] text-2xl font-bold text-white";
