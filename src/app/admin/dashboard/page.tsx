@@ -17,7 +17,7 @@ export default function DashboardPage() {
         const lista = await listarPedidos();
         setPedidos(lista);
       } catch (error) {
-        console.error("Erro ao carregar dashboard:", error);
+        console.error(error);
       } finally {
         setCarregando(false);
       }
@@ -39,7 +39,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-7xl">
         <h1 className="text-3xl font-bold text-[#166534]">
           Dashboard Financeiro
         </h1>
@@ -49,7 +49,7 @@ export default function DashboardPage() {
         </p>
 
         {carregando ? (
-          <p className="mt-8 text-gray-600">Carregando dados...</p>
+          <p className="mt-8">Carregando...</p>
         ) : (
           <>
             <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -84,11 +84,6 @@ export default function DashboardPage() {
                 Assistente Financeiro IA
               </h2>
 
-              <p className="mt-2 text-gray-600">
-                Análise automática com alertas operacionais, financeiros e
-                contábeis.
-              </p>
-
               <div className="mt-5 grid gap-3">
                 {dicasFinanceiras.map((dica, index) => (
                   <div
@@ -118,6 +113,78 @@ export default function DashboardPage() {
               />
             </section>
 
+            <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl bg-white p-5 shadow-md">
+                <h2 className="text-2xl font-bold text-[#166534]">
+                  Vendas por Produto
+                </h2>
+
+                <div className="mt-6 grid gap-4">
+                  {estatisticas.produtos.map((produto) => (
+                    <div key={produto.nome}>
+                      <div className="mb-1 flex justify-between text-sm font-semibold">
+                        <span>{produto.nome}</span>
+                        <span>{produto.quantidade}</span>
+                      </div>
+
+                      <div className="h-4 overflow-hidden rounded-full bg-gray-200">
+                        <div
+                          className="h-full rounded-full bg-[#166534]"
+                          style={{
+                            width: `${produto.percentual}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-white p-5 shadow-md">
+                <h2 className="text-2xl font-bold text-[#166534]">
+                  Pagos x Pendentes
+                </h2>
+
+                <div className="mt-8 flex items-end gap-8">
+                  <div className="flex flex-1 flex-col items-center">
+                    <div
+                      className="w-24 rounded-t-2xl bg-green-600"
+                      style={{
+                        height: `${Math.max(
+                          resumo.totalPagos * 15,
+                          30
+                        )}px`,
+                      }}
+                    />
+
+                    <p className="mt-3 font-bold text-green-700">
+                      Pagos
+                    </p>
+
+                    <span>{resumo.totalPagos}</span>
+                  </div>
+
+                  <div className="flex flex-1 flex-col items-center">
+                    <div
+                      className="w-24 rounded-t-2xl bg-yellow-500"
+                      style={{
+                        height: `${Math.max(
+                          resumo.totalPendentes * 15,
+                          30
+                        )}px`,
+                      }}
+                    />
+
+                    <p className="mt-3 font-bold text-yellow-700">
+                      Pendentes
+                    </p>
+
+                    <span>{resumo.totalPendentes}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
               <h2 className="mb-4 text-2xl font-bold text-[#166534]">
                 Últimos pedidos
@@ -139,19 +206,17 @@ export default function DashboardPage() {
                   <tbody>
                     {pedidos.slice(0, 10).map((pedido) => (
                       <tr key={pedido.id} className="border-b text-sm">
-                        <td className="p-3 font-semibold text-gray-800">
+                        <td className="p-3 font-semibold">
                           {pedido.nome}
                         </td>
 
-                        <td className="p-3 text-gray-700">
-                          {pedido.produto}
-                        </td>
+                        <td className="p-3">{pedido.produto}</td>
 
-                        <td className="p-3 text-gray-700">
+                        <td className="p-3">
                           {pedido.quantidade}
                         </td>
 
-                        <td className="p-3 text-gray-700">
+                        <td className="p-3">
                           {formatarMoeda(
                             Number(pedido.valorTotal || 0)
                           )}
@@ -169,11 +234,11 @@ export default function DashboardPage() {
                           </span>
                         </td>
 
-                        <td className="p-3 text-gray-600">
+                        <td className="p-3">
                           {pedido.createdAt
-                            ? new Date(pedido.createdAt).toLocaleDateString(
-                                "pt-BR"
-                              )
+                            ? new Date(
+                                pedido.createdAt
+                              ).toLocaleDateString("pt-BR")
                             : "-"}
                         </td>
                       </tr>
@@ -198,7 +263,9 @@ function Card({
 }) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md">
-      <p className="text-sm font-semibold text-gray-500">{titulo}</p>
+      <p className="text-sm font-semibold text-gray-500">
+        {titulo}
+      </p>
 
       <h2 className="mt-3 text-2xl font-bold text-[#166534]">
         {valor}
@@ -207,58 +274,40 @@ function Card({
   );
 }
 
-function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
+function gerarDicasFinanceiras(
+  resumo: any,
+  pedidos: Pedido[]
+) {
   const dicas: string[] = [];
 
   if (resumo.totalPendentes > 10) {
     dicas.push(
-      `Seu número de pedidos pendentes está alto (${resumo.totalPendentes}). Recomenda-se acompanhar pagamentos diariamente para evitar divergências.`
+      `Seu número de pedidos pendentes está alto (${resumo.totalPendentes}). Recomenda-se acompanhar pagamentos diariamente.`
     );
   }
 
   if (resumo.totalPagos === 0) {
     dicas.push(
-      "Ainda não há pedidos pagos registrados. O faturamento bruto e líquido permanecem zerados até a confirmação dos pagamentos."
+      "Ainda não há pedidos pagos registrados. O faturamento permanece zerado até a confirmação dos pagamentos."
     );
   }
 
-  const totalPedidos = pedidos.length;
-
-  const pedidosCamping = pedidos.filter(
-    (p) => p.produto === "Camping"
-  ).length;
-
-  const percentualCamping =
-    totalPedidos > 0
-      ? Math.round((pedidosCamping / totalPedidos) * 100)
-      : 0;
-
-  if (percentualCamping > 40) {
-    dicas.push(
-      `Camping representa ${percentualCamping}% dos pedidos registrados. Vale acompanhar essa categoria separadamente no fechamento.`
-    );
-  }
-
-  const pedidosElevador = pedidos.filter(
+  const elevador = pedidos.filter(
     (p) => p.produto === "Elevador Panorâmico"
   ).length;
 
-  if (pedidosElevador > 0) {
+  if (elevador > 0) {
     dicas.push(
-      `Foram registrados ${pedidosElevador} pedidos para o Elevador Panorâmico. Essa atração pode ter controle separado de acesso e remarcação.`
+      `Foram registrados ${elevador} pedidos para o Elevador Panorâmico.`
     );
   }
 
   dicas.push(
-    "Recomendação: realizar fechamento semanal comparando pedidos pagos, valores recebidos no banco e taxas descontadas."
+    "Recomendação: realizar fechamento semanal comparando pedidos pagos e valores recebidos."
   );
 
   dicas.push(
-    "Para controle contábil, mantenha separado: valor bruto vendido, taxas, valor líquido recebido e data prevista de repasse."
-  );
-
-  dicas.push(
-    "Antes do fechamento mensal, confira se todos os pedidos pagos possuem status atualizado, comprovante e valor conciliado."
+    "Mantenha separado: valor bruto, taxas, valor líquido e previsão de repasse."
   );
 
   return dicas;
@@ -274,9 +323,20 @@ function gerarEstatisticasProdutos(pedidos: Pedido[]) {
       (contagem[pedido.produto] || 0) + 1;
   });
 
+  const produtos = Object.entries(contagem).map(
+    ([nome, quantidade]) => ({
+      nome,
+      quantidade,
+      percentual:
+        totalPedidos > 0
+          ? Math.round((quantidade / totalPedidos) * 100)
+          : 0,
+    })
+  );
+
   const produtoMaisVendido =
-    Object.entries(contagem).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-    "Sem vendas";
+    produtos.sort((a, b) => b.quantidade - a.quantidade)[0]
+      ?.nome || "Sem vendas";
 
   const totalCamping = pedidos.filter(
     (p) => p.produto === "Camping"
@@ -295,5 +355,6 @@ function gerarEstatisticasProdutos(pedidos: Pedido[]) {
     produtoMaisVendido,
     percentualCamping,
     totalElevador,
+    produtos,
   };
 }
