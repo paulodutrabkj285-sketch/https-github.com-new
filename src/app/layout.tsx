@@ -11,26 +11,27 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [verificando, setVerificando] = useState(true);
+
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cancelar = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (!user) {
         router.push("/admin");
       } else {
-        setVerificando(false);
+        setLoading(false);
       }
     });
 
-    return () => cancelar();
+    return () => unsubscribe();
   }, [router]);
 
-  if (verificando) {
+  if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#eef3ed]">
-        <p className="text-lg font-semibold text-[#166534]">
-          Verificando acesso...
-        </p>
+        <h1 className="text-2xl font-bold text-[#166534]">
+          Carregando painel...
+        </h1>
       </main>
     );
   }
