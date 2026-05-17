@@ -1,8 +1,8 @@
 "use client";
 
 import { atualizarPedido, listarPedidos, Pedido } from "@/lib/pedidos";
-import { QrReader } from "react-qr-reader";
-import { useState } from "react";
+import { Html5Qrcode } from "html5-qrcode";
+import { useRef, useState } from "react";
 
 export default function ValidacaoPage() {
   const [codigo, setCodigo] = useState("");
@@ -10,6 +10,8 @@ export default function ValidacaoPage() {
   const [mensagem, setMensagem] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [cameraAtiva, setCameraAtiva] = useState(false);
+
+  const leitorRef = useRef<Html5Qrcode | null>(null);
 
   async function buscarIngresso(codigoBusca?: string) {
     const codigoFinal = codigoBusca || codigo;
@@ -40,12 +42,56 @@ export default function ValidacaoPage() {
 
       setPedido(encontrado);
       setCodigo(codigoFinal.trim());
-      setCameraAtiva(false);
+      await pararCamera();
     } catch (error) {
       console.error(error);
       setMensagem("Erro ao buscar ingresso.");
     } finally {
       setCarregando(false);
+    }
+  }
+
+  async function iniciarCamera() {
+    setMensagem("");
+    setCameraAtiva(true);
+
+    setTimeout(async () => {
+      try {
+        const leitor = new Html5Qrcode("leitor-qrcode");
+        leitorRef.current = leitor;
+
+        await leitor.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          async (texto) => {
+            if (texto) {
+              await buscarIngresso(texto);
+            }
+          },
+          () => {}
+        );
+      } catch (error) {
+        console.error(error);
+        setMensagem("Não foi possível acessar a câmera.");
+        setCameraAtiva(false);
+      }
+    }, 300);
+  }
+
+  async function pararCamera() {
+    try {
+      if (leitorRef.current) {
+        await leitorRef.current.stop();
+        await leitorRef.current.clear();
+        leitorRef.current = null;
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setCameraAtiva(false);
     }
   }
 
@@ -96,12 +142,21 @@ export default function ValidacaoPage() {
 
         <section className="mt-6 rounded-2xl bg-white p-5 shadow-md">
           <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              onClick={() => setCameraAtiva((valor) => !valor)}
-              className="rounded-xl bg-[#166534] px-5 py-4 font-bold text-white"
-            >
-              {cameraAtiva ? "Fechar câmera" : "Ler QR Code com câmera"}
-            </button>
+            {!cameraAtiva ? (
+              <button
+                onClick={iniciarCamera}
+                className="rounded-xl bg-[#166534] px-5 py-4 font-bold text-white"
+              >
+                Ler QR Code com câmera
+              </button>
+            ) : (
+              <button
+                onClick={pararCamera}
+                className="rounded-xl bg-red-600 px-5 py-4 font-bold text-white"
+              >
+                Fechar câmera
+              </button>
+            )}
 
             <button
               onClick={() => {
@@ -116,24 +171,8 @@ export default function ValidacaoPage() {
           </div>
 
           {cameraAtiva && (
-            <div className="mt-5 overflow-hidden rounded-2xl border border-gray-200">
-              <QrReader
-                constraints={{ facingMode: "environment" }}
-                onResult={(result, error) => {
-                  if (!!result) {
-                    const texto = result.getText();
-
-                    if (texto && texto !== codigo) {
-                      buscarIngresso(texto);
-                    }
-                  }
-
-                  if (!!error) {
-                    return;
-                  }
-                }}
-                className="w-full"
-              />
+            <div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-black p-2">
+              <div id="leitor-qrcode" className="w-full" />
             </div>
           )}
 
@@ -172,9 +211,18 @@ export default function ValidacaoPage() {
             </h2>
 
             <div className="mt-5 grid gap-3 text-gray-700">
-              <p><strong>Cliente:</strong> {pedido.nome}</p>
-              <p><strong>Produto:</strong> {pedido.produto}</p>
-              <p><strong>Quantidade:</strong> {pedido.quantidade}</p>
+              <p>
+                <strong>Cliente:</strong> {pedido.nome}
+              </p>
+
+              <p>
+                <strong>Produto:</strong> {pedido.produto}
+              </p>
+
+              <p>
+                <strong>Quantidade:</strong> {pedido.quantidade}
+              </p>
+
               <p>
                 <strong>Valor:</strong>{" "}
                 {Number(pedido.valorTotal || 0).toLocaleString("pt-BR", {
@@ -182,12 +230,19 @@ export default function ValidacaoPage() {
                   currency: "BRL",
                 })}
               </p>
-              <p><strong>Pagamento:</strong> {pedido.statusPagamento}</p>
+
+              <p>
+                <strong>Pagamento:</strong> {pedido.statusPagamento}
+              </p>
+
               <p>
                 <strong>Status operacional:</strong>{" "}
                 {pedido.statusOperacional || "ativo"}
               </p>
-              <p><strong>Código:</strong> {pedido.codigoIngresso || pedido.id}</p>
+
+              <p>
+                <strong>Código:</strong> {pedido.codigoIngresso || pedido.id}
+              </p>
             </div>
 
             <button
