@@ -40,9 +40,17 @@ export type Pedido = PedidoInput & {
   updatedAt?: string;
 };
 
+function gerarCodigoIngresso() {
+  const numero = Math.floor(10000 + Math.random() * 90000);
+  return `PMN-${numero}`;
+}
+
 export async function criarPedido(dados: PedidoInput) {
+  const codigoIngresso = dados.codigoIngresso || gerarCodigoIngresso();
+
   const ref = await addDoc(collection(db, "pedidos"), {
     ...dados,
+    codigoIngresso,
     createdAt: new Date().toISOString(),
   });
 
