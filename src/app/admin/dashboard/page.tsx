@@ -27,7 +27,8 @@ export default function DashboardPage() {
   }, []);
 
   const resumo = calcularResumoFinanceiro(pedidos);
-  const dicasFinanceiras = gerarDicasFinanceiras(resumo);
+  const dicasFinanceiras = gerarDicasFinanceiras(resumo, pedidos);
+  const estatisticas = gerarEstatisticasProdutos(pedidos);
 
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
@@ -75,8 +76,8 @@ export default function DashboardPage() {
               </h2>
 
               <p className="mt-2 text-gray-600">
-                Análise automática com dicas para acompanhamento operacional,
-                financeiro e contábil.
+                Análise automática com alertas operacionais, financeiros e
+                contábeis.
               </p>
 
               <div className="mt-5 grid gap-3">
@@ -89,6 +90,21 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Card
+                titulo="Produto mais vendido"
+                valor={estatisticas.produtoMaisVendido}
+              />
+              <Card
+                titulo="Participação Camping"
+                valor={`${estatisticas.percentualCamping}%`}
+              />
+              <Card
+                titulo="Pedidos do Elevador"
+                valor={estatisticas.totalElevador}
+              />
             </section>
 
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
@@ -169,20 +185,12 @@ function Card({ titulo, valor }: { titulo: string; valor: string | number }) {
   );
 }
 
-function gerarDicasFinanceiras(resumo: {
-  totalPedidos: number;
-  totalPagos: number;
-  totalPendentes: number;
-  faturamentoBruto: number;
-  taxaPercentual: number;
-  valorTaxas: number;
-  faturamentoLiquido: number;
-}) {
+function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
   const dicas: string[] = [];
 
-  if (resumo.totalPendentes > 0) {
+  if (resumo.totalPendentes > 10) {
     dicas.push(
-      `Existem ${resumo.totalPendentes} pedidos pendentes. É importante acompanhar esses pagamentos para evitar divergência entre pedidos gerados e valores recebidos.`
+      `Seu número de pedidos pendentes está alto (${resumo.totalPendentes}). Recomenda-se acompanhar pagamentos diariamente para evitar divergências.`
     );
   }
 
@@ -192,21 +200,34 @@ function gerarDicasFinanceiras(resumo: {
     );
   }
 
-  if (resumo.faturamentoBruto > 0) {
+  const totalPedidos = pedidos.length;
+
+  const pedidosCamping = pedidos.filter((p) => p.produto === "Camping").length;
+
+  const percentualCamping =
+    totalPedidos > 0 ? Math.round((pedidosCamping / totalPedidos) * 100) : 0;
+
+  if (percentualCamping > 40) {
     dicas.push(
-      `O faturamento bruto registrado é de R$ ${resumo.faturamentoBruto.toFixed(
-        2
-      )}. Após taxas estimadas, o valor líquido previsto é de R$ ${resumo.faturamentoLiquido.toFixed(
-        2
-      )}.`
+      `Camping representa ${percentualCamping}% dos pedidos registrados. Vale acompanhar essa categoria separadamente no fechamento.`
     );
   }
 
-  if (resumo.valorTaxas > 0) {
+  const pedidosElevador = pedidos.filter(
+    (p) => p.produto === "Elevador Panorâmico"
+  ).length;
+
+  if (pedidosElevador > 0) {
     dicas.push(
-      `As taxas estimadas somam R$ ${resumo.valorTaxas.toFixed(
+      `Foram registrados ${pedidosElevador} pedidos para o Elevador Panorâmico. Essa atração pode ter controle separado de acesso e remarcação.`
+    );
+  }
+
+  if (resumo.faturamentoBruto > 0) {
+    dicas.push(
+      `A previsão de repasse líquido estimado é de R$ ${resumo.faturamentoLiquido.toFixed(
         2
-      )}. Confira se esse valor bate com as taxas reais cobradas pela plataforma, PagBank ou maquininha.`
+      )}, considerando a taxa estimada de ${resumo.taxaPercentual}%.`
     );
   }
 
@@ -219,8 +240,37 @@ function gerarDicasFinanceiras(resumo: {
   );
 
   dicas.push(
-    "Antes do fechamento mensal, confira se todos os pedidos pagos possuem comprovante, status atualizado e valor líquido conciliado."
+    "Antes do fechamento mensal, confira se todos os pedidos pagos possuem status atualizado, comprovante e valor conciliado."
   );
 
   return dicas;
+}
+
+function gerarEstatisticasProdutos(pedidos: Pedido[]) {
+  const totalPedidos = pedidos.length;
+
+  const contagem: Record<string, number> = {};
+
+  pedidos.forEach((pedido) => {
+    contagem[pedido.produto] = (contagem[pedido.produto] || 0) + 1;
+  });
+
+  const produtoMaisVendido =
+    Object.entries(contagem).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+    "Sem vendas";
+
+  const totalCamping = pedidos.filter((p) => p.produto === "Camping").length;
+
+  const percentualCamping =
+    totalPedidos > 0 ? Math.round((totalCamping / totalPedidos) * 100) : 0;
+
+  const totalElevador = pedidos.filter(
+    (p) => p.produto === "Elevador Panorâmico"
+  ).length;
+
+  return {
+    produtoMaisVendido,
+    percentualCamping,
+    totalElevador,
+  };
 }
