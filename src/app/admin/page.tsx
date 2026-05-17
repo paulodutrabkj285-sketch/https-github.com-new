@@ -1,22 +1,38 @@
 "use client";
 
+import { auth } from "@/lib/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function AdminPage() {
   const router = useRouter();
-  const [usuario, setUsuario] = useState("");
+
+  const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
 
-  function entrar() {
-    if (usuario === "admin" && senha === "parquemundonovo123") {
-      localStorage.setItem("admin-logado", "true");
-      router.push("/admin/dashboard");
+  async function entrar() {
+    setErro("");
+
+    if (!email || !senha) {
+      setErro("Preencha e-mail e senha.");
       return;
     }
 
-    setErro("Usuário ou senha inválidos.");
+    try {
+      setCarregando(true);
+
+      await signInWithEmailAndPassword(auth, email, senha);
+
+      router.push("/admin/dashboard");
+    } catch (error) {
+      console.error(error);
+      setErro("E-mail ou senha inválidos.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   return (
@@ -32,12 +48,17 @@ export default function AdminPage() {
           Área Administrativa
         </h1>
 
+        <p className="mt-2 text-center text-gray-500">
+          Acesse com o e-mail e senha cadastrados no Firebase.
+        </p>
+
         <div className="mt-8 grid gap-4">
           <input
-            value={usuario}
-            onChange={(e) => setUsuario(e.target.value)}
-            placeholder="Usuário"
-            className="w-full rounded-xl border border-gray-300 px-4 py-4"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="E-mail"
+            className="w-full rounded-xl border border-gray-300 px-4 py-4 outline-none focus:border-[#166534]"
           />
 
           <input
@@ -45,18 +66,21 @@ export default function AdminPage() {
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
             placeholder="Senha"
-            className="w-full rounded-xl border border-gray-300 px-4 py-4"
+            className="w-full rounded-xl border border-gray-300 px-4 py-4 outline-none focus:border-[#166534]"
           />
 
           {erro && (
-            <p className="rounded-xl bg-red-100 p-3 text-red-700">{erro}</p>
+            <p className="rounded-xl bg-red-100 p-3 text-sm font-semibold text-red-700">
+              {erro}
+            </p>
           )}
 
           <button
             onClick={entrar}
-            className="rounded-xl bg-[#166534] px-5 py-4 font-bold text-white"
+            disabled={carregando}
+            className="rounded-xl bg-[#166534] px-5 py-4 font-bold text-white disabled:opacity-60"
           >
-            Entrar
+            {carregando ? "Entrando..." : "Entrar"}
           </button>
         </div>
       </div>
