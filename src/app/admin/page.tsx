@@ -16,20 +16,25 @@ export default function AdminPage() {
   async function entrar() {
     setErro("");
 
-    if (!email || !senha) {
-      setErro("Preencha e-mail e senha.");
+    if (!email.includes("@")) {
+      setErro("Digite o e-mail cadastrado no Firebase. Não use apenas admin.");
+      return;
+    }
+
+    if (!senha) {
+      setErro("Digite a senha.");
       return;
     }
 
     try {
       setCarregando(true);
 
-      await signInWithEmailAndPassword(auth, email, senha);
+      await signInWithEmailAndPassword(auth, email.trim(), senha);
 
       router.push("/admin/dashboard");
     } catch (error) {
-      console.error(error);
-      setErro("E-mail ou senha inválidos.");
+      console.error("ERRO FIREBASE LOGIN:", error);
+      setErro("E-mail ou senha do Firebase inválidos.");
     } finally {
       setCarregando(false);
     }
@@ -45,11 +50,11 @@ export default function AdminPage() {
         />
 
         <h1 className="text-center text-3xl font-bold text-[#166534]">
-          Área Administrativa
+          Login Firebase Admin
         </h1>
 
         <p className="mt-2 text-center text-gray-500">
-          Acesse com o e-mail e senha cadastrados no Firebase.
+          Use o e-mail cadastrado em Authentication no Firebase.
         </p>
 
         <div className="mt-8 grid gap-4">
@@ -57,7 +62,7 @@ export default function AdminPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="E-mail"
+            placeholder="E-mail do Firebase"
             className="w-full rounded-xl border border-gray-300 px-4 py-4 outline-none focus:border-[#166534]"
           />
 
@@ -65,7 +70,7 @@ export default function AdminPage() {
             type="password"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
-            placeholder="Senha"
+            placeholder="Senha do Firebase"
             className="w-full rounded-xl border border-gray-300 px-4 py-4 outline-none focus:border-[#166534]"
           />
 
@@ -80,7 +85,7 @@ export default function AdminPage() {
             disabled={carregando}
             className="rounded-xl bg-[#166534] px-5 py-4 font-bold text-white disabled:opacity-60"
           >
-            {carregando ? "Entrando..." : "Entrar"}
+            {carregando ? "Entrando..." : "Entrar com Firebase"}
           </button>
         </div>
       </div>
