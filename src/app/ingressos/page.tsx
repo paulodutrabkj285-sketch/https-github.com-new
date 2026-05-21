@@ -22,7 +22,7 @@ export default function IngressosPage() {
     },
     {
       titulo: "Camping",
-      descricao: "Hospedagem no camping com estrutura e natureza.",
+      descricao: "Hospedagem no camping com estrutura, natureza e tranquilidade.",
       preco: "R$ 100,00",
       rota: "/ingressos/camping",
       imagem: "/fotos/camping.jpg",
@@ -41,7 +41,7 @@ export default function IngressosPage() {
       className="min-h-screen bg-cover bg-center bg-fixed px-4 py-8 sm:px-6 lg:px-10"
       style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
     >
-      <div className="min-h-screen rounded-3xl bg-black/45 px-4 py-6">
+      <div className="min-h-screen rounded-3xl bg-black/50 px-4 py-6">
         <section className="mx-auto max-w-6xl rounded-3xl bg-[#12351f]/90 p-6 text-white shadow-2xl backdrop-blur-md sm:p-8 lg:p-10">
           <img
             src="/logo-final.png"
@@ -59,11 +59,11 @@ export default function IngressosPage() {
         </section>
 
         <section className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map((item, index) => (
+          {cards.map((item) => (
             <div
-              key={index}
-              className="group relative flex h-[460px] cursor-pointer overflow-hidden rounded-3xl shadow-2xl"
+              key={item.titulo}
               onClick={() => router.push(item.rota)}
+              className="group relative flex h-[460px] cursor-pointer overflow-hidden rounded-3xl shadow-2xl"
             >
               <img
                 src={item.imagem}
@@ -78,11 +78,11 @@ export default function IngressosPage() {
                   {item.titulo}
                 </h2>
 
-                <p className="mt-3 flex-1 pt-24 text-base leading-relaxed text-white drop-shadow-md">
+                <p className="mt-3 text-base leading-relaxed text-white drop-shadow-md">
                   {item.descricao}
                 </p>
 
-                <h3 className="mt-4 text-3xl font-extrabold text-white drop-shadow-lg">
+                <h3 className="mt-5 text-3xl font-extrabold text-white drop-shadow-lg">
                   {item.preco}
                 </h3>
 
