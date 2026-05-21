@@ -32,17 +32,19 @@ export default function IngressosPage() {
       descricao: "Experiência vendida separadamente com vista panorâmica.",
       preco: "R$ 75,00",
       rota: "/ingressos/elevador",
-      imagem: "/fotos/elevado.jpg",
+      imagem: "/fotos/elevador.jpg",
     },
   ];
 
   return (
     <main
       className="min-h-screen bg-cover bg-center bg-fixed px-4 py-8 sm:px-6 lg:px-10"
-      style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
+      style={{
+        backgroundImage: "url('/fotos/fundo-geral.jpg')",
+      }}
     >
-      <div className="min-h-screen rounded-3xl bg-black/50 px-4 py-6">
-        <section className="mx-auto max-w-6xl rounded-3xl bg-[#12351f]/90 p-6 text-white shadow-2xl backdrop-blur-md sm:p-8 lg:p-10">
+      <div className="min-h-screen rounded-3xl bg-black/20 px-4 py-6">
+        <section className="mx-auto max-w-6xl rounded-3xl bg-[#12351f]/90 p-6 text-white shadow-2xl backdrop-blur-sm sm:p-8 lg:p-10">
           <img
             src="/logo-final.png"
             alt="Parque Mundo Novo"
@@ -71,7 +73,7 @@ export default function IngressosPage() {
                 className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
               />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent" />
 
               <div className="relative z-10 flex h-full w-full flex-col justify-end p-5">
                 <h2 className="text-3xl font-extrabold text-white drop-shadow-lg">
