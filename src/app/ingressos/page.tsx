@@ -5,69 +5,68 @@ import { useRouter } from "next/navigation";
 export default function IngressosPage() {
   const router = useRouter();
 
-  const cards = [
+  const ingressos = [
     {
       titulo: "Ingresso Parque",
       descricao: "Entrada para visitar o parque, trilhas, cachoeiras e mirantes.",
       preco: "R$ 60,00",
-      rota: "/ingressos/parque",
       imagem: "/fotos/ingresso-parque.jpg",
+      rota: "/ingressos/parque",
     },
     {
       titulo: "Meia Entrada Idoso",
       descricao: "Valor especial mediante documento comprobatório.",
       preco: "R$ 30,00",
-      rota: "/ingressos/idoso",
       imagem: "/fotos/idoso-cachoeira.jpg",
+      rota: "/ingressos/idoso",
     },
     {
       titulo: "Camping",
       descricao: "Hospedagem no camping com estrutura, natureza e tranquilidade.",
-      preco: "R$ 100,00",
-      rota: "/ingressos/camping",
+      preco: "A partir de R$ 100,00",
       imagem: "/fotos/camping.jpg",
+      rota: "/ingressos/camping",
     },
     {
       titulo: "Elevador Panorâmico",
       descricao: "Experiência vendida separadamente com vista panorâmica.",
       preco: "R$ 75,00",
-      rota: "/ingressos/elevador",
       imagem: "/fotos/elevador.jpg",
+      rota: "/ingressos/elevador",
     },
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 lg:px-10">
+    <main className="relative min-h-screen overflow-hidden px-4 py-10 text-white">
       <img
         src="/fotos/fundo-geral.jpg"
         alt="Parque Mundo Novo"
-        className="fixed inset-0 -z-20 h-full w-full object-cover"
+        className="fixed inset-0 -z-30 h-screen w-screen object-cover"
       />
 
-      <div className="fixed inset-0 -z-10 bg-black/25" />
+      <div className="fixed inset-0 -z-20 bg-black/25" />
 
-      <section className="mx-auto max-w-6xl rounded-3xl bg-[#12351f]/90 p-6 text-white shadow-2xl backdrop-blur-sm sm:p-8 lg:p-10">
+      <section className="mx-auto max-w-6xl rounded-3xl border border-white/20 bg-emerald-950/75 p-8 shadow-2xl backdrop-blur-sm">
         <img
-          src="/logo-final.png"
-          alt="Parque Mundo Novo"
-          className="mb-5 w-24 rounded-2xl sm:w-32 lg:w-36"
+          src="/fotos/logo.png"
+          alt="Logo Parque Mundo Novo"
+          className="mb-6 h-28 w-28 rounded-2xl bg-white/10 object-contain p-3"
         />
 
-        <h1 className="text-4xl font-extrabold sm:text-5xl lg:text-6xl">
+        <h1 className="text-4xl font-bold drop-shadow-lg md:text-6xl">
           Parque Mundo Novo
         </h1>
 
-        <p className="mt-3 text-lg sm:text-2xl">
+        <p className="mt-4 max-w-3xl text-lg text-white/90 drop-shadow-md md:text-2xl">
           Compre seu ingresso online com praticidade e segurança.
         </p>
       </section>
 
-      <section className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((item) => (
+      <section className="mx-auto mt-10 grid max-w-6xl grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {ingressos.map((item) => (
           <div
             key={item.titulo}
-            onClick={() => router.push(item.rota)}
-            className="group relative flex h-[460px] cursor-pointer overflow-hidden rounded-3xl shadow-2xl"
+            className="group relative min-h-[430px] overflow-hidden rounded-3xl border border-white/20 bg-black/40 shadow-2xl"
           >
             <img
               src={item.imagem}
@@ -75,27 +74,24 @@ export default function IngressosPage() {
               className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
             />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
 
-            <div className="relative z-10 flex h-full w-full flex-col justify-end p-5">
-              <h2 className="text-3xl font-extrabold text-white drop-shadow-lg">
+            <div className="relative z-10 flex h-full min-h-[430px] flex-col justify-end p-6">
+              <h2 className="text-2xl font-bold leading-tight drop-shadow-lg">
                 {item.titulo}
               </h2>
 
-              <p className="mt-3 text-base leading-relaxed text-white drop-shadow-md">
+              <p className="mt-4 text-sm leading-relaxed text-white/90 drop-shadow-md">
                 {item.descricao}
               </p>
 
-              <h3 className="mt-5 text-3xl font-extrabold text-white drop-shadow-lg">
+              <p className="mt-6 text-2xl font-bold drop-shadow-lg">
                 {item.preco}
-              </h3>
+              </p>
 
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  router.push(item.rota);
-                }}
-                className="mt-5 w-full rounded-xl bg-[#15803d] px-4 py-4 text-base font-bold text-white shadow-lg transition hover:bg-[#16a34a]"
+                onClick={() => router.push(item.rota)}
+                className="mt-6 rounded-xl bg-green-600 px-5 py-4 font-bold text-white shadow-lg transition hover:bg-green-500 active:scale-95"
               >
                 Comprar ingresso
               </button>
