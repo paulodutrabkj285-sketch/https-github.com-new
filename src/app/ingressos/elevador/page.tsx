@@ -71,7 +71,8 @@ export default function ElevadorPage() {
       router.push(`/checkout/resumo?${params.toString()}`);
     } catch (error) {
       console.error("Erro ao salvar pedido:", error);
-      alert("Não foi possível salvar o pedido. Verifique o Firebase e tente novamente.");
+
+      alert("Não foi possível salvar o pedido.");
     } finally {
       setSalvando(false);
     }
@@ -79,341 +80,198 @@ export default function ElevadorPage() {
 
   return (
     <main
+      className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
       style={{
-        minHeight: "100vh",
-        background: "linear-gradient(to bottom, #edf7ed, #ffffff)",
-        padding: "34px 20px 50px",
+        backgroundImage: "url('/fotos/elevador.jpg')",
       }}
     >
-      <div style={{ maxWidth: "1180px", margin: "0 auto" }}>
-        <section
-          style={{
-            background: "linear-gradient(135deg, #5a7a60, #4f6f57)",
-            borderRadius: "28px",
-            padding: "30px",
-            marginBottom: "30px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-          }}
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "220px 1fr",
-              gap: "28px",
-              alignItems: "center",
-            }}
-          >
-            <div
-              style={{
-                background: "rgba(255, 255, 255, 0.08)",
-                borderRadius: "22px",
-                padding: "10px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                minHeight: "160px",
-                border: "1px solid rgba(255,255,255,0.14)",
-              }}
-            >
+      <div className="absolute inset-0 bg-black/45" />
+
+      <div className="relative z-10 mx-auto max-w-6xl">
+        <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+            <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
-                style={{
-                  width: "100%",
-                  maxWidth: "140px",
-                  height: "auto",
-                  display: "block",
-                  borderRadius: "12px",
-                }}
+                className="w-full max-w-[140px] rounded-xl"
               />
             </div>
 
             <div>
-              <h1
-                style={{
-                  fontSize: "clamp(32px, 4.4vw, 56px)",
-                  lineHeight: 1.1,
-                  fontWeight: "bold",
-                  color: "#ffffff",
-                  margin: "0 0 16px 0",
-                }}
-              >
+              <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
                 Elevador Panorâmico
               </h1>
 
-              <p
-                style={{
-                  fontSize: "clamp(18px, 2vw, 22px)",
-                  color: "#f3f4f6",
-                  lineHeight: 1.5,
-                  margin: "0 0 10px 0",
-                }}
-              >
-                Preencha os dados abaixo para simular a compra do ingresso do elevador panorâmico.
+              <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
+                Viva uma experiência incrível com vista panorâmica do Parque Mundo Novo.
               </p>
 
-              <p
-                style={{
-                  fontSize: "15px",
-                  color: "#d1d5db",
-                  margin: 0,
-                }}
-              >
-                O QR Code do ingresso será gerado somente após a confirmação do pagamento.
+              <p className="mt-3 text-sm text-white/80">
+                O QR Code do ingresso será liberado após confirmação do pagamento.
               </p>
             </div>
           </div>
         </section>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "2fr 1fr",
-            gap: "24px",
-            alignItems: "start",
-          }}
-        >
-          <section
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: "18px",
-              padding: "24px",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-              border: "1px solid #dbe5db",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "28px",
-                fontWeight: "bold",
-                color: "#166534",
-                marginBottom: "12px",
-              }}
-            >
+        <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+          <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md">
+            <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados da compra
             </h2>
 
-            <div
-              style={{
-                backgroundColor: "#fef3c7",
-                color: "#92400e",
-                border: "1px solid #fcd34d",
-                borderRadius: "12px",
-                padding: "12px 14px",
-                marginBottom: "20px",
-                lineHeight: 1.5,
-              }}
-            >
-              Aviso importante: em caso de desistência, o ingresso poderá ser remarcado ou convertido em crédito conforme a regra definida pelo parque.
+            <div className="mb-6 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
+              Aviso importante: em caso de desistência, o ingresso poderá ser
+              remarcado ou convertido em crédito conforme regra definida pelo parque.
             </div>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "16px",
-              }}
-            >
-              <div>
-                <label style={labelStyle}>Nome completo</label>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Campo label="Nome completo">
                 <input
                   type="text"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
                   placeholder="Digite seu nome"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>CPF</label>
+              <Campo label="CPF">
                 <input
                   type="text"
                   value={cpf}
                   onChange={(e) => setCpf(e.target.value)}
                   placeholder="Digite seu CPF"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>Telefone / WhatsApp</label>
+              <Campo label="Telefone / WhatsApp">
                 <input
                   type="text"
                   value={telefone}
                   onChange={(e) => setTelefone(e.target.value)}
                   placeholder="Digite seu telefone"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>E-mail</label>
+              <Campo label="E-mail">
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Digite seu e-mail"
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>Data da visita</label>
+              <Campo label="Data da visita">
                 <input
                   type="date"
                   value={dataVisita}
                   onChange={(e) => setDataVisita(e.target.value)}
-                  style={inputStyle}
+                  className={inputClass}
                 />
-              </div>
+              </Campo>
 
-              <div>
-                <label style={labelStyle}>Quantidade de ingressos</label>
-                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+              <Campo label="Quantidade de ingressos">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
                   <button
                     type="button"
                     onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
-                    style={contadorButtonStyle}
+                    className={contadorClass}
                   >
                     -
                   </button>
 
-                  <div
-                    style={{
-                      minWidth: "60px",
-                      textAlign: "center",
-                      fontSize: "20px",
-                      fontWeight: "bold",
-                      color: "#111827",
-                    }}
-                  >
+                  <span className="text-2xl font-bold text-gray-900">
                     {quantidade}
-                  </div>
+                  </span>
 
                   <button
                     type="button"
                     onClick={() => setQuantidade((q) => q + 1)}
-                    style={contadorButtonStyle}
+                    className={contadorClass}
                   >
                     +
                   </button>
                 </div>
-              </div>
+              </Campo>
             </div>
-          </section>
+          </div>
 
-          <aside
-            style={{
-              backgroundColor: "#ffffff",
-              borderRadius: "18px",
-              padding: "24px",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-              border: "1px solid #dbe5db",
-              position: "sticky",
-              top: "20px",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "24px",
-                fontWeight: "bold",
-                color: "#166534",
-                marginBottom: "20px",
-              }}
-            >
+          <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
+            <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Resumo
             </h2>
 
-            <div style={{ display: "grid", gap: "12px", color: "#374151" }}>
+            <div className="space-y-3 text-base">
               <p>
                 <strong>Produto:</strong> Elevador Panorâmico
               </p>
+
               <p>
                 <strong>Valor unitário:</strong> R$ 75,00
               </p>
+
               <p>
                 <strong>Quantidade:</strong> {quantidade}
               </p>
+
               <p>
-                <strong>Data da visita:</strong> {dataVisita || "Não informada"}
+                <strong>Data da visita:</strong>{" "}
+                {dataVisita || "Não informada"}
               </p>
             </div>
 
-            <hr style={{ margin: "20px 0", borderColor: "#e5e7eb" }} />
+            <hr className="my-6 border-gray-300" />
 
-            <p
-              style={{
-                fontSize: "28px",
-                fontWeight: "bold",
-                color: "#111827",
-                marginBottom: "20px",
-              }}
-            >
-              Total: R$ {valorTotal},00
+            <p className="mb-6 text-4xl font-bold text-[#166534]">
+              R$ {valorTotal},00
             </p>
 
             <button
               type="button"
               onClick={continuarParaResumo}
               disabled={salvando}
-              style={{
-                width: "100%",
-                padding: "14px 18px",
-                border: "none",
-                borderRadius: "14px",
-                backgroundColor: "#15803d",
-                color: "#ffffff",
-                fontSize: "16px",
-                fontWeight: "bold",
-                cursor: salvando ? "not-allowed" : "pointer",
-                opacity: salvando ? 0.7 : 1,
-              }}
+              className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {salvando ? "Salvando pedido..." : "Continuar para pagamento"}
+              {salvando
+                ? "Salvando pedido..."
+                : "Continuar para pagamento"}
             </button>
 
-            <p
-              style={{
-                marginTop: "14px",
-                fontSize: "13px",
-                color: "#6b7280",
-                lineHeight: 1.5,
-              }}
-            >
-              O ingresso só será liberado após o pagamento ser confirmado.
+            <p className="mt-4 text-sm leading-relaxed text-gray-500">
+              O ingresso será liberado somente após confirmação automática do pagamento.
             </p>
           </aside>
-        </div>
+        </section>
       </div>
     </main>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: "block",
-  marginBottom: "8px",
-  fontWeight: 600,
-  color: "#374151",
-};
+function Campo({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block font-semibold text-gray-700">
+        {label}
+      </label>
 
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "14px 16px",
-  borderRadius: "12px",
-  border: "1px solid #d1d5db",
-  outline: "none",
-  fontSize: "16px",
-  boxSizing: "border-box",
-};
+      {children}
+    </div>
+  );
+}
 
-const contadorButtonStyle: React.CSSProperties = {
-  width: "44px",
-  height: "44px",
-  borderRadius: "10px",
-  border: "none",
-  backgroundColor: "#166534",
-  color: "#ffffff",
-  fontSize: "24px",
-  cursor: "pointer",
-};
+const inputClass =
+  "w-full rounded-2xl border border-gray-300 bg-white px-4 py-4 text-base outline-none transition focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20";
+
+const contadorClass =
+  "flex h-12 w-12 items-center justify-center rounded-2xl bg-[#166534] text-2xl font-bold text-white transition hover:bg-[#14532d]";
