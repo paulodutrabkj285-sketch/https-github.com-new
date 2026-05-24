@@ -47,13 +47,11 @@ export default function IngressosPage() {
 
       <div className="relative z-10 mx-auto max-w-6xl">
         <section className="rounded-3xl border border-white/20 bg-emerald-950/75 p-8 shadow-2xl backdrop-blur-sm">
-          <div className="mb-6 inline-flex h-24 w-24 items-center justify-center rounded-2xl bg-white/15 p-3 text-center text-sm font-bold text-white">
-            Parque
-            <br />
-            Mundo
-            <br />
-            Novo
-          </div>
+          <img
+            src="/logo-final.png"
+            alt="Logo Parque Mundo Novo"
+            className="mb-6 h-28 w-28 rounded-2xl bg-white/15 object-contain p-3"
+          />
 
           <h1 className="text-4xl font-bold drop-shadow-lg md:text-6xl">
             Parque Mundo Novo
