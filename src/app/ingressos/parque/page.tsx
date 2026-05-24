@@ -65,18 +65,25 @@ export default function ParquePage() {
       router.push(`/checkout/resumo?${params.toString()}`);
     } catch (error) {
       console.error("Erro ao salvar pedido:", error);
-      alert("Não foi possível salvar o pedido. Verifique o Firebase e tente novamente.");
+      alert("Não foi possível salvar o pedido.");
     } finally {
       setSalvando(false);
     }
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-[#edf7ed] to-white px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto w-full max-w-6xl">
-        <section className="rounded-3xl bg-gradient-to-br from-[#5a7a60] to-[#4f6f57] p-5 text-white shadow-xl sm:p-8">
-          <div className="flex flex-col items-center gap-5 text-center md:flex-row md:text-left">
-            <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-3 sm:max-w-[220px]">
+    <main
+      className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
+      style={{
+        backgroundImage: "url('/fotos/fundo-geral.jpg')",
+      }}
+    >
+      <div className="absolute inset-0 bg-black/45" />
+
+      <div className="relative z-10 mx-auto max-w-6xl">
+        <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+            <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
@@ -85,28 +92,28 @@ export default function ParquePage() {
             </div>
 
             <div>
-              <h1 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+              <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
                 Ingresso Parque
               </h1>
 
-              <p className="mt-3 text-base leading-relaxed text-gray-100 sm:text-xl">
-                Preencha os dados abaixo para simular a compra do ingresso de entrada do Parque Mundo Novo.
+              <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
+                Preencha os dados abaixo para comprar seu ingresso online com praticidade e segurança.
               </p>
 
-              <p className="mt-3 text-sm leading-relaxed text-gray-200 sm:text-base">
-                O QR Code do ingresso será gerado somente após a confirmação do pagamento.
+              <p className="mt-3 text-sm text-white/80">
+                O QR Code do ingresso será liberado após confirmação do pagamento.
               </p>
             </div>
           </div>
         </section>
 
-        <section className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-[2fr_1fr]">
-          <div className="rounded-2xl border border-[#dbe5db] bg-white p-5 shadow-md sm:p-6">
-            <h2 className="mb-5 text-2xl font-bold text-[#166534] sm:text-3xl">
+        <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+          <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md">
+            <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados do comprador
             </h2>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Campo label="Nome completo">
                 <input
                   type="text"
@@ -157,7 +164,7 @@ export default function ParquePage() {
               </Campo>
 
               <Campo label="Quantidade de ingressos">
-                <div className="flex items-center justify-between rounded-xl border border-gray-300 px-3 py-2">
+                <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
                   <button
                     type="button"
                     onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
@@ -166,7 +173,7 @@ export default function ParquePage() {
                     -
                   </button>
 
-                  <span className="text-xl font-bold text-gray-900">
+                  <span className="text-2xl font-bold text-gray-900">
                     {quantidade}
                   </span>
 
@@ -182,35 +189,49 @@ export default function ParquePage() {
             </div>
           </div>
 
-          <aside className="rounded-2xl border border-[#dbe5db] bg-white p-5 shadow-md sm:p-6 lg:sticky lg:top-5">
-            <h2 className="mb-5 text-2xl font-bold text-[#166534]">
+          <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
+            <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Resumo
             </h2>
 
-            <div className="grid gap-3 text-gray-700">
-              <p><strong>Produto:</strong> Ingresso Parque</p>
-              <p><strong>Valor unitário:</strong> R$ 60,00</p>
-              <p><strong>Quantidade:</strong> {quantidade}</p>
-              <p><strong>Data da visita:</strong> {dataVisita || "Não informada"}</p>
+            <div className="space-y-3 text-base">
+              <p>
+                <strong>Produto:</strong> Ingresso Parque
+              </p>
+
+              <p>
+                <strong>Valor unitário:</strong> R$ 60,00
+              </p>
+
+              <p>
+                <strong>Quantidade:</strong> {quantidade}
+              </p>
+
+              <p>
+                <strong>Data da visita:</strong>{" "}
+                {dataVisita || "Não informada"}
+              </p>
             </div>
 
-            <hr className="my-5 border-gray-200" />
+            <hr className="my-6 border-gray-300" />
 
-            <p className="mb-5 text-3xl font-bold text-gray-950">
-              Total: R$ {valorTotal},00
+            <p className="mb-6 text-4xl font-bold text-[#166534]">
+              R$ {valorTotal},00
             </p>
 
             <button
               type="button"
               onClick={continuarParaResumo}
               disabled={salvando}
-              className="w-full rounded-xl bg-[#15803d] px-5 py-4 text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-70"
+              className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {salvando ? "Salvando pedido..." : "Continuar para pagamento"}
+              {salvando
+                ? "Salvando pedido..."
+                : "Continuar para pagamento"}
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso só será liberado após o pagamento ser confirmado.
+              O ingresso será liberado somente após confirmação automática do pagamento.
             </p>
           </aside>
         </section>
@@ -231,13 +252,14 @@ function Campo({
       <label className="mb-2 block font-semibold text-gray-700">
         {label}
       </label>
+
       {children}
     </div>
   );
 }
 
 const inputClass =
-  "w-full rounded-xl border border-gray-300 px-4 py-4 text-base outline-none focus:border-[#166534]";
+  "w-full rounded-2xl border border-gray-300 bg-white px-4 py-4 text-base outline-none transition focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20";
 
 const contadorClass =
-  "h-11 w-11 rounded-xl bg-[#166534] text-2xl font-bold text-white";
+  "flex h-12 w-12 items-center justify-center rounded-2xl bg-[#166534] text-2xl font-bold text-white transition hover:bg-[#14532d]";
