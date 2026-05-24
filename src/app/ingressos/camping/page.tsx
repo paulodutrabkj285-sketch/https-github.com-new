@@ -22,7 +22,6 @@ export default function CampingPage() {
 
   const valorPorPessoa = useMemo(() => {
     if (diarias <= 1) return valorPrimeiraDiaria;
-
     return valorPrimeiraDiaria + (diarias - 1) * valorDemaisDiarias;
   }, [diarias]);
 
@@ -49,7 +48,6 @@ export default function CampingPage() {
         dataEntrada,
         noites: diarias,
         quantidadePessoas,
-        tipoCamping,
         quantidade: 1,
         valorUnitario: valorPorPessoa,
         valorTotal,
@@ -78,6 +76,7 @@ export default function CampingPage() {
         diarias: String(diarias),
         noites: String(diarias),
         quantidadePessoas: String(quantidadePessoas),
+        tipoCamping,
         quantidade: "1",
         valorUnitario: String(valorPorPessoa),
         valorTotal: String(valorTotal),
@@ -86,7 +85,6 @@ export default function CampingPage() {
       router.push(`/checkout/resumo?${params.toString()}`);
     } catch (error) {
       console.error("Erro ao salvar pedido:", error);
-
       alert("Não foi possível salvar o pedido.");
     } finally {
       setSalvando(false);
@@ -269,8 +267,7 @@ export default function CampingPage() {
               </p>
 
               <p>
-                <strong>Entrada:</strong>{" "}
-                {dataEntrada || "Não informada"}
+                <strong>Entrada:</strong> {dataEntrada || "Não informada"}
               </p>
 
               <p>
@@ -283,6 +280,10 @@ export default function CampingPage() {
 
               <p>
                 <strong>Valor por pessoa:</strong> R$ {valorPorPessoa},00
+              </p>
+
+              <p className="text-sm text-gray-500">
+                1ª diária R$ 100,00 + demais R$ 80,00 por pessoa.
               </p>
             </div>
 
