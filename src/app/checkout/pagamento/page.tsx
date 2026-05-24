@@ -42,71 +42,109 @@ export default function PagamentoPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0f2f1f] px-4 py-10 text-white">
-      <div className="mx-auto max-w-2xl rounded-3xl bg-white p-8 text-black shadow-xl">
-        <h1 className="text-3xl font-bold text-[#166534]">
-          Pagamento via PIX
-        </h1>
+    <main
+      className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
+      style={{
+        backgroundImage: "url('/fotos/fundo-geral.jpg')",
+      }}
+    >
+      <div className="absolute inset-0 bg-black/50" />
 
-        <div className="mt-6 grid gap-3 text-lg">
-          {pedidoId && (
-            <p>
-              <strong>Pedido:</strong> {pedidoId}
+      <div className="relative z-10 mx-auto max-w-5xl">
+        <section className="rounded-3xl border border-white/20 bg-emerald-950/75 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+            <div className="flex w-full max-w-[160px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
+              <img
+                src="/logo-final.png"
+                alt="Logo Parque Mundo Novo"
+                className="w-full max-w-[130px] rounded-xl"
+              />
+            </div>
+
+            <div>
+              <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
+                Pagamento via PIX
+              </h1>
+
+              <p className="mt-4 max-w-3xl text-lg text-white/90">
+                Copie o código PIX abaixo e pague pelo aplicativo do seu banco.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
+          <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl">
+            <h2 className="mb-5 text-3xl font-bold text-[#166534]">
+              PIX copia e cola
+            </h2>
+
+            <p className="mb-4 text-gray-600">
+              Copie o código abaixo e cole na opção PIX copia e cola do aplicativo do banco.
             </p>
-          )}
 
-          <p>
-            <strong>Produto:</strong> {produto || tipo || "ingresso"}
-          </p>
+            <textarea
+              value={pixCopiaCola}
+              readOnly
+              className="h-44 w-full resize-none rounded-2xl border border-gray-300 bg-gray-50 p-4 text-sm outline-none"
+            />
 
-          <p>
-            <strong>Quantidade:</strong> {quantidade}
-          </p>
+            <button
+              onClick={copiarPix}
+              className="mt-5 w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500"
+            >
+              Copiar PIX copia e cola
+            </button>
 
-          <p>
-            <strong>Valor:</strong>{" "}
-            {valorNumero.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </p>
-        </div>
+            <div className="mt-6 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
+              <strong>Atenção:</strong> nesta fase o pagamento será conferido
+              manualmente. Depois, com integração bancária/API, a confirmação
+              poderá ser automática.
+            </div>
+          </div>
 
-        <div className="mt-8 rounded-2xl bg-[#eef3ed] p-5">
-          <h2 className="text-xl font-bold text-[#166534]">
-            PIX copia e cola
-          </h2>
+          <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl lg:sticky lg:top-5">
+            <h2 className="mb-6 text-3xl font-bold text-[#166534]">
+              Resumo
+            </h2>
 
-          <p className="mt-3 text-sm text-gray-700">
-            Copie o código abaixo e cole no aplicativo do banco.
-          </p>
+            <div className="space-y-3 text-base">
+              {pedidoId && (
+                <p>
+                  <strong>Pedido:</strong> {pedidoId}
+                </p>
+              )}
 
-          <textarea
-            value={pixCopiaCola}
-            readOnly
-            className="mt-4 h-36 w-full rounded-xl border border-gray-300 p-3 text-sm"
-          />
+              <p>
+                <strong>Produto:</strong> {produto || tipo || "Ingresso"}
+              </p>
 
-          <button
-            onClick={copiarPix}
-            className="mt-5 w-full rounded-xl bg-[#166534] px-5 py-4 font-bold text-white"
-          >
-            Copiar PIX copia e cola
-          </button>
-        </div>
+              <p>
+                <strong>Quantidade:</strong> {quantidade}
+              </p>
+            </div>
 
-        <div className="mt-6 rounded-2xl bg-yellow-50 p-5 text-yellow-900">
-          <strong>Atenção:</strong> nesta fase o pagamento será conferido
-          manualmente. Depois, com a API PIX da Cresol, a confirmação será
-          automática.
-        </div>
+            <hr className="my-6 border-gray-300" />
 
-        <Link
-          href={`/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento pendente de confirmação`}
-          className="mt-8 inline-block rounded-xl bg-[#166534] px-6 py-4 font-bold text-white"
-        >
-          Já fiz o PIX
-        </Link>
+            <p className="mb-6 text-4xl font-bold text-[#166534]">
+              {valorNumero.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </p>
+
+            <Link
+              href={`/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento pendente de confirmação`}
+              className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500"
+            >
+              Já fiz o PIX
+            </Link>
+
+            <p className="mt-4 text-sm leading-relaxed text-gray-500">
+              Após clicar, o pedido ficará pendente até a confirmação do pagamento.
+            </p>
+          </aside>
+        </section>
       </div>
     </main>
   );
