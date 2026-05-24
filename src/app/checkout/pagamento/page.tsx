@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useMemo, useState } from "react";
 
 export default function PagamentoPage() {
@@ -67,7 +68,7 @@ export default function PagamentoPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg text-white/90">
-                Copie o código PIX abaixo e pague pelo aplicativo do seu banco.
+                Escaneie o QRCode ou copie o código PIX para pagar pelo aplicativo do banco.
               </p>
             </div>
           </div>
@@ -76,12 +77,29 @@ export default function PagamentoPage() {
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl">
             <h2 className="mb-5 text-3xl font-bold text-[#166534]">
-              PIX copia e cola
+              PIX QRCode
             </h2>
 
             <p className="mb-4 text-gray-600">
-              Copie o código abaixo e cole na opção PIX copia e cola do aplicativo do banco.
+              Escaneie o QRCode abaixo ou copie o código PIX.
             </p>
+
+            <div className="mb-6 flex justify-center">
+              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-lg">
+                <QRCodeSVG
+                  value={pixCopiaCola}
+                  size={230}
+                  bgColor="#ffffff"
+                  fgColor="#166534"
+                  level="H"
+                  includeMargin
+                />
+              </div>
+            </div>
+
+            <h3 className="mb-3 text-xl font-bold text-[#166534]">
+              PIX copia e cola
+            </h3>
 
             <textarea
               value={pixCopiaCola}
