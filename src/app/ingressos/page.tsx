@@ -66,7 +66,8 @@ export default function IngressosPage() {
             }`}
           style={{
             backgroundImage: `url('${img}')`,
-            backgroundSize: "auto 100%",
+            backgroundSize: "cover",
+            backgroundPosition: "center 35%",
           }}
         />
       ))}
