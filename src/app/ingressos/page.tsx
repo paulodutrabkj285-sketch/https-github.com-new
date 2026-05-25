@@ -7,9 +7,18 @@ export default function IngressosPage() {
   const router = useRouter();
 
   const imagens = [
-    "/fotos/fundo-geral.jpg",
-    "/fotos/cachoeira-alta.png",
-    "/fotos/cachoeira-lago.png",
+    {
+      url: "/fotos/fundo-geral.jpg",
+      posicao: "center 35%",
+    },
+    {
+      url: "/fotos/cachoeira-alta.png",
+      posicao: "center 18%",
+    },
+    {
+      url: "/fotos/cachoeira-lago.png",
+      posicao: "center 25%",
+    },
   ];
 
   const [imagemAtual, setImagemAtual] = useState(0);
@@ -61,13 +70,13 @@ export default function IngressosPage() {
     <main className="relative min-h-screen overflow-hidden bg-black px-4 py-10 text-white">
       {imagens.map((img, index) => (
         <div
-          key={img}
-          className={`absolute inset-0 bg-center bg-no-repeat transition-opacity duration-[2000ms] ${imagemAtual === index ? "opacity-100" : "opacity-0"
+          key={img.url}
+          className={`absolute inset-0 bg-no-repeat transition-opacity duration-[2000ms] ${imagemAtual === index ? "opacity-100" : "opacity-0"
             }`}
           style={{
-            backgroundImage: `url('${img}')`,
+            backgroundImage: `url('${img.url}')`,
             backgroundSize: "cover",
-            backgroundPosition: "center 35%",
+            backgroundPosition: img.posicao,
           }}
         />
       ))}
