@@ -58,14 +58,15 @@ export default function IngressosPage() {
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-4 py-10 text-white">
+    <main className="relative min-h-screen overflow-hidden bg-black px-4 py-10 text-white">
       {imagens.map((img, index) => (
         <div
           key={img}
-          className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[2000ms] ${imagemAtual === index ? "opacity-100" : "opacity-0"
+          className={`absolute inset-0 bg-center bg-no-repeat transition-opacity duration-[2000ms] ${imagemAtual === index ? "opacity-100" : "opacity-0"
             }`}
           style={{
             backgroundImage: `url('${img}')`,
+            backgroundSize: "100%",
           }}
         />
       ))}
