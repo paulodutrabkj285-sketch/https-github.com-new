@@ -16,14 +16,24 @@ function criarHttpsAgent() {
         throw new Error("Certificado Sicredi não configurado.");
     }
 
-    const cert = Buffer.from(certBase64, "base64").toString("utf8");
-    const key = Buffer.from(keyBase64, "base64").toString("utf8");
-
     return new https.Agent({
-        cert,
-        key,
+        cert: Buffer.from(certBase64, "base64").toString("utf8"),
+        key: Buffer.from(keyBase64, "base64").toString("utf8"),
         rejectUnauthorized: true,
     });
+}
+
+async function lerResposta(resposta: Response) {
+    const texto = await resposta.text();
+
+    try {
+        return JSON.parse(texto);
+    } catch {
+        return {
+            erroTexto: texto.slice(0, 500),
+            status: resposta.status,
+        };
+    }
 }
 
 async function obterToken() {
@@ -44,13 +54,16 @@ async function obterToken() {
                 "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
             "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: "grant_type=client_credentials",
+        body: new URLSearchParams({
+            grant_type: "client_credentials",
+            scope: "cob.write cob.read pix.write pix.read webhook.write webhook.read",
+        }).toString(),
         // @ts-expect-error agent é aceito no runtime Node
         agent,
         cache: "no-store",
     });
 
-    const data = await resposta.json();
+    const data = await lerResposta(resposta);
 
     if (!resposta.ok) {
         console.error("Erro ao obter token Sicredi:", data);
@@ -64,15 +77,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
 
-        const {
-            pedidoId,
-            nome,
-            email,
-            cpf,
-            produto,
-            valorTotal,
-            quantidade,
-        } = body;
+        const { pedidoId, nome, email, cpf, produto, valorTotal, quantidade } = body;
 
         if (!pedidoId || !nome || !email || !cpf || !produto || !valorTotal) {
             return NextResponse.json(
@@ -97,9 +102,7 @@ export async function POST(req: NextRequest) {
         const txid = somenteDigitos(pedidoId).slice(0, 35) || pedidoId.slice(0, 35);
 
         const payload = {
-            calendario: {
-                expiracao: 3600,
-            },
+            calendario: { expiracao: 3600 },
             devedor: {
                 cpf: somenteDigitos(cpf),
                 nome,
@@ -110,18 +113,9 @@ export async function POST(req: NextRequest) {
             chave: chavePix,
             solicitacaoPagador: `Ingresso ${produto}`,
             infoAdicionais: [
-                {
-                    nome: "Pedido",
-                    valor: pedidoId,
-                },
-                {
-                    nome: "Produto",
-                    valor: produto,
-                },
-                {
-                    nome: "Quantidade",
-                    valor: String(quantidade || 1),
-                },
+                { nome: "Pedido", valor: pedidoId },
+                { nome: "Produto", valor: produto },
+                { nome: "Quantidade", valor: String(quantidade || 1) },
             ],
         };
 
@@ -137,10 +131,11 @@ export async function POST(req: NextRequest) {
             cache: "no-store",
         });
 
-        const data = await resposta.json();
+        const data = await lerResposta(resposta);
 
         if (!resposta.ok) {
             console.error("Erro Sicredi criar Pix:", data);
+
             return NextResponse.json(
                 { ok: false, error: "Erro ao criar Pix no Sicredi.", details: data },
                 { status: resposta.status }
