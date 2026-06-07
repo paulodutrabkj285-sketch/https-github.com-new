@@ -8,19 +8,55 @@ export default function ValidacaoPage() {
   const [codigo, setCodigo] = useState("");
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [mensagem, setMensagem] = useState("");
+  const [tipoMensagem, setTipoMensagem] = useState<"ok" | "erro" | "alerta">(
+    "alerta"
+  );
   const [carregando, setCarregando] = useState(false);
   const [cameraAtiva, setCameraAtiva] = useState(false);
 
   const leitorRef = useRef<Html5Qrcode | null>(null);
 
+  function limparCodigo(valor: string) {
+    return String(valor || "").trim();
+  }
+
+  function definirMensagem(
+    texto: string,
+    tipo: "ok" | "erro" | "alerta" = "alerta"
+  ) {
+    setMensagem(texto);
+    setTipoMensagem(tipo);
+  }
+
+  function avaliarPedido(encontrado: Pedido) {
+    if (encontrado.statusPagamento !== "pago") {
+      definirMensagem("INGRESSO NÃO PAGO. Entrada bloqueada.", "erro");
+      return;
+    }
+
+    if (encontrado.statusOperacional === "utilizado") {
+      definirMensagem("INGRESSO JÁ UTILIZADO. Não liberar entrada.", "erro");
+      return;
+    }
+
+    if (encontrado.statusOperacional === "bloqueado") {
+      definirMensagem("INGRESSO BLOQUEADO. Procure a administração.", "erro");
+      return;
+    }
+
+    if (encontrado.statusPagamento === "pago") {
+      definirMensagem("INGRESSO VÁLIDO. Pode validar a entrada.", "ok");
+    }
+  }
+
   async function buscarIngresso(codigoBusca?: string) {
-    const codigoFinal = codigoBusca || codigo;
+    const codigoFinal = limparCodigo(codigoBusca || codigo);
 
     setMensagem("");
     setPedido(null);
 
-    if (!codigoFinal.trim()) {
-      setMensagem("Digite ou escaneie o código do ingresso.");
+    if (!codigoFinal) {
+      definirMensagem("Digite ou escaneie o código do ingresso.", "alerta");
       return;
     }
 
@@ -31,21 +67,23 @@ export default function ValidacaoPage() {
 
       const encontrado = pedidos.find(
         (item) =>
-          item.codigoIngresso === codigoFinal.trim() ||
-          item.id === codigoFinal.trim()
+          limparCodigo(item.codigoIngresso || "") === codigoFinal ||
+          limparCodigo(item.qrCodeIngresso || "") === codigoFinal ||
+          limparCodigo(item.id || "") === codigoFinal
       );
 
       if (!encontrado) {
-        setMensagem("Ingresso não encontrado.");
+        definirMensagem("INGRESSO NÃO ENCONTRADO.", "erro");
         return;
       }
 
       setPedido(encontrado);
-      setCodigo(codigoFinal.trim());
+      setCodigo(codigoFinal);
+      avaliarPedido(encontrado);
       await pararCamera();
     } catch (error) {
       console.error(error);
-      setMensagem("Erro ao buscar ingresso.");
+      definirMensagem("Erro ao buscar ingresso.", "erro");
     } finally {
       setCarregando(false);
     }
@@ -71,11 +109,11 @@ export default function ValidacaoPage() {
               await buscarIngresso(texto);
             }
           },
-          () => {}
+          () => { }
         );
       } catch (error) {
         console.error(error);
-        setMensagem("Não foi possível acessar a câmera.");
+        definirMensagem("Não foi possível acessar a câmera.", "erro");
         setCameraAtiva(false);
       }
     }, 300);
@@ -99,12 +137,17 @@ export default function ValidacaoPage() {
     if (!pedido) return;
 
     if (pedido.statusPagamento !== "pago") {
-      setMensagem("Este ingresso ainda não está pago.");
+      definirMensagem("Este ingresso ainda não está pago.", "erro");
       return;
     }
 
     if (pedido.statusOperacional === "utilizado") {
-      setMensagem("Este ingresso já foi utilizado.");
+      definirMensagem("Este ingresso já foi utilizado.", "erro");
+      return;
+    }
+
+    if (pedido.statusOperacional === "bloqueado") {
+      definirMensagem("Este ingresso está bloqueado.", "erro");
       return;
     }
 
@@ -113,6 +156,7 @@ export default function ValidacaoPage() {
 
       await atualizarPedido(pedido.id, {
         statusOperacional: "utilizado",
+        validadoEm: new Date().toISOString(),
       });
 
       setPedido({
@@ -120,14 +164,32 @@ export default function ValidacaoPage() {
         statusOperacional: "utilizado",
       });
 
-      setMensagem("Entrada validada com sucesso.");
+      definirMensagem("ENTRADA VALIDADA COM SUCESSO.", "ok");
     } catch (error) {
       console.error(error);
-      setMensagem("Erro ao validar entrada.");
+      definirMensagem("Erro ao validar entrada.", "erro");
     } finally {
       setCarregando(false);
     }
   }
+
+  const mensagemClass =
+    tipoMensagem === "ok"
+      ? "bg-green-100 text-green-900 border-green-300"
+      : tipoMensagem === "erro"
+        ? "bg-red-100 text-red-900 border-red-300"
+        : "bg-yellow-100 text-yellow-900 border-yellow-300";
+
+  const statusVisual =
+    pedido?.statusPagamento === "pago" &&
+      pedido?.statusOperacional !== "utilizado" &&
+      pedido?.statusOperacional !== "bloqueado"
+      ? "🟢 INGRESSO VÁLIDO"
+      : pedido?.statusOperacional === "utilizado"
+        ? "🔴 INGRESSO JÁ UTILIZADO"
+        : pedido?.statusPagamento !== "pago"
+          ? "🔴 INGRESSO NÃO PAGO"
+          : "⚠️ VERIFICAR INGRESSO";
 
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
@@ -184,7 +246,7 @@ export default function ValidacaoPage() {
             <input
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
-              placeholder="Ex: PMN-48291 ou ID do pedido"
+              placeholder="Ex: PMN-94120 ou ID do pedido"
               className="w-full rounded-xl border border-gray-300 px-4 py-4 outline-none focus:border-[#166534]"
             />
 
@@ -198,7 +260,7 @@ export default function ValidacaoPage() {
           </div>
 
           {mensagem && (
-            <p className="mt-4 rounded-xl bg-yellow-50 p-3 font-semibold text-yellow-800">
+            <p className={`mt-4 rounded-xl border p-4 font-bold ${mensagemClass}`}>
               {mensagem}
             </p>
           )}
@@ -206,13 +268,21 @@ export default function ValidacaoPage() {
 
         {pedido && (
           <section className="mt-6 rounded-2xl bg-white p-5 shadow-md">
-            <h2 className="text-2xl font-bold text-[#166534]">
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 text-center">
+              <p className="text-2xl font-black">{statusVisual}</p>
+            </div>
+
+            <h2 className="mt-6 text-2xl font-bold text-[#166534]">
               Dados do ingresso
             </h2>
 
             <div className="mt-5 grid gap-3 text-gray-700">
               <p>
                 <strong>Cliente:</strong> {pedido.nome}
+              </p>
+
+              <p>
+                <strong>CPF:</strong> {pedido.cpf}
               </p>
 
               <p>
@@ -224,15 +294,29 @@ export default function ValidacaoPage() {
               </p>
 
               <p>
-                <strong>Valor:</strong>{" "}
+                <strong>Valor total:</strong>{" "}
                 {Number(pedido.valorTotal || 0).toLocaleString("pt-BR", {
                   style: "currency",
                   currency: "BRL",
                 })}
               </p>
 
+              {pedido.valorPago !== undefined && (
+                <p>
+                  <strong>Valor pago:</strong>{" "}
+                  {Number(pedido.valorPago || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </p>
+              )}
+
               <p>
                 <strong>Pagamento:</strong> {pedido.statusPagamento}
+              </p>
+
+              <p>
+                <strong>Sicredi:</strong> {pedido.sicrediStatus || "Não informado"}
               </p>
 
               <p>
@@ -247,10 +331,17 @@ export default function ValidacaoPage() {
 
             <button
               onClick={validarEntrada}
-              disabled={carregando}
-              className="mt-6 w-full rounded-xl bg-[#15803d] px-5 py-4 font-bold text-white disabled:opacity-60"
+              disabled={
+                carregando ||
+                pedido.statusPagamento !== "pago" ||
+                pedido.statusOperacional === "utilizado" ||
+                pedido.statusOperacional === "bloqueado"
+              }
+              className="mt-6 w-full rounded-xl bg-[#15803d] px-5 py-4 font-bold text-white disabled:cursor-not-allowed disabled:bg-gray-400"
             >
-              Validar entrada
+              {pedido.statusOperacional === "utilizado"
+                ? "Ingresso já utilizado"
+                : "Validar entrada"}
             </button>
           </section>
         )}
