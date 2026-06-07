@@ -39,7 +39,12 @@ export default function SucessoPage() {
           const codigo = pedido.codigoIngresso || pedido.id;
           setCodigoIngresso(codigo);
 
-          const qrData = await QRCode.toDataURL(codigo, {
+          const qrConteudo = JSON.stringify({
+            codigo,
+            pedidoId: pedido.id,
+          });
+
+          const qrData = await QRCode.toDataURL(qrConteudo, {
             width: 280,
             margin: 2,
           });
