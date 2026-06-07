@@ -83,10 +83,6 @@ function cpfValido(cpf: string) {
     return digito2 === Number(numeros[10]);
 }
 
-function criarTxid() {
-    return `PMN${Date.now()}`;
-}
-
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
@@ -141,8 +137,6 @@ export async function POST(req: NextRequest) {
         const token = await obterToken();
         const agent = criarHttpsAgent();
 
-        const txid = criarTxid();
-
         const payload = {
             calendario: {
                 expiracao: 3600,
@@ -155,13 +149,12 @@ export async function POST(req: NextRequest) {
                 original: valorFinal,
             },
             chave: chavePix,
-            solicitacaoPagador: `Ingresso ${produto}`,
+            solicitacaoPagador: produto,
         };
 
-        console.log("TXID:", txid);
         console.log("PAYLOAD SICREDI:", JSON.stringify(payload, null, 2));
 
-        const response = await axios.put(`${baseUrl}/api/v2/cob/${txid}`, payload, {
+        const response = await axios.post(`${baseUrl}/api/v2/cob`, payload, {
             httpsAgent: agent,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -173,19 +166,26 @@ export async function POST(req: NextRequest) {
 
         console.log("RESPOSTA SICREDI:", JSON.stringify(data, null, 2));
 
+        const pixCopiaCola =
+            data?.pixCopiaECola ||
+            data?.brcode ||
+            data?.pixCopiaCola ||
+            data?.emv ||
+            "";
+
         await atualizarPedido(pedidoId, {
             statusPagamento: "pendente",
-            sicrediTxid: data?.txid || txid,
+            sicrediTxid: data?.txid || "",
             sicrediStatus: data?.status || "ATIVA",
-            sicrediPixCopiaCola: data?.pixCopiaECola || data?.brcode || "",
+            sicrediPixCopiaCola: pixCopiaCola,
             sicrediLocation: data?.location || "",
         });
 
         return NextResponse.json({
             ok: true,
-            txid: data?.txid || txid,
+            txid: data?.txid || "",
             status: data?.status || "",
-            pixCopiaCola: data?.pixCopiaECola || data?.brcode || "",
+            pixCopiaCola,
             location: data?.location || "",
             raw: data,
         });
