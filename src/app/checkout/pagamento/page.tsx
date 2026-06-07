@@ -1,5 +1,6 @@
 "use client";
 
+import { buscarPedidoPorId } from "@/lib/pedidos";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
@@ -33,9 +34,13 @@ export default function PagamentoPage() {
         setQuantidade(qtd);
         setValorTotal(valor);
 
+        if (!id) {
+          setErro("Pedido não informado.");
+          return;
+        }
+
         if (!cpfUrl) {
           setErro("CPF não chegou na tela de pagamento.");
-          setCarregando(false);
           return;
         }
 
@@ -75,6 +80,32 @@ export default function PagamentoPage() {
 
     carregarPix();
   }, []);
+
+  useEffect(() => {
+    if (!pedidoId) return;
+
+    const intervalo = setInterval(async () => {
+      try {
+        const pedido: any = await buscarPedidoPorId(pedidoId);
+
+        if (!pedido) return;
+
+        if (pedido.statusPagamento === "pago") {
+          window.location.href = `/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento confirmado`;
+        }
+
+        if (pedido.statusPagamento === "valor_divergente") {
+          setErro(
+            "Pagamento recebido com valor diferente do pedido. Procure a equipe do parque."
+          );
+        }
+      } catch (error) {
+        console.error("Erro ao verificar status do pedido:", error);
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalo);
+  }, [pedidoId]);
 
   const valorNumero = Number(valorTotal || 0);
 
@@ -236,6 +267,11 @@ export default function PagamentoPage() {
                 currency: "BRL",
               })}
             </p>
+
+            <div className="mb-4 rounded-2xl border border-blue-300 bg-blue-100 p-4 text-sm leading-relaxed text-blue-900">
+              Após o pagamento, esta tela verifica automaticamente e libera o
+              ingresso quando o Sicredi confirmar.
+            </div>
 
             <button
               type="button"
