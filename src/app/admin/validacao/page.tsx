@@ -20,6 +20,24 @@ export default function ValidacaoPage() {
     return String(valor || "").trim();
   }
 
+  function extrairDadosQr(texto: string) {
+    const valor = limparCodigo(texto);
+
+    try {
+      const dados = JSON.parse(valor);
+
+      return {
+        codigo: limparCodigo(dados?.codigo || ""),
+        pedidoId: limparCodigo(dados?.pedidoId || ""),
+      };
+    } catch {
+      return {
+        codigo: valor,
+        pedidoId: "",
+      };
+    }
+  }
+
   function definirMensagem(
     texto: string,
     tipo: "ok" | "erro" | "alerta" = "alerta"
@@ -48,13 +66,15 @@ export default function ValidacaoPage() {
   }
 
   async function buscarIngresso(codigoBusca?: string) {
-    const codigoFinal = limparCodigo(codigoBusca || codigo);
+    const dadosQr = extrairDadosQr(codigoBusca || codigo);
+    const codigoFinal = dadosQr.codigo;
+    const pedidoIdQr = dadosQr.pedidoId;
 
     setMensagem("");
     setPedido(null);
 
-    if (!codigoFinal) {
-      definirMensagem("Digite ou escaneie o código do ingresso.", "alerta");
+    if (!codigoFinal && !pedidoIdQr) {
+      definirMensagem("Digite ou escaneie o QR Code do ingresso.", "alerta");
       return;
     }
 
@@ -63,12 +83,18 @@ export default function ValidacaoPage() {
 
       const pedidos = await listarPedidos();
 
-      const encontrado = pedidos.find(
-        (item) =>
-          limparCodigo(item.codigoIngresso || "") === codigoFinal ||
-          limparCodigo(item.qrCodeIngresso || "") === codigoFinal ||
-          limparCodigo(item.id || "") === codigoFinal
-      );
+      const encontrado = pedidos.find((item) => {
+        const codigoItem = limparCodigo(item.codigoIngresso || "");
+        const qrItem = limparCodigo(item.qrCodeIngresso || "");
+        const idItem = limparCodigo(item.id || "");
+
+        return (
+          codigoItem === codigoFinal ||
+          qrItem === codigoFinal ||
+          idItem === codigoFinal ||
+          idItem === pedidoIdQr
+        );
+      });
 
       if (!encontrado) {
         definirMensagem("INGRESSO NÃO ENCONTRADO.", "erro");
@@ -76,7 +102,7 @@ export default function ValidacaoPage() {
       }
 
       setPedido(encontrado);
-      setCodigo(codigoFinal);
+      setCodigo(codigoFinal || pedidoIdQr);
       avaliarPedido(encontrado);
       await pararCamera();
     } catch (error) {
@@ -183,7 +209,8 @@ export default function ValidacaoPage() {
   const ingressoUtilizado = pedido?.statusOperacional === "utilizado";
   const ingressoBloqueado = pedido?.statusOperacional === "bloqueado";
 
-  const ingressoValido = pedido && ingressoPago && !ingressoUtilizado && !ingressoBloqueado;
+  const ingressoValido =
+    pedido && ingressoPago && !ingressoUtilizado && !ingressoBloqueado;
 
   const statusCardClass = ingressoValido
     ? "border-green-400 bg-green-100 text-green-900"
@@ -262,7 +289,7 @@ export default function ValidacaoPage() {
             <input
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
-              placeholder="Ex: PMN-94120"
+              placeholder="Ex: PMN-90203 ou QR Code completo"
               className="w-full rounded-xl border border-gray-300 px-4 py-4 outline-none focus:border-[#166534]"
             />
 
@@ -304,7 +331,9 @@ export default function ValidacaoPage() {
 
               <p>
                 <strong>Pagamento:</strong>{" "}
-                {pedido.statusPagamento === "pago" ? "Pago" : pedido.statusPagamento}
+                {pedido.statusPagamento === "pago"
+                  ? "Pago"
+                  : pedido.statusPagamento}
               </p>
 
               <p>
