@@ -83,8 +83,20 @@ function cpfValido(cpf: string) {
     return digito2 === Number(numeros[10]);
 }
 
+function normalizarChavePix(chave: string) {
+    const chaveLimpa = String(chave || "").trim();
+
+    if (chaveLimpa.includes("@")) {
+        return chaveLimpa.toLowerCase();
+    }
+
+    return chaveLimpa.replace(/\s/g, "");
+}
+
 export async function POST(req: NextRequest) {
     try {
+        console.log("Persistência ativada");
+
         const body = await req.json();
 
         console.log("BODY RECEBIDO:", JSON.stringify(body, null, 2));
@@ -128,7 +140,7 @@ export async function POST(req: NextRequest) {
         }
 
         const baseUrl = process.env.SICREDI_BASE_URL;
-        const chavePix = process.env.SICREDI_PIX_KEY;
+        const chavePix = normalizarChavePix(process.env.SICREDI_PIX_KEY || "");
 
         if (!baseUrl || !chavePix) {
             throw new Error("Variáveis Sicredi não configuradas.");
