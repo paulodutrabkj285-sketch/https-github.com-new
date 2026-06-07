@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import axios from "axios";
-import { atualizarPedido } from "@/lib/pedidos";
+import { atualizarPedido, buscarPedidoPorId } from "@/lib/pedidos";
 
 export const runtime = "nodejs";
 
@@ -63,15 +63,51 @@ async function obterToken() {
     }
 }
 
+function cpfValido(cpf: string) {
+    const numeros = somenteDigitos(cpf);
+
+    if (numeros.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(numeros)) return false;
+
+    let soma = 0;
+    for (let i = 0; i < 9; i++) soma += Number(numeros[i]) * (10 - i);
+    let digito1 = 11 - (soma % 11);
+    if (digito1 >= 10) digito1 = 0;
+    if (digito1 !== Number(numeros[9])) return false;
+
+    soma = 0;
+    for (let i = 0; i < 10; i++) soma += Number(numeros[i]) * (11 - i);
+    let digito2 = 11 - (soma % 11);
+    if (digito2 >= 10) digito2 = 0;
+
+    return digito2 === Number(numeros[10]);
+}
+
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
 
         const { pedidoId, nome, email, cpf, produto, valorTotal, quantidade } = body;
 
-        if (!pedidoId || !nome || !email || !produto || !valorTotal) {
+        if (!pedidoId || !produto || !valorTotal) {
             return NextResponse.json(
                 { ok: false, error: "Dados obrigatórios não enviados." },
+                { status: 400 }
+            );
+        }
+
+        const pedidoSalvo: any = await buscarPedidoPorId(pedidoId).catch(() => null);
+
+        const nomeFinal = nome || pedidoSalvo?.nome || "Cliente";
+        const cpfFinal = somenteDigitos(cpf || pedidoSalvo?.cpf || "");
+
+        if (!cpfValido(cpfFinal)) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "CPF inválido ou não encontrado no pedido.",
+                    cpfRecebido: cpfFinal,
+                },
                 { status: 400 }
             );
         }
@@ -94,6 +130,10 @@ export async function POST(req: NextRequest) {
             calendario: {
                 expiracao: 3600,
             },
+            devedor: {
+                cpf: cpfFinal,
+                nome: nomeFinal,
+            },
             valor: {
                 original: Number(valorTotal).toFixed(2),
             },
@@ -106,7 +146,7 @@ export async function POST(req: NextRequest) {
                 },
                 {
                     nome: "Cliente",
-                    valor: nome,
+                    valor: nomeFinal,
                 },
                 {
                     nome: "Quantidade",
