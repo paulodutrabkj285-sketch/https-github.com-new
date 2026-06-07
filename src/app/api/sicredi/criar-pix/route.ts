@@ -61,19 +61,30 @@ function cpfValido(cpf: string) {
     if (/^(\d)\1{10}$/.test(numeros)) return false;
 
     let soma = 0;
-    for (let i = 0; i < 9; i++) soma += Number(numeros[i]) * (10 - i);
+
+    for (let i = 0; i < 9; i++) {
+        soma += Number(numeros[i]) * (10 - i);
+    }
 
     let digito1 = 11 - (soma % 11);
     if (digito1 >= 10) digito1 = 0;
+
     if (digito1 !== Number(numeros[9])) return false;
 
     soma = 0;
-    for (let i = 0; i < 10; i++) soma += Number(numeros[i]) * (11 - i);
+
+    for (let i = 0; i < 10; i++) {
+        soma += Number(numeros[i]) * (11 - i);
+    }
 
     let digito2 = 11 - (soma % 11);
     if (digito2 >= 10) digito2 = 0;
 
     return digito2 === Number(numeros[10]);
+}
+
+function criarTxid() {
+    return `PMN${Date.now()}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -86,7 +97,10 @@ export async function POST(req: NextRequest) {
 
         if (!pedidoId || !produto || !valorTotal) {
             return NextResponse.json(
-                { ok: false, error: "Dados obrigatórios não enviados." },
+                {
+                    ok: false,
+                    error: "Dados obrigatórios não enviados.",
+                },
                 { status: 400 }
             );
         }
@@ -127,9 +141,7 @@ export async function POST(req: NextRequest) {
         const token = await obterToken();
         const agent = criarHttpsAgent();
 
-        const txid = String(pedidoId)
-            .replace(/[^a-zA-Z0-9]/g, "")
-            .slice(0, 35);
+        const txid = criarTxid();
 
         const payload = {
             calendario: {
