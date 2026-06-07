@@ -7,6 +7,8 @@ import {
   orderBy,
   query,
   updateDoc,
+  where,
+  limit,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -38,6 +40,11 @@ export type Pedido = PedidoInput & {
   id: string;
   createdAt?: string;
   updatedAt?: string;
+  sicrediTxid?: string;
+  sicrediStatus?: string;
+  sicrediPixCopiaCola?: string;
+  sicrediLocation?: string;
+  valorPago?: number;
 };
 
 function gerarCodigoIngresso() {
@@ -80,6 +87,27 @@ export async function buscarPedidoPorId(pedidoId: string) {
   return {
     id: snap.id,
     ...snap.data(),
+  } as Pedido;
+}
+
+export async function buscarPedidoPorTxid(txid: string) {
+  const q = query(
+    collection(db, "pedidos"),
+    where("sicrediTxid", "==", txid),
+    limit(1)
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) {
+    return null;
+  }
+
+  const docItem = snap.docs[0];
+
+  return {
+    id: docItem.id,
+    ...docItem.data(),
   } as Pedido;
 }
 
