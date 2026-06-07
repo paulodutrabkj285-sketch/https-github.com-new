@@ -134,6 +134,10 @@ export async function POST(req: NextRequest) {
             throw new Error("Variáveis Sicredi não configuradas.");
         }
 
+        console.log("BASE URL SICREDI:", baseUrl);
+        console.log("CHAVE PIX USADA:", chavePix);
+        console.log("CHAVE PIX TAMANHO:", chavePix.length);
+
         const token = await obterToken();
         const agent = criarHttpsAgent();
 
