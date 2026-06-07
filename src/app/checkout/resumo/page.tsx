@@ -10,6 +10,7 @@ export default function ResumoPage() {
   const [quantidade, setQuantidade] = useState("1");
   const [valorTotal, setValorTotal] = useState("0");
   const [nome, setNome] = useState("");
+  const [cpf, setCpf] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [dataVisita, setDataVisita] = useState("");
@@ -27,6 +28,7 @@ export default function ResumoPage() {
     setQuantidade(params.get("quantidade") || "1");
     setValorTotal(params.get("valorTotal") || params.get("valor") || "0");
     setNome(params.get("nome") || "");
+    setCpf((params.get("cpf") || "").replace(/\D/g, ""));
     setEmail(params.get("email") || "");
     setTelefone(params.get("telefone") || "");
     setDataVisita(params.get("dataVisita") || "");
@@ -42,6 +44,10 @@ export default function ResumoPage() {
     tipo,
     quantidade,
     valorTotal,
+    nome,
+    cpf,
+    email,
+    telefone,
   }).toString();
 
   const valorFormatado = Number(valorTotal || 0).toLocaleString("pt-BR", {
@@ -95,6 +101,7 @@ export default function ResumoPage() {
               <Info label="Quantidade" value={quantidade} />
               {dataPrincipal && <Info label="Data" value={dataPrincipal} />}
               {nome && <Info label="Nome" value={nome} />}
+              {cpf && <Info label="CPF" value={cpf} />}
               {telefone && <Info label="Telefone" value={telefone} />}
               {email && <Info label="E-mail" value={email} />}
               {tipoCamping && <Info label="Tipo camping" value={tipoCamping} />}

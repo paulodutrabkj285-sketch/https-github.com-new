@@ -24,12 +24,19 @@ export default function PagamentoPage() {
         const tp = params.get("tipo") || "";
         const qtd = params.get("quantidade") || "1";
         const valor = params.get("valorTotal") || params.get("valor") || "0";
+        const cpfUrl = params.get("cpf") || "";
 
         setPedidoId(id);
         setProduto(prod);
         setTipo(tp);
         setQuantidade(qtd);
         setValorTotal(valor);
+
+        if (!cpfUrl) {
+          setErro("CPF não chegou na tela de pagamento.");
+          setCarregando(false);
+          return;
+        }
 
         const resposta = await fetch("/api/sicredi/criar-pix", {
           method: "POST",
@@ -40,7 +47,7 @@ export default function PagamentoPage() {
             pedidoId: id,
             nome: params.get("nome") || "Cliente Parque Mundo Novo",
             email: params.get("email") || "cliente@email.com",
-            cpf: params.get("cpf") || "00000000000",
+            cpf: cpfUrl,
             produto: prod || tp || "Ingresso",
             valorTotal: valor,
             quantidade: qtd,
@@ -51,7 +58,11 @@ export default function PagamentoPage() {
 
         if (!resposta.ok || !data.ok) {
           console.error("Erro Sicredi:", data);
-          setErro("Não foi possível gerar o Pix pelo Sicredi.");
+          setErro(
+            data?.error ||
+            data?.details?.detail ||
+            "Não foi possível gerar o Pix pelo Sicredi."
+          );
           return;
         }
 

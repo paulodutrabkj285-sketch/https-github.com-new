@@ -5,8 +5,8 @@ import { atualizarPedido, buscarPedidoPorId } from "@/lib/pedidos";
 
 export const runtime = "nodejs";
 
-function somenteDigitos(valor: string) {
-    return (valor || "").replace(/\D/g, "");
+function somenteDigitos(valor: any) {
+    return String(valor || "").replace(/\D/g, "");
 }
 
 function criarHttpsAgent() {
@@ -35,32 +35,23 @@ async function obterToken() {
 
     const agent = criarHttpsAgent();
 
-    try {
-        const response = await axios.post(
-            `${baseUrl}/oauth/token`,
-            new URLSearchParams({
-                grant_type: "client_credentials",
-            }).toString(),
-            {
-                httpsAgent: agent,
-                headers: {
-                    Authorization:
-                        "Basic " +
-                        Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-            }
-        );
+    const response = await axios.post(
+        `${baseUrl}/oauth/token`,
+        new URLSearchParams({
+            grant_type: "client_credentials",
+        }).toString(),
+        {
+            httpsAgent: agent,
+            headers: {
+                Authorization:
+                    "Basic " +
+                    Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+        }
+    );
 
-        return response.data.access_token as string;
-    } catch (error: any) {
-        console.error(
-            "Erro ao obter token Sicredi:",
-            JSON.stringify(error?.response?.data || error?.message, null, 2)
-        );
-
-        throw new Error("Erro ao obter token Sicredi.");
-    }
+    return response.data.access_token as string;
 }
 
 function cpfValido(cpf: string) {
@@ -71,12 +62,14 @@ function cpfValido(cpf: string) {
 
     let soma = 0;
     for (let i = 0; i < 9; i++) soma += Number(numeros[i]) * (10 - i);
+
     let digito1 = 11 - (soma % 11);
     if (digito1 >= 10) digito1 = 0;
     if (digito1 !== Number(numeros[9])) return false;
 
     soma = 0;
     for (let i = 0; i < 10; i++) soma += Number(numeros[i]) * (11 - i);
+
     let digito2 = 11 - (soma % 11);
     if (digito2 >= 10) digito2 = 0;
 
@@ -87,7 +80,9 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
 
-        const { pedidoId, nome, email, cpf, produto, valorTotal, quantidade } = body;
+        console.log("BODY RECEBIDO:", JSON.stringify(body, null, 2));
+
+        const { pedidoId, nome, cpf, produto, valorTotal, quantidade } = body;
 
         if (!pedidoId || !produto || !valorTotal) {
             return NextResponse.json(
@@ -98,15 +93,25 @@ export async function POST(req: NextRequest) {
 
         const pedidoSalvo: any = await buscarPedidoPorId(pedidoId).catch(() => null);
 
-        const nomeFinal = nome || pedidoSalvo?.nome || "Cliente";
+        const nomeFinal = String(nome || pedidoSalvo?.nome || "Cliente").trim();
         const cpfFinal = somenteDigitos(cpf || pedidoSalvo?.cpf || "");
+        const valorFinal = Number(valorTotal || pedidoSalvo?.valorTotal || 0).toFixed(2);
+
+        console.log("CPF BODY:", cpf);
+        console.log("CPF PEDIDO:", pedidoSalvo?.cpf);
+        console.log("CPF FINAL:", cpfFinal);
+        console.log("CPF TAMANHO:", cpfFinal.length);
+        console.log("CPF VALIDO:", cpfValido(cpfFinal));
 
         if (!cpfValido(cpfFinal)) {
             return NextResponse.json(
                 {
                     ok: false,
                     error: "CPF inválido ou não encontrado no pedido.",
-                    cpfRecebido: cpfFinal,
+                    cpfRecebido: cpf,
+                    cpfPedido: pedidoSalvo?.cpf || null,
+                    cpfFinal,
+                    tamanho: cpfFinal.length,
                 },
                 { status: 400 }
             );
@@ -122,9 +127,9 @@ export async function POST(req: NextRequest) {
         const token = await obterToken();
         const agent = criarHttpsAgent();
 
-        const txid =
-            somenteDigitos(pedidoId).slice(0, 35) ||
-            pedidoId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 35);
+        const txid = String(pedidoId)
+            .replace(/[^a-zA-Z0-9]/g, "")
+            .slice(0, 35);
 
         const payload = {
             calendario: {
@@ -135,74 +140,56 @@ export async function POST(req: NextRequest) {
                 nome: nomeFinal,
             },
             valor: {
-                original: Number(valorTotal).toFixed(2),
+                original: valorFinal,
             },
             chave: chavePix,
             solicitacaoPagador: `Ingresso ${produto}`,
-            infoAdicionais: [
-                {
-                    nome: "Pedido",
-                    valor: pedidoId,
-                },
-                {
-                    nome: "Cliente",
-                    valor: nomeFinal,
-                },
-                {
-                    nome: "Quantidade",
-                    valor: String(quantidade || 1),
-                },
-            ],
         };
 
-        try {
-            const response = await axios.put(`${baseUrl}/api/v2/cob/${txid}`, payload, {
-                httpsAgent: agent,
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-            });
+        console.log("TXID:", txid);
+        console.log("PAYLOAD SICREDI:", JSON.stringify(payload, null, 2));
 
-            const data = response.data;
+        const response = await axios.put(`${baseUrl}/api/v2/cob/${txid}`, payload, {
+            httpsAgent: agent,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
 
-            await atualizarPedido(pedidoId, {
-                statusPagamento: "pendente",
-                sicrediTxid: data?.txid || txid,
-                sicrediStatus: data?.status || "ATIVA",
-                sicrediPixCopiaCola: data?.pixCopiaECola || "",
-                sicrediLocation: data?.location || "",
-            });
+        const data = response.data;
 
-            return NextResponse.json({
-                ok: true,
-                txid: data?.txid || txid,
-                status: data?.status || "",
-                pixCopiaCola: data?.pixCopiaECola || "",
-                location: data?.location || "",
-                raw: data,
-            });
-        } catch (error: any) {
-            console.error(
-                "Erro Sicredi criar Pix:",
-                JSON.stringify(error?.response?.data || error?.message, null, 2)
-            );
+        console.log("RESPOSTA SICREDI:", JSON.stringify(data, null, 2));
 
-            return NextResponse.json(
-                {
-                    ok: false,
-                    error: "Erro ao criar Pix Sicredi.",
-                    details: error?.response?.data || error?.message,
-                },
-                { status: error?.response?.status || 500 }
-            );
-        }
-    } catch (error) {
-        console.error("Erro ao criar Pix Sicredi:", error);
+        await atualizarPedido(pedidoId, {
+            statusPagamento: "pendente",
+            sicrediTxid: data?.txid || txid,
+            sicrediStatus: data?.status || "ATIVA",
+            sicrediPixCopiaCola: data?.pixCopiaECola || data?.brcode || "",
+            sicrediLocation: data?.location || "",
+        });
+
+        return NextResponse.json({
+            ok: true,
+            txid: data?.txid || txid,
+            status: data?.status || "",
+            pixCopiaCola: data?.pixCopiaECola || data?.brcode || "",
+            location: data?.location || "",
+            raw: data,
+        });
+    } catch (error: any) {
+        console.error(
+            "ERRO SICREDI FINAL:",
+            JSON.stringify(error?.response?.data || error?.message, null, 2)
+        );
 
         return NextResponse.json(
-            { ok: false, error: "Erro ao processar Pix Sicredi." },
-            { status: 500 }
+            {
+                ok: false,
+                error: "Erro ao criar Pix Sicredi.",
+                details: error?.response?.data || error?.message,
+            },
+            { status: error?.response?.status || 500 }
         );
     }
 }

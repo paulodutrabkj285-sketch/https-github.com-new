@@ -21,9 +21,20 @@ export default function ElevadorPage() {
     return quantidade * valorUnitario;
   }, [quantidade]);
 
+  function limparCpf(valor: string) {
+    return valor.replace(/\D/g, "");
+  }
+
   async function continuarParaResumo() {
-    if (!nome || !cpf || !telefone || !email || !dataVisita) {
+    const cpfLimpo = limparCpf(cpf);
+
+    if (!nome || !cpfLimpo || !telefone || !email || !dataVisita) {
       alert("Preencha todos os campos antes de continuar.");
+      return;
+    }
+
+    if (cpfLimpo.length !== 11) {
+      alert("CPF inválido. Digite os 11 números do CPF.");
       return;
     }
 
@@ -34,7 +45,7 @@ export default function ElevadorPage() {
         produto: "Elevador Panorâmico",
         tipo: "elevador",
         nome,
-        cpf,
+        cpf: cpfLimpo,
         telefone,
         email,
         dataVisita,
@@ -59,7 +70,7 @@ export default function ElevadorPage() {
         produto: "Elevador Panorâmico",
         tipo: "elevador",
         nome,
-        cpf,
+        cpf: cpfLimpo,
         telefone,
         email,
         dataVisita,
@@ -71,7 +82,6 @@ export default function ElevadorPage() {
       router.push(`/checkout/resumo?${params.toString()}`);
     } catch (error) {
       console.error("Erro ao salvar pedido:", error);
-
       alert("Não foi possível salvar o pedido.");
     } finally {
       setSalvando(false);

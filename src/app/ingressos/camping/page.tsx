@@ -29,9 +29,20 @@ export default function CampingPage() {
     return valorPorPessoa * quantidadePessoas;
   }, [valorPorPessoa, quantidadePessoas]);
 
+  function limparCpf(valor: string) {
+    return valor.replace(/\D/g, "");
+  }
+
   async function continuarParaResumo() {
-    if (!nome || !cpf || !telefone || !email || !dataEntrada) {
+    const cpfLimpo = limparCpf(cpf);
+
+    if (!nome || !cpfLimpo || !telefone || !email || !dataEntrada) {
       alert("Preencha todos os campos antes de continuar.");
+      return;
+    }
+
+    if (cpfLimpo.length !== 11) {
+      alert("CPF inválido. Digite os 11 números do CPF.");
       return;
     }
 
@@ -42,7 +53,7 @@ export default function CampingPage() {
         produto: "Camping",
         tipo: "camping",
         nome,
-        cpf,
+        cpf: cpfLimpo,
         telefone,
         email,
         dataEntrada,
@@ -69,7 +80,7 @@ export default function CampingPage() {
         produto: "Camping",
         tipo: "camping",
         nome,
-        cpf,
+        cpf: cpfLimpo,
         telefone,
         email,
         dataEntrada,

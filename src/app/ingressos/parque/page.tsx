@@ -18,9 +18,20 @@ export default function ParquePage() {
   const valorUnitario = 60;
   const valorTotal = useMemo(() => quantidade * valorUnitario, [quantidade]);
 
+  function limparCpf(valor: string) {
+    return valor.replace(/\D/g, "");
+  }
+
   async function continuarParaResumo() {
-    if (!nome || !cpf || !telefone || !email || !dataVisita) {
+    const cpfLimpo = limparCpf(cpf);
+
+    if (!nome || !cpfLimpo || !telefone || !email || !dataVisita) {
       alert("Preencha todos os campos antes de continuar.");
+      return;
+    }
+
+    if (cpfLimpo.length !== 11) {
+      alert("CPF inválido. Digite os 11 números do CPF.");
       return;
     }
 
@@ -31,7 +42,7 @@ export default function ParquePage() {
         produto: "Ingresso Parque",
         tipo: "ingresso",
         nome,
-        cpf,
+        cpf: cpfLimpo,
         telefone,
         email,
         dataVisita,
@@ -53,7 +64,7 @@ export default function ParquePage() {
         produto: "Ingresso Parque",
         tipo: "ingresso",
         nome,
-        cpf,
+        cpf: cpfLimpo,
         telefone,
         email,
         dataVisita,
