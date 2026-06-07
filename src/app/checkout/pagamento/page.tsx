@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 
@@ -12,7 +11,9 @@ export default function PagamentoPage() {
   const [valorTotal, setValorTotal] = useState("0");
   const [pixCopiaCola, setPixCopiaCola] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [verificando, setVerificando] = useState(false);
   const [erro, setErro] = useState("");
+  const [mensagem, setMensagem] = useState("");
 
   useEffect(() => {
     async function carregarPix() {
@@ -40,9 +41,7 @@ export default function PagamentoPage() {
 
         const resposta = await fetch("/api/sicredi/criar-pix", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             pedidoId: id,
             nome: params.get("nome") || "Cliente Parque Mundo Novo",
@@ -57,7 +56,6 @@ export default function PagamentoPage() {
         const data = await resposta.json();
 
         if (!resposta.ok || !data.ok) {
-          console.error("Erro Sicredi:", data);
           setErro(
             data?.error ||
             data?.details?.detail ||
@@ -84,6 +82,41 @@ export default function PagamentoPage() {
     if (!pixCopiaCola) return;
     await navigator.clipboard.writeText(pixCopiaCola);
     alert("PIX copia e cola copiado!");
+  }
+
+  async function verificarPagamento() {
+    try {
+      setVerificando(true);
+      setErro("");
+      setMensagem("Consultando pagamento no Sicredi...");
+
+      const resposta = await fetch("/api/sicredi/verificar-pagamento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId }),
+      });
+
+      const data = await resposta.json();
+
+      if (!resposta.ok || !data.ok) {
+        setMensagem("");
+        setErro(data?.mensagem || data?.error || "Pagamento ainda não confirmado.");
+        return;
+      }
+
+      if (data.pago) {
+        window.location.href = `/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento confirmado`;
+        return;
+      }
+
+      setMensagem(data?.mensagem || "Pagamento ainda não confirmado pelo Sicredi.");
+    } catch (error) {
+      console.error("Erro ao verificar pagamento:", error);
+      setMensagem("");
+      setErro("Erro ao consultar pagamento.");
+    } finally {
+      setVerificando(false);
+    }
   }
 
   return (
@@ -204,15 +237,24 @@ export default function PagamentoPage() {
               })}
             </p>
 
-            <Link
-              href={`/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento pendente de confirmação`}
-              className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500"
+            <button
+              type="button"
+              onClick={verificarPagamento}
+              disabled={verificando}
+              className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Já fiz o PIX
-            </Link>
+              {verificando ? "Verificando pagamento..." : "Já fiz o PIX"}
+            </button>
+
+            {mensagem && (
+              <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
+                {mensagem}
+              </div>
+            )}
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              Após clicar, o pedido ficará pendente até confirmação do pagamento.
+              O ingresso só será liberado se o Sicredi confirmar o pagamento e o
+              valor pago for igual ao valor do pedido.
             </p>
           </aside>
         </section>
