@@ -40,6 +40,7 @@ export type Pedido = PedidoInput & {
   id: string;
   createdAt?: string;
   updatedAt?: string;
+  expiracaoPix?: string;
   sicrediTxid?: string;
   sicrediStatus?: string;
   sicrediPixCopiaCola?: string;
@@ -52,12 +53,19 @@ function gerarCodigoIngresso() {
   return `PMN-${numero}`;
 }
 
+function gerarExpiracaoPix() {
+  const agora = new Date();
+  agora.setHours(agora.getHours() + 1);
+  return agora.toISOString();
+}
+
 export async function criarPedido(dados: PedidoInput) {
   const codigoIngresso = dados.codigoIngresso || gerarCodigoIngresso();
 
   const ref = await addDoc(collection(db, "pedidos"), {
     ...dados,
     codigoIngresso,
+    expiracaoPix: gerarExpiracaoPix(),
     createdAt: new Date().toISOString(),
   });
 

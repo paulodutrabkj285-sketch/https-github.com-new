@@ -16,6 +16,9 @@ export default function PagamentoPage() {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
 
+  const mensagemPixExpirado =
+    "PIX expirado. Gere um novo pedido para realizar o pagamento.";
+
   useEffect(() => {
     async function carregarPix() {
       try {
@@ -42,6 +45,27 @@ export default function PagamentoPage() {
         if (!cpfUrl) {
           setErro("CPF não chegou na tela de pagamento.");
           return;
+        }
+
+        const pedido: any = await buscarPedidoPorId(id);
+
+        if (pedido?.statusPagamento === "pago") {
+          window.location.href = `/checkout/sucesso?pedidoId=${id}&status=Pagamento confirmado`;
+          return;
+        }
+
+        if (pedido?.statusPagamento === "expirado") {
+          setErro(mensagemPixExpirado);
+          return;
+        }
+
+        if (pedido?.expiracaoPix) {
+          const expiracao = new Date(pedido.expiracaoPix).getTime();
+
+          if (Date.now() > expiracao && pedido.statusPagamento !== "pago") {
+            setErro(mensagemPixExpirado);
+            return;
+          }
         }
 
         const resposta = await fetch("/api/sicredi/criar-pix", {
@@ -92,12 +116,28 @@ export default function PagamentoPage() {
 
         if (pedido.statusPagamento === "pago") {
           window.location.href = `/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento confirmado`;
+          return;
         }
 
         if (pedido.statusPagamento === "valor_divergente") {
           setErro(
             "Pagamento recebido com valor diferente do pedido. Procure a equipe do parque."
           );
+          return;
+        }
+
+        if (pedido.statusPagamento === "expirado") {
+          setErro(mensagemPixExpirado);
+          return;
+        }
+
+        if (pedido.expiracaoPix) {
+          const expiracao = new Date(pedido.expiracaoPix).getTime();
+
+          if (Date.now() > expiracao && pedido.statusPagamento !== "pago") {
+            setErro(mensagemPixExpirado);
+            return;
+          }
         }
       } catch (error) {
         console.error("Erro ao verificar status do pedido:", error);
@@ -108,14 +148,17 @@ export default function PagamentoPage() {
   }, [pedidoId]);
 
   const valorNumero = Number(valorTotal || 0);
+  const pixExpirado = erro === mensagemPixExpirado;
 
   async function copiarPix() {
-    if (!pixCopiaCola) return;
+    if (!pixCopiaCola || pixExpirado) return;
     await navigator.clipboard.writeText(pixCopiaCola);
     alert("PIX copia e cola copiado!");
   }
 
   async function verificarPagamento() {
+    if (pixExpirado) return;
+
     try {
       setVerificando(true);
       setErro("");
@@ -189,6 +232,13 @@ export default function PagamentoPage() {
             {carregando ? (
               <div className="rounded-2xl bg-gray-100 p-6 text-center font-bold text-gray-600">
                 Gerando Pix pelo Sicredi...
+              </div>
+            ) : pixExpirado ? (
+              <div className="rounded-2xl border border-red-300 bg-red-100 p-5 text-red-800">
+                <h3 className="text-2xl font-bold">PIX expirado</h3>
+                <p className="mt-2">
+                  Gere um novo pedido para realizar o pagamento.
+                </p>
               </div>
             ) : erro ? (
               <div className="rounded-2xl border border-red-300 bg-red-100 p-5 text-red-800">
@@ -268,21 +318,32 @@ export default function PagamentoPage() {
               })}
             </p>
 
-            <div className="mb-4 rounded-2xl border border-blue-300 bg-blue-100 p-4 text-sm leading-relaxed text-blue-900">
-              Após o pagamento, esta tela verifica automaticamente e libera o
-              ingresso quando o Sicredi confirmar.
-            </div>
+            {pixExpirado ? (
+              <div className="mb-4 rounded-2xl border border-red-300 bg-red-100 p-4 text-sm leading-relaxed text-red-900">
+                Este Pix expirou. Volte para a página de ingressos e crie um
+                novo pedido.
+              </div>
+            ) : (
+              <div className="mb-4 rounded-2xl border border-blue-300 bg-blue-100 p-4 text-sm leading-relaxed text-blue-900">
+                Após o pagamento, esta tela verifica automaticamente e libera o
+                ingresso quando o Sicredi confirmar.
+              </div>
+            )}
 
             <button
               type="button"
               onClick={verificarPagamento}
-              disabled={verificando}
+              disabled={verificando || pixExpirado}
               className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {verificando ? "Verificando pagamento..." : "Já fiz o PIX"}
+              {pixExpirado
+                ? "PIX expirado"
+                : verificando
+                  ? "Verificando pagamento..."
+                  : "Já fiz o PIX"}
             </button>
 
-            {mensagem && (
+            {mensagem && !pixExpirado && (
               <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
                 {mensagem}
               </div>
