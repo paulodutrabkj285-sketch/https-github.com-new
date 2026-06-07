@@ -30,7 +30,7 @@ async function lerResposta(resposta: Response) {
         return JSON.parse(texto);
     } catch {
         return {
-            erroTexto: texto.slice(0, 500),
+            texto,
             status: resposta.status,
         };
     }
@@ -51,14 +51,16 @@ async function obterToken() {
         method: "POST",
         headers: {
             Authorization:
-                "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
+                "Basic " +
+                Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
             "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
             grant_type: "client_credentials",
-            scope: "cob.write cob.read pix.write pix.read webhook.write webhook.read",
+            scope:
+                "cob.write cob.read pix.write pix.read webhook.write webhook.read",
         }).toString(),
-        // @ts-expect-error agent é aceito no runtime Node
+        // @ts-ignore
         agent,
         cache: "no-store",
     });
@@ -66,43 +68,60 @@ async function obterToken() {
     const data = await lerResposta(resposta);
 
     if (!resposta.ok) {
-        console.error("Erro ao obter token Sicredi:", data);
+        console.error(
+            "Erro ao obter token Sicredi:",
+            JSON.stringify(data, null, 2)
+        );
+
         throw new Error("Erro ao obter token Sicredi.");
     }
 
-    return data.access_token as string;
+    return data.access_token;
 }
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
 
-        const { pedidoId, nome, email, cpf, produto, valorTotal, quantidade } = body;
+        const {
+            pedidoId,
+            nome,
+            email,
+            cpf,
+            produto,
+            valorTotal,
+            quantidade,
+        } = body;
 
         if (!pedidoId || !nome || !email || !cpf || !produto || !valorTotal) {
             return NextResponse.json(
-                { ok: false, error: "Dados obrigatórios não enviados." },
+                {
+                    ok: false,
+                    error: "Dados obrigatórios não enviados.",
+                },
                 { status: 400 }
             );
         }
+
+        const token = await obterToken();
 
         const baseUrl = process.env.SICREDI_BASE_URL;
         const chavePix = process.env.SICREDI_PIX_KEY;
 
         if (!baseUrl || !chavePix) {
-            return NextResponse.json(
-                { ok: false, error: "Variáveis Sicredi não configuradas." },
-                { status: 500 }
-            );
+            throw new Error("Variáveis Sicredi não configuradas.");
         }
 
-        const token = await obterToken();
         const agent = criarHttpsAgent();
 
-        const txid = somenteDigitos(pedidoId).slice(0, 35) || pedidoId.slice(0, 35);
+        const txid =
+            somenteDigitos(pedidoId).slice(0, 35) ||
+            pedidoId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 35);
 
         const payload = {
-            calendario: { expiracao: 3600 },
+            calendario: {
+                expiracao: 3600,
+            },
             devedor: {
                 cpf: somenteDigitos(cpf),
                 nome,
@@ -113,51 +132,57 @@ export async function POST(req: NextRequest) {
             chave: chavePix,
             solicitacaoPagador: `Ingresso ${produto}`,
             infoAdicionais: [
-                { nome: "Pedido", valor: pedidoId },
-                { nome: "Produto", valor: produto },
-                { nome: "Quantidade", valor: String(quantidade || 1) },
+                {
+                    nome: "Pedido",
+                    valor: pedidoId,
+                },
             ],
         };
 
-        const resposta = await fetch(`${baseUrl}/api/v2/cob/${txid}`, {
-            method: "PUT",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-            // @ts-expect-error agent é aceito no runtime Node
-            agent,
-            cache: "no-store",
-        });
+        const resposta = await fetch(
+            `${baseUrl}/api/v2/cob/${txid}`,
+            {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+                // @ts-ignore
+                agent,
+                cache: "no-store",
+            }
+        );
 
         const data = await lerResposta(resposta);
 
         if (!resposta.ok) {
-            console.error("Erro Sicredi criar Pix:", data);
+            console.error(
+                "Erro Sicredi criar Pix:",
+                JSON.stringify(data, null, 2)
+            );
 
             return NextResponse.json(
-                { ok: false, error: "Erro ao criar Pix no Sicredi.", details: data },
+                {
+                    ok: false,
+                    error: "Erro ao criar Pix Sicredi.",
+                    details: data,
+                },
                 { status: resposta.status }
             );
         }
 
         await atualizarPedido(pedidoId, {
-            pagbankCheckoutId: "",
-            pagbankReferenceId: "",
-            pagbankPayUrl: "",
-            pagbankStatus: "",
             statusPagamento: "pendente",
             sicrediTxid: data?.txid || txid,
             sicrediStatus: data?.status || "ATIVA",
             sicrediPixCopiaCola: data?.pixCopiaECola || "",
             sicrediLocation: data?.location || "",
-            sicrediQrCode: data?.loc?.location || "",
         });
 
         return NextResponse.json({
             ok: true,
-            txid: data?.txid || txid,
+            txid: data?.txid || "",
             status: data?.status || "",
             pixCopiaCola: data?.pixCopiaECola || "",
             location: data?.location || "",
@@ -167,7 +192,10 @@ export async function POST(req: NextRequest) {
         console.error("Erro ao criar Pix Sicredi:", error);
 
         return NextResponse.json(
-            { ok: false, error: "Erro ao processar Pix Sicredi." },
+            {
+                ok: false,
+                error: "Erro ao processar Pix Sicredi.",
+            },
             { status: 500 }
         );
     }
