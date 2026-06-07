@@ -40,7 +40,6 @@ async function obterToken() {
             `${baseUrl}/oauth/token`,
             new URLSearchParams({
                 grant_type: "client_credentials",
-                scope: "cob.write cob.read pix.write pix.read webhook.write webhook.read",
             }).toString(),
             {
                 httpsAgent: agent,
@@ -70,7 +69,7 @@ export async function POST(req: NextRequest) {
 
         const { pedidoId, nome, email, cpf, produto, valorTotal, quantidade } = body;
 
-        if (!pedidoId || !nome || !email || !cpf || !produto || !valorTotal) {
+        if (!pedidoId || !nome || !email || !produto || !valorTotal) {
             return NextResponse.json(
                 { ok: false, error: "Dados obrigatórios não enviados." },
                 { status: 400 }
@@ -95,10 +94,6 @@ export async function POST(req: NextRequest) {
             calendario: {
                 expiracao: 3600,
             },
-            devedor: {
-                cpf: somenteDigitos(cpf),
-                nome,
-            },
             valor: {
                 original: Number(valorTotal).toFixed(2),
             },
@@ -108,6 +103,10 @@ export async function POST(req: NextRequest) {
                 {
                     nome: "Pedido",
                     valor: pedidoId,
+                },
+                {
+                    nome: "Cliente",
+                    valor: nome,
                 },
                 {
                     nome: "Quantidade",
