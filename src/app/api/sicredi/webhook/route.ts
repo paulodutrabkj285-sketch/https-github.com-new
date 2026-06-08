@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { atualizarPedido, buscarPedidoPorTxid } from "@/lib/pedidos";
+import { enviarIngressoPorEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
                 continue;
             }
 
-            const pedido = await buscarPedidoPorTxid(txid);
+            const pedido: any = await buscarPedidoPorTxid(txid);
 
             if (!pedido) {
                 console.log("PEDIDO NÃO ENCONTRADO PARA TXID:", txid);
@@ -79,6 +80,40 @@ export async function POST(req: NextRequest) {
                 txid,
                 valorPago,
             });
+
+            if (!pedido.emailIngressoEnviado && pedido.email) {
+                try {
+                    await enviarIngressoPorEmail({
+                        para: pedido.email,
+                        nome: pedido.nome || "Cliente",
+                        produto: pedido.produto || "Ingresso Parque Mundo Novo",
+                        quantidade: Number(pedido.quantidade || 1),
+                        codigoIngresso,
+                        pedidoId: pedido.id,
+                        dataVisita: pedido.dataVisita || pedido.dataEntrada || "",
+                    });
+
+                    await atualizarPedido(pedido.id, {
+                        emailIngressoEnviado: true,
+                        emailIngressoEnviadoEm: new Date().toISOString(),
+                    });
+
+                    console.log("EMAIL DO INGRESSO ENVIADO:", {
+                        pedidoId: pedido.id,
+                        email: pedido.email,
+                    });
+                } catch (emailError: any) {
+                    console.error(
+                        "ERRO AO ENVIAR EMAIL DO INGRESSO:",
+                        emailError?.message || emailError
+                    );
+
+                    await atualizarPedido(pedido.id, {
+                        emailIngressoErro: String(emailError?.message || emailError),
+                        emailIngressoErroEm: new Date().toISOString(),
+                    });
+                }
+            }
         }
 
         return NextResponse.json({
