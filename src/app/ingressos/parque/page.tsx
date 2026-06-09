@@ -15,7 +15,7 @@ export default function ParquePage() {
   const [quantidade, setQuantidade] = useState(1);
   const [salvando, setSalvando] = useState(false);
 
-  const valorUnitario = 60;
+  const valorUnitario = 1;
   const valorTotal = useMemo(() => quantidade * valorUnitario, [quantidade]);
 
   function limparCpf(valor: string) {
