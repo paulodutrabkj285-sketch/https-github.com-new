@@ -18,6 +18,16 @@ export default function ParquePage() {
   const valorUnitario = 1;
   const valorTotal = useMemo(() => quantidade * valorUnitario, [quantidade]);
 
+  const valorUnitarioFormatado = valorUnitario.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+  const valorTotalFormatado = valorTotal.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
   function limparCpf(valor: string) {
     return valor.replace(/\D/g, "");
   }
@@ -85,9 +95,7 @@ export default function ParquePage() {
   return (
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
-      style={{
-        backgroundImage: "url('/fotos/fundo-geral.jpg')",
-      }}
+      style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
     >
       <div className="absolute inset-0 bg-black/45" />
 
@@ -211,7 +219,7 @@ export default function ParquePage() {
               </p>
 
               <p>
-                <strong>Valor unitário:</strong> R$ 60,00
+                <strong>Valor unitário:</strong> {valorUnitarioFormatado}
               </p>
 
               <p>
@@ -227,7 +235,7 @@ export default function ParquePage() {
             <hr className="my-6 border-gray-300" />
 
             <p className="mb-6 text-4xl font-bold text-[#166534]">
-              R$ {valorTotal},00
+              {valorTotalFormatado}
             </p>
 
             <button
@@ -260,10 +268,7 @@ function Campo({
 }) {
   return (
     <div>
-      <label className="mb-2 block font-semibold text-gray-700">
-        {label}
-      </label>
-
+      <label className="mb-2 block font-semibold text-gray-700">{label}</label>
       {children}
     </div>
   );
