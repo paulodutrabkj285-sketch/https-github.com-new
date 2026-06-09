@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import QRCode from "qrcode";
+import { gerarPdfIngresso } from "@/lib/pdf";
 
 type EnviarIngressoEmailParams = {
   para: string;
@@ -30,14 +30,13 @@ export async function enviarIngressoPorEmail({
     return;
   }
 
-  const qrConteudo = JSON.stringify({
-    codigo: codigoIngresso,
+  const pdfBuffer = await gerarPdfIngresso({
+    nome,
+    produto,
+    quantidade,
+    codigoIngresso,
     pedidoId,
-  });
-
-  const qrCodeBase64 = await QRCode.toDataURL(qrConteudo, {
-    width: 260,
-    margin: 2,
+    dataVisita,
   });
 
   const transporter = nodemailer.createTransport({
@@ -69,22 +68,17 @@ export async function enviarIngressoPorEmail({
           <span style="font-size: 26px; font-weight: bold;">${codigoIngresso}</span>
         </div>
 
-        <div style="text-align: center; margin: 24px 0;">
-          <p style="font-weight: bold; color: #166534;">QR Code do ingresso</p>
-          <img src="${qrCodeBase64}" alt="QR Code do ingresso" style="width: 260px; max-width: 100%; border: 1px solid #ddd; border-radius: 16px; padding: 10px; background: white;" />
-        </div>
-
         <p><strong>Produto:</strong> ${produto}</p>
         <p><strong>Quantidade:</strong> ${quantidade}</p>
         ${dataVisita ? `<p><strong>Data da visita:</strong> ${dataVisita}</p>` : ""}
         <p><strong>Pedido:</strong> ${pedidoId}</p>
 
         <p style="margin-top: 24px;">
-          Apresente este QR Code na entrada do Parque Mundo Novo.
+          Seu ingresso em PDF está anexado neste e-mail.
         </p>
 
         <p style="font-size: 13px; color: #666;">
-          Este ingresso só poderá ser utilizado uma vez.
+          Apresente o PDF com QR Code na entrada do Parque Mundo Novo. Este ingresso só poderá ser utilizado uma vez.
         </p>
       </div>
     </div>
@@ -95,7 +89,14 @@ export async function enviarIngressoPorEmail({
     to: para,
     subject: assunto,
     html,
+    attachments: [
+      {
+        filename: `Ingresso-${codigoIngresso}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
   });
 
-  console.log("E-mail de ingresso enviado para:", para);
+  console.log("E-mail de ingresso com PDF enviado para:", para);
 }
