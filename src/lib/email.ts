@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { gerarPdfIngresso } from "@/lib/pdf";
 
 type EnviarIngressoEmailParams = {
   para: string;
@@ -28,6 +29,15 @@ export async function enviarIngressoPorEmail({
     console.log("E-mail não configurado. Envio ignorado.");
     return;
   }
+
+  const pdfBuffer = await gerarPdfIngresso({
+    nome,
+    produto,
+    quantidade,
+    codigoIngresso,
+    pedidoId,
+    dataVisita,
+  });
 
   const transporter = nodemailer.createTransport({
     host,
@@ -64,11 +74,11 @@ export async function enviarIngressoPorEmail({
         <p><strong>Pedido:</strong> ${pedidoId}</p>
 
         <p style="margin-top: 24px;">
-          Apresente este código na entrada do Parque Mundo Novo.
+          Seu ingresso em PDF está anexado neste e-mail.
         </p>
 
         <p style="font-size: 13px; color: #666;">
-          Este ingresso só poderá ser utilizado uma vez.
+          Apresente o PDF com QR Code na entrada do Parque Mundo Novo. Este ingresso só poderá ser utilizado uma vez.
         </p>
       </div>
     </div>
@@ -79,7 +89,14 @@ export async function enviarIngressoPorEmail({
     to: para,
     subject: assunto,
     html,
+    attachments: [
+      {
+        filename: `Ingresso-${codigoIngresso}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
   });
 
-  console.log("E-mail de ingresso enviado para:", para);
+  console.log("E-mail de ingresso com PDF enviado para:", para);
 }
