@@ -16,13 +16,25 @@ export default function PortariaPage() {
         return String(valor || "").trim();
     }
 
+    function formatarDataHora(valor?: string) {
+        if (!valor) return "";
+
+        return new Date(valor).toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    }
+
     function extrairQr(texto: string) {
         const valor = limpar(texto);
 
         try {
             const dados = JSON.parse(valor);
             return {
-                codigo: limpar(dados?.codigo || ""),
+                codigo: limpar(dados?.codigo || dados?.codigoIngresso || ""),
                 pedidoId: limpar(dados?.pedidoId || ""),
             };
         } catch {
@@ -134,15 +146,20 @@ export default function PortariaPage() {
         try {
             setCarregando(true);
 
+            const agora = new Date().toISOString();
+
             await atualizarPedido(pedido.id, {
                 statusOperacional: "utilizado",
-                validadoEm: new Date().toISOString(),
+                validadoEm: agora,
+                utilizadoEm: agora,
             });
 
             setPedido({
                 ...pedido,
                 statusOperacional: "utilizado",
-            });
+                validadoEm: agora,
+                utilizadoEm: agora,
+            } as Pedido & Record<string, unknown>);
 
             setMensagem("ENTRADA CONFIRMADA");
         } catch (error) {
@@ -152,6 +169,13 @@ export default function PortariaPage() {
             setCarregando(false);
         }
     }
+
+    const pedidoAny = pedido as (Pedido & {
+        utilizadoEm?: string;
+        validadoEm?: string;
+    }) | null;
+
+    const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
 
     const valido =
         pedido &&
@@ -178,13 +202,19 @@ export default function PortariaPage() {
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl ${painelClass}`}
                 >
-                    <p className="text-6xl">
-                        {valido ? "🟢" : usado || pedido ? "🔴" : "📷"}
-                    </p>
+                    <p className="text-6xl">{valido ? "🟢" : usado || pedido ? "🔴" : "📷"}</p>
 
                     <h2 className="mt-4 text-4xl font-black leading-tight">
                         {mensagem}
                     </h2>
+
+                    {usado && usadoEm && (
+                        <div className="mt-4 rounded-2xl bg-white/20 p-4 text-center text-xl font-black">
+                            Utilizado em:
+                            <br />
+                            {formatarDataHora(usadoEm)}
+                        </div>
+                    )}
 
                     {pedido && (
                         <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-lg font-bold">
@@ -199,6 +229,10 @@ export default function PortariaPage() {
                                     : pedido.statusPagamento}
                             </p>
                             <p>Status: {pedido.statusOperacional || "ativo"}</p>
+
+                            {usado && usadoEm && (
+                                <p>Entrada: {formatarDataHora(usadoEm)}</p>
+                            )}
                         </div>
                     )}
                 </section>
