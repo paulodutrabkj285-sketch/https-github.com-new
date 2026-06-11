@@ -34,7 +34,6 @@ export default function PortariaPage() {
 
         try {
             const dados = JSON.parse(valor);
-
             return {
                 codigo: limpar(dados?.codigo || dados?.codigoIngresso || ""),
                 pedidoId: limpar(dados?.pedidoId || ""),
@@ -110,14 +109,9 @@ export default function PortariaPage() {
 
                 await leitor.start(
                     { facingMode: "environment" },
-                    {
-                        fps: 10,
-                        qrbox: { width: 280, height: 280 },
-                    },
+                    { fps: 10, qrbox: { width: 280, height: 280 } },
                     async (texto) => {
-                        if (texto) {
-                            await buscarIngresso(texto);
-                        }
+                        if (texto) await buscarIngresso(texto);
                     },
                     () => { }
                 );
@@ -148,7 +142,6 @@ export default function PortariaPage() {
 
         try {
             setCarregando(true);
-
             const agora = new Date().toISOString();
 
             await atualizarPedido(pedido.id, {
@@ -174,10 +167,7 @@ export default function PortariaPage() {
     }
 
     const pedidoAny = pedido as
-        | (Pedido & {
-            utilizadoEm?: string;
-            validadoEm?: string;
-        })
+        | (Pedido & { utilizadoEm?: string; validadoEm?: string })
         | null;
 
     const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
@@ -191,21 +181,26 @@ export default function PortariaPage() {
     const usado = pedido?.statusOperacional === "utilizado";
 
     const painelClass = valido
-        ? "bg-green-600 border-green-400"
+        ? "bg-green-600/95 border-green-400"
         : usado || pedido
-            ? "bg-red-600 border-red-400"
-            : "bg-slate-800 border-slate-600";
+            ? "bg-red-600/95 border-red-400"
+            : "bg-slate-900/90 border-slate-600";
 
     return (
-        <main className="min-h-screen bg-slate-950 px-4 py-5 text-white">
-            <div className="mx-auto max-w-md">
+        <main
+            className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-5 text-white"
+            style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
+        >
+            <div className="absolute inset-0 bg-black/70" />
+
+            <div className="relative z-10 mx-auto max-w-md">
                 <header className="mb-5 text-center">
-                    <h1 className="text-3xl font-black">Portaria</h1>
-                    <p className="mt-1 text-sm text-white/70">Parque Mundo Novo</p>
+                    <h1 className="text-3xl font-black drop-shadow-lg">Portaria</h1>
+                    <p className="mt-1 text-sm text-white/80">Parque Mundo Novo</p>
                 </header>
 
                 <section
-                    className={`rounded-3xl border-4 p-6 text-center shadow-2xl ${painelClass}`}
+                    className={`rounded-3xl border-4 p-6 text-center shadow-2xl backdrop-blur-sm ${painelClass}`}
                 >
                     <p className="text-6xl">
                         {valido ? "🟢" : usado || pedido ? "🔴" : "📷"}
@@ -242,7 +237,7 @@ export default function PortariaPage() {
                     )}
                 </section>
 
-                <section className="mt-5 rounded-3xl bg-white p-4 text-slate-900 shadow-xl">
+                <section className="mt-5 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl backdrop-blur-sm">
                     {!cameraAtiva ? (
                         <button
                             onClick={iniciarCamera}
