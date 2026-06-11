@@ -34,6 +34,7 @@ export default function PortariaPage() {
 
         try {
             const dados = JSON.parse(valor);
+
             return {
                 codigo: limpar(dados?.codigo || dados?.codigoIngresso || ""),
                 pedidoId: limpar(dados?.pedidoId || ""),
@@ -109,9 +110,14 @@ export default function PortariaPage() {
 
                 await leitor.start(
                     { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 280, height: 280 } },
+                    {
+                        fps: 10,
+                        qrbox: { width: 280, height: 280 },
+                    },
                     async (texto) => {
-                        if (texto) await buscarIngresso(texto);
+                        if (texto) {
+                            await buscarIngresso(texto);
+                        }
                     },
                     () => { }
                 );
@@ -142,6 +148,7 @@ export default function PortariaPage() {
 
         try {
             setCarregando(true);
+
             const agora = new Date().toISOString();
 
             await atualizarPedido(pedido.id, {
@@ -167,7 +174,10 @@ export default function PortariaPage() {
     }
 
     const pedidoAny = pedido as
-        | (Pedido & { utilizadoEm?: string; validadoEm?: string })
+        | (Pedido & {
+            utilizadoEm?: string;
+            validadoEm?: string;
+        })
         | null;
 
     const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
@@ -184,19 +194,21 @@ export default function PortariaPage() {
         ? "bg-green-600/95 border-green-400"
         : usado || pedido
             ? "bg-red-600/95 border-red-400"
-            : "bg-slate-900/90 border-slate-600";
+            : "bg-slate-900/80 border-white/30";
 
     return (
         <main
             className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-5 text-white"
-            style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
+            style={{
+                backgroundImage: "url('/fotos/fundo-geral.jpg')",
+            }}
         >
-            <div className="absolute inset-0 bg-black/70" />
+            <div className="absolute inset-0 bg-black/45" />
 
             <div className="relative z-10 mx-auto max-w-md">
                 <header className="mb-5 text-center">
                     <h1 className="text-3xl font-black drop-shadow-lg">Portaria</h1>
-                    <p className="mt-1 text-sm text-white/80">Parque Mundo Novo</p>
+                    <p className="mt-1 text-sm text-white/90">Parque Mundo Novo</p>
                 </header>
 
                 <section
@@ -206,7 +218,7 @@ export default function PortariaPage() {
                         {valido ? "🟢" : usado || pedido ? "🔴" : "📷"}
                     </p>
 
-                    <h2 className="mt-4 text-4xl font-black leading-tight">
+                    <h2 className="mt-4 text-4xl font-black leading-tight drop-shadow-lg">
                         {mensagem}
                     </h2>
 
