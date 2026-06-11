@@ -1,4 +1,4 @@
-import PDFDocument from "pdfkit";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 
 type GerarPdfIngressoParams = {
@@ -19,7 +19,7 @@ export async function gerarPdfIngresso({
     dataVisita,
 }: GerarPdfIngressoParams): Promise<Buffer> {
     const qrConteudo = JSON.stringify({
-        codigoIngresso,
+        codigo: codigoIngresso,
         pedidoId,
     });
 
@@ -28,101 +28,102 @@ export async function gerarPdfIngresso({
         margin: 2,
     });
 
-    const qrBase64 = qrDataUrl.replace(
-        /^data:image\/png;base64,/,
-        ""
+    const qrBase64 = qrDataUrl.replace(/^data:image\/png;base64,/, "");
+    const qrBytes = Buffer.from(qrBase64, "base64");
+
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 842]);
+
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const qrImage = await pdfDoc.embedPng(qrBytes);
+
+    page.drawText("PARQUE MUNDO NOVO", {
+        x: 95,
+        y: 770,
+        size: 28,
+        font: fontBold,
+        color: rgb(0.02, 0.31, 0.23),
+    });
+
+    page.drawText("INGRESSO OFICIAL", {
+        x: 190,
+        y: 735,
+        size: 18,
+        font: fontBold,
+        color: rgb(0.08, 0.4, 0.2),
+    });
+
+    page.drawRectangle({
+        x: 70,
+        y: 610,
+        width: 455,
+        height: 90,
+        color: rgb(0.86, 0.99, 0.91),
+        borderColor: rgb(0.52, 0.94, 0.67),
+        borderWidth: 1,
+    });
+
+    page.drawText("Codigo do ingresso:", {
+        x: 205,
+        y: 665,
+        size: 14,
+        font: fontBold,
+        color: rgb(0.08, 0.33, 0.18),
+    });
+
+    page.drawText(codigoIngresso, {
+        x: 205,
+        y: 630,
+        size: 30,
+        font: fontBold,
+        color: rgb(0.08, 0.4, 0.2),
+    });
+
+    page.drawImage(qrImage, {
+        x: 185,
+        y: 355,
+        width: 225,
+        height: 225,
+    });
+
+    let y = 300;
+
+    const linha = (texto: string) => {
+        page.drawText(texto, {
+            x: 70,
+            y,
+            size: 14,
+            font,
+            color: rgb(0.07, 0.09, 0.15),
+        });
+        y -= 28;
+    };
+
+    linha(`Nome: ${nome}`);
+    linha(`Produto: ${produto}`);
+    linha(`Quantidade: ${quantidade}`);
+
+    if (dataVisita) {
+        linha(`Data da visita: ${dataVisita}`);
+    }
+
+    linha(`Pedido: ${pedidoId}`);
+
+    page.drawText(
+        "Apresente este PDF na entrada do Parque Mundo Novo. O QR Code sera validado na portaria. Este ingresso podera ser utilizado apenas uma vez.",
+        {
+            x: 70,
+            y: 110,
+            size: 11,
+            font,
+            color: rgb(0.35, 0.35, 0.35),
+            maxWidth: 455,
+            lineHeight: 16,
+        }
     );
 
-    const qrBuffer = Buffer.from(qrBase64, "base64");
+    const pdfBytes = await pdfDoc.save();
 
-    return new Promise((resolve, reject) => {
-        const doc = new PDFDocument({
-            size: "A4",
-            margin: 50,
-        });
-
-        const buffers: Buffer[] = [];
-
-        doc.on("data", (data) => buffers.push(data));
-
-        doc.on("end", () => {
-            resolve(Buffer.concat(buffers));
-        });
-
-        doc.on("error", reject);
-
-        // Cabeçalho
-        doc
-            .fillColor("#064e3b")
-            .fontSize(28)
-            .text("PARQUE MUNDO NOVO", {
-                align: "center",
-            });
-
-        doc.moveDown();
-
-        doc
-            .fontSize(18)
-            .fillColor("#166534")
-            .text("INGRESSO OFICIAL", {
-                align: "center",
-            });
-
-        doc.moveDown(2);
-
-        // Código
-        doc
-            .fontSize(14)
-            .fillColor("black")
-            .text("Código do ingresso:", {
-                align: "center",
-            });
-
-        doc
-            .fontSize(26)
-            .fillColor("#166534")
-            .text(codigoIngresso, {
-                align: "center",
-            });
-
-        doc.moveDown();
-
-        // QR Code
-        doc.image(qrBuffer, 170, 180, {
-            width: 250,
-            height: 250,
-        });
-
-        doc.moveDown(12);
-
-        // Dados
-        doc
-            .fontSize(14)
-            .fillColor("black")
-            .text(`Nome: ${nome}`);
-
-        doc.text(`Produto: ${produto}`);
-
-        doc.text(`Quantidade: ${quantidade}`);
-
-        if (dataVisita) {
-            doc.text(`Data da visita: ${dataVisita}`);
-        }
-
-        doc.text(`Pedido: ${pedidoId}`);
-
-        doc.moveDown(2);
-
-        doc
-            .fillColor("#666666")
-            .fontSize(12)
-            .text(
-                "Apresente este PDF na entrada do Parque Mundo Novo. O QR Code será validado na portaria. Este ingresso poderá ser utilizado apenas uma vez.",
-                {
-                    align: "justify",
-                }
-            );
-
-        doc.end();
-    });
+    return Buffer.from(pdfBytes);
 }
