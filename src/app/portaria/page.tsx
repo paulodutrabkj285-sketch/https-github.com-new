@@ -9,6 +9,7 @@ export default function PortariaPage() {
     const [mensagem, setMensagem] = useState("Aguardando leitura do ingresso");
     const [carregando, setCarregando] = useState(false);
     const [cameraAtiva, setCameraAtiva] = useState(false);
+    const [codigoManual, setCodigoManual] = useState("");
 
     const leitorRef = useRef<Html5Qrcode | null>(null);
 
@@ -33,6 +34,7 @@ export default function PortariaPage() {
 
         try {
             const dados = JSON.parse(valor);
+
             return {
                 codigo: limpar(dados?.codigo || dados?.codigoIngresso || ""),
                 pedidoId: limpar(dados?.pedidoId || ""),
@@ -70,6 +72,7 @@ export default function PortariaPage() {
             }
 
             setPedido(encontrado);
+            setCodigoManual(encontrado.codigoIngresso || dadosQr.codigo);
 
             if (encontrado.statusPagamento !== "pago") {
                 setMensagem("INGRESSO NÃO PAGO");
@@ -170,10 +173,12 @@ export default function PortariaPage() {
         }
     }
 
-    const pedidoAny = pedido as (Pedido & {
-        utilizadoEm?: string;
-        validadoEm?: string;
-    }) | null;
+    const pedidoAny = pedido as
+        | (Pedido & {
+            utilizadoEm?: string;
+            validadoEm?: string;
+        })
+        | null;
 
     const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
 
@@ -202,7 +207,9 @@ export default function PortariaPage() {
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl ${painelClass}`}
                 >
-                    <p className="text-6xl">{valido ? "🟢" : usado || pedido ? "🔴" : "📷"}</p>
+                    <p className="text-6xl">
+                        {valido ? "🟢" : usado || pedido ? "🔴" : "📷"}
+                    </p>
 
                     <h2 className="mt-4 text-4xl font-black leading-tight">
                         {mensagem}
@@ -230,9 +237,7 @@ export default function PortariaPage() {
                             </p>
                             <p>Status: {pedido.statusOperacional || "ativo"}</p>
 
-                            {usado && usadoEm && (
-                                <p>Entrada: {formatarDataHora(usadoEm)}</p>
-                            )}
+                            {usado && usadoEm && <p>Entrada: {formatarDataHora(usadoEm)}</p>}
                         </div>
                     )}
                 </section>
@@ -261,9 +266,35 @@ export default function PortariaPage() {
                         </div>
                     )}
 
+                    <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+                        <input
+                            type="text"
+                            value={codigoManual}
+                            onChange={(e) => setCodigoManual(e.target.value.toUpperCase())}
+                            placeholder="Digite o código PMN"
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold uppercase outline-none focus:border-green-700"
+                        />
+
+                        <button
+                            onClick={() => {
+                                if (!codigoManual.trim()) {
+                                    setMensagem("DIGITE O CÓDIGO DO INGRESSO");
+                                    return;
+                                }
+
+                                buscarIngresso(codigoManual.trim());
+                            }}
+                            disabled={carregando}
+                            className="rounded-2xl bg-blue-600 px-5 py-4 font-black text-white disabled:opacity-60"
+                        >
+                            BUSCAR
+                        </button>
+                    </div>
+
                     <button
                         onClick={() => {
                             setPedido(null);
+                            setCodigoManual("");
                             setMensagem("Aguardando leitura do ingresso");
                         }}
                         className="mt-4 w-full rounded-2xl border border-slate-300 px-5 py-4 font-bold text-slate-700"
