@@ -34,34 +34,30 @@ export default function IngressosPage() {
   const ingressos = [
     {
       titulo: "Ingresso Parque",
-      descricao:
-        "Entrada para visitar o parque, trilhas, cachoeiras e mirantes.",
+      descricao: "Entrada para visitar o parque, trilhas, cachoeiras e mirantes.",
       preco: "R$ 60,00",
       imagem: "/fotos/ingresso-parque.jpg",
       rota: "/ingressos/parque",
     },
     {
       titulo: "Meia Entrada Idoso",
-      descricao:
-        "Valor especial para idosos mediante documento comprobatório.",
+      descricao: "Valor especial para idosos mediante documento comprobatório.",
       preco: "R$ 30,00",
       imagem: "/fotos/idoso-cachoeira.jpg",
       rota: "/ingressos/idoso",
     },
     {
       titulo: "Camping",
-      descricao:
-        "Hospedagem no camping com natureza, tranquilidade e estrutura.",
+      descricao: "Hospedagem no camping com natureza, tranquilidade e estrutura.",
       preco: "A partir de R$ 100,00",
       imagem: "/fotos/camping.jpg",
       rota: "/ingressos/camping",
     },
     {
       titulo: "Elevador Panorâmico",
-      descricao:
-        "Experiência vendida separadamente com vista panorâmica.",
+      descricao: "Experiência vendida separadamente com vista panorâmica.",
       preco: "R$ 75,00",
-      imagem: "/fotos/elevador.jpg",
+      imagem: "/fotos/elevador-novo.jpg",
       rota: "/ingressos/elevador",
     },
   ];
