@@ -10,6 +10,7 @@ export default function PortariaPage() {
     const [carregando, setCarregando] = useState(false);
     const [cameraAtiva, setCameraAtiva] = useState(false);
     const [codigoManual, setCodigoManual] = useState("");
+    const [funcionario, setFuncionario] = useState("");
 
     const leitorRef = useRef<Html5Qrcode | null>(null);
 
@@ -146,13 +147,20 @@ export default function PortariaPage() {
     async function confirmarEntrada() {
         if (!pedido) return;
 
+        if (!funcionario.trim()) {
+            setMensagem("INFORME O NOME DO FUNCIONÁRIO");
+            return;
+        }
+
         try {
             setCarregando(true);
 
             const agora = new Date().toISOString();
+            const nomeFuncionario = funcionario.trim();
 
             await atualizarPedido(pedido.id, {
                 statusOperacional: "utilizado",
+                validadoPor: nomeFuncionario,
                 validadoEm: agora,
                 utilizadoEm: agora,
             });
@@ -160,9 +168,10 @@ export default function PortariaPage() {
             setPedido({
                 ...pedido,
                 statusOperacional: "utilizado",
+                validadoPor: nomeFuncionario,
                 validadoEm: agora,
                 utilizadoEm: agora,
-            } as Pedido & Record<string, unknown>);
+            } as Pedido);
 
             setMensagem("ENTRADA CONFIRMADA");
         } catch (error) {
@@ -177,10 +186,12 @@ export default function PortariaPage() {
         | (Pedido & {
             utilizadoEm?: string;
             validadoEm?: string;
+            validadoPor?: string;
         })
         | null;
 
     const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
+    const validadoPor = pedidoAny?.validadoPor || "";
 
     const valido =
         pedido &&
@@ -244,6 +255,8 @@ export default function PortariaPage() {
                             </p>
                             <p>Status: {pedido.statusOperacional || "ativo"}</p>
 
+                            {validadoPor && <p>Funcionário: {validadoPor}</p>}
+
                             {usado && usadoEm && <p>Entrada: {formatarDataHora(usadoEm)}</p>}
                         </div>
                     )}
@@ -296,6 +309,16 @@ export default function PortariaPage() {
                         >
                             BUSCAR
                         </button>
+                    </div>
+
+                    <div className="mt-4">
+                        <input
+                            type="text"
+                            value={funcionario}
+                            onChange={(e) => setFuncionario(e.target.value)}
+                            placeholder="Nome do funcionário"
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold outline-none focus:border-green-700"
+                        />
                     </div>
 
                     <button

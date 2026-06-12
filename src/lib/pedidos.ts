@@ -34,6 +34,11 @@ export type PedidoInput = {
   pagbankStatus?: string;
   codigoIngresso?: string;
   qrCodeIngresso?: string;
+
+  // Controle da portaria
+  validadoPor?: string;
+  validadoEm?: string;
+  utilizadoEm?: string;
 };
 
 export type Pedido = PedidoInput & {
