@@ -2,7 +2,7 @@
 
 import { atualizarPedido, listarPedidos, Pedido } from "@/lib/pedidos";
 import { Html5Qrcode } from "html5-qrcode";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function PortariaPage() {
     const [pedido, setPedido] = useState<Pedido | null>(null);
@@ -12,7 +12,15 @@ export default function PortariaPage() {
     const [codigoManual, setCodigoManual] = useState("");
     const [funcionario, setFuncionario] = useState("");
 
+    const [entradasHoje, setEntradasHoje] = useState(0);
+    const [entradasMes, setEntradasMes] = useState(0);
+    const [totalUtilizados, setTotalUtilizados] = useState(0);
+
     const leitorRef = useRef<Html5Qrcode | null>(null);
+
+    useEffect(() => {
+        atualizarContadores();
+    }, []);
 
     function limpar(valor: string) {
         return String(valor || "").trim();
@@ -73,6 +81,50 @@ export default function PortariaPage() {
             valido: true,
             mensagem: "",
         };
+    }
+
+    async function atualizarContadores() {
+        try {
+            const pedidos = await listarPedidos();
+
+            const hoje = new Date();
+            const dia = hoje.getDate();
+            const mes = hoje.getMonth();
+            const ano = hoje.getFullYear();
+
+            let contadorHoje = 0;
+            let contadorMes = 0;
+            let contadorTotal = 0;
+
+            pedidos.forEach((item: any) => {
+                if (item.statusOperacional !== "utilizado") return;
+
+                contadorTotal++;
+
+                const dataEntrada = item.utilizadoEm || item.validadoEm;
+                if (!dataEntrada) return;
+
+                const data = new Date(dataEntrada);
+
+                if (
+                    data.getDate() === dia &&
+                    data.getMonth() === mes &&
+                    data.getFullYear() === ano
+                ) {
+                    contadorHoje++;
+                }
+
+                if (data.getMonth() === mes && data.getFullYear() === ano) {
+                    contadorMes++;
+                }
+            });
+
+            setEntradasHoje(contadorHoje);
+            setEntradasMes(contadorMes);
+            setTotalUtilizados(contadorTotal);
+        } catch (error) {
+            console.error("Erro ao atualizar contadores:", error);
+        }
     }
 
     function extrairQr(texto: string) {
@@ -233,6 +285,7 @@ export default function PortariaPage() {
             } as Pedido);
 
             setMensagem("ENTRADA CONFIRMADA");
+            await atualizarContadores();
         } catch (error) {
             console.error(error);
             setMensagem("ERRO AO CONFIRMAR ENTRADA");
@@ -283,6 +336,23 @@ export default function PortariaPage() {
                     <h1 className="text-3xl font-black drop-shadow-lg">Portaria</h1>
                     <p className="mt-1 text-sm text-white/90">Parque Mundo Novo</p>
                 </header>
+
+                <div className="mb-5 grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl bg-green-700/90 p-3 text-center shadow-lg">
+                        <p className="text-xs font-bold">Hoje</p>
+                        <p className="text-2xl font-black">{entradasHoje}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-blue-700/90 p-3 text-center shadow-lg">
+                        <p className="text-xs font-bold">Mês</p>
+                        <p className="text-2xl font-black">{entradasMes}</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-purple-700/90 p-3 text-center shadow-lg">
+                        <p className="text-xs font-bold">Total</p>
+                        <p className="text-2xl font-black">{totalUtilizados}</p>
+                    </div>
+                </div>
 
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl backdrop-blur-sm ${painelClass}`}
