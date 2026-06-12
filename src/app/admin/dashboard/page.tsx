@@ -38,16 +38,63 @@ export default function DashboardPage() {
     });
   }
 
+  function imprimirRelatorio() {
+    window.print();
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
       <div className="mx-auto max-w-7xl">
-        <h1 className="text-3xl font-bold text-[#166534]">
-          Dashboard Financeiro
-        </h1>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between print:hidden">
+          <div>
+            <h1 className="text-3xl font-bold text-[#166534]">
+              Dashboard Financeiro
+            </h1>
 
-        <p className="mt-2 text-gray-600">
-          Acompanhamento operacional e financeiro das vendas online.
-        </p>
+            <p className="mt-2 text-gray-600">
+              Acompanhamento operacional e financeiro das vendas online.
+            </p>
+          </div>
+
+          <section className="flex flex-wrap gap-3">
+            <button
+              onClick={imprimirRelatorio}
+              className="rounded-xl bg-green-700 px-5 py-3 font-bold text-white"
+            >
+              📄 Relatório Financeiro
+            </button>
+
+            <button
+              onClick={imprimirRelatorio}
+              className="rounded-xl bg-blue-700 px-5 py-3 font-bold text-white"
+            >
+              📄 Vendas do Dia
+            </button>
+
+            <button
+              onClick={imprimirRelatorio}
+              className="rounded-xl bg-purple-700 px-5 py-3 font-bold text-white"
+            >
+              📄 Vendas do Mês
+            </button>
+
+            <button
+              onClick={imprimirRelatorio}
+              className="rounded-xl bg-orange-600 px-5 py-3 font-bold text-white"
+            >
+              📄 Entradas do Dia
+            </button>
+          </section>
+        </div>
+
+        <div className="hidden print:block">
+          <h1 className="text-3xl font-bold text-[#166534]">
+            Relatório Financeiro - Parque Mundo Novo
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Gerado em {new Date().toLocaleString("pt-BR")}
+          </p>
+        </div>
 
         {carregando ? (
           <p className="mt-8">Carregando...</p>
@@ -179,8 +226,7 @@ export default function DashboardPage() {
               </h2>
 
               <p className="mt-2 text-sm text-gray-500">
-                Baseado nos pedidos registrados. Quando o pagamento real for
-                integrado, este gráfico poderá considerar apenas pedidos pagos.
+                Baseado nos pedidos registrados.
               </p>
 
               <div className="mt-6 grid gap-4">
@@ -237,11 +283,10 @@ export default function DashboardPage() {
                         </td>
                         <td className="p-3">
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-bold ${
-                              pedido.statusPagamento === "pago"
+                            className={`rounded-full px-3 py-1 text-xs font-bold ${pedido.statusPagamento === "pago"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-yellow-100 text-yellow-800"
-                            }`}
+                              }`}
                           >
                             {pedido.statusPagamento || "pendente"}
                           </span>
@@ -249,8 +294,8 @@ export default function DashboardPage() {
                         <td className="p-3">
                           {pedido.createdAt
                             ? new Date(pedido.createdAt).toLocaleDateString(
-                                "pt-BR"
-                              )
+                              "pt-BR"
+                            )
                             : "-"}
                         </td>
                       </tr>
@@ -295,7 +340,9 @@ function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
   ).length;
 
   if (elevador > 0) {
-    dicas.push(`Foram registrados ${elevador} pedidos para o Elevador Panorâmico.`);
+    dicas.push(
+      `Foram registrados ${elevador} pedidos para o Elevador Panorâmico.`
+    );
   }
 
   dicas.push(
