@@ -12,6 +12,7 @@ export default function PedidoDetalhePage() {
 
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [reenviando, setReenviando] = useState(false);
 
   useEffect(() => {
     async function carregarPedido() {
@@ -58,6 +59,23 @@ export default function PedidoDetalhePage() {
     }
 
     return valor;
+  }
+
+  async function reenviarIngresso() {
+    if (!pedido) return;
+
+    try {
+      setReenviando(true);
+
+      alert(
+        "Botão pronto. No próximo passo vamos conectar este botão com a API real de reenvio de e-mail."
+      );
+    } catch (error) {
+      console.error("Erro ao reenviar ingresso:", error);
+      alert("Não foi possível reenviar o ingresso.");
+    } finally {
+      setReenviando(false);
+    }
   }
 
   const pedidoAny = pedido as
@@ -173,14 +191,23 @@ export default function PedidoDetalhePage() {
                 label="Valor total"
                 valor={formatarMoeda(pedido.valorTotal)}
               />
-              <Linha label="Data da visita" valor={formatarData(pedido.dataVisita)} />
+              <Linha
+                label="Data da visita"
+                valor={formatarData(pedido.dataVisita)}
+              />
             </Bloco>
 
             <Bloco titulo="Pagamento">
               <Linha label="Status" valor={pedido.statusPagamento || "-"} />
-              <Linha label="Valor pago" valor={formatarMoeda(pedido.valorPago)} />
+              <Linha
+                label="Valor pago"
+                valor={formatarMoeda(pedido.valorPago)}
+              />
               <Linha label="TXID Sicredi" valor={pedido.sicrediTxid || "-"} />
-              <Linha label="Status Sicredi" valor={pedido.sicrediStatus || "-"} />
+              <Linha
+                label="Status Sicredi"
+                valor={pedido.sicrediStatus || "-"}
+              />
               <Linha
                 label="Data do pagamento"
                 valor={formatarDataHora(
@@ -190,8 +217,14 @@ export default function PedidoDetalhePage() {
             </Bloco>
 
             <Bloco titulo="Portaria">
-              <Linha label="Status" valor={pedido.statusOperacional || "ativo"} />
-              <Linha label="Funcionário" valor={pedidoAny?.validadoPor || "-"} />
+              <Linha
+                label="Status"
+                valor={pedido.statusOperacional || "ativo"}
+              />
+              <Linha
+                label="Funcionário"
+                valor={pedidoAny?.validadoPor || "-"}
+              />
               <Linha
                 label="Validado em"
                 valor={formatarDataHora(pedidoAny?.validadoEm)}
@@ -221,11 +254,31 @@ export default function PedidoDetalhePage() {
             </Bloco>
 
             <Bloco titulo="PDF / Ingresso">
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <p className="text-gray-600">
                   O PDF do ingresso é enviado automaticamente por e-mail após o
                   pagamento confirmado.
                 </p>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={reenviarIngresso}
+                    disabled={reenviando}
+                    className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {reenviando ? "Reenviando..." : "📧 Reenviar Ingresso"}
+                  </button>
+
+                  {pedidoAny?.pdfIngressoUrl && (
+                    <a
+                      href={pedidoAny.pdfIngressoUrl}
+                      target="_blank"
+                      className="rounded-xl bg-green-700 px-5 py-3 font-bold text-white"
+                    >
+                      📄 Baixar PDF
+                    </a>
+                  )}
+                </div>
 
                 {pedidoAny?.pdfIngressoUrl ? (
                   <a
@@ -268,7 +321,9 @@ export default function PedidoDetalhePage() {
                 titulo="Entrada"
                 valor={
                   statusUtilizado
-                    ? `Utilizado em ${formatarDataHora(pedidoAny?.utilizadoEm)}`
+                    ? `Utilizado em ${formatarDataHora(
+                      pedidoAny?.utilizadoEm
+                    )}`
                     : "Ainda não utilizado"
                 }
               />
@@ -290,7 +345,9 @@ function Bloco({
   extraClass?: string;
 }) {
   return (
-    <section className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm ${extraClass}`}>
+    <section
+      className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm ${extraClass}`}
+    >
       <h2 className="mb-4 text-xl font-black text-[#166534]">{titulo}</h2>
       {children}
     </section>
