@@ -92,8 +92,9 @@ export default function ElevadorPage() {
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
       style={{
-        backgroundImage: "url('/fotos/elevador.jpg')",
+        backgroundImage: "url('/fotos/elevador-novo.jpg')",
       }}
+
     >
       <div className="absolute inset-0 bg-black/45" />
 
