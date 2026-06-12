@@ -67,9 +67,24 @@ export default function PedidoDetalhePage() {
     try {
       setReenviando(true);
 
-      alert(
-        "Botão pronto. No próximo passo vamos conectar este botão com a API real de reenvio de e-mail."
-      );
+      const resposta = await fetch("/api/ingressos/reenviar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pedidoId: pedido.id,
+        }),
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok || !dados.ok) {
+        alert(dados.error || "Não foi possível reenviar o ingresso.");
+        return;
+      }
+
+      alert("Ingresso reenviado com sucesso.");
     } catch (error) {
       console.error("Erro ao reenviar ingresso:", error);
       alert("Não foi possível reenviar o ingresso.");
