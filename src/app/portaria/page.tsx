@@ -30,6 +30,51 @@ export default function PortariaPage() {
         });
     }
 
+    function formatarData(valor?: string) {
+        if (!valor) return "Não informada";
+
+        const partes = valor.split("-");
+        if (partes.length === 3) {
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        return valor;
+    }
+
+    function verificarValidadeData(dataVisita?: string) {
+        if (!dataVisita) {
+            return {
+                valido: true,
+                mensagem: "",
+            };
+        }
+
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        const data = new Date(`${dataVisita}T00:00:00`);
+        data.setHours(0, 0, 0, 0);
+
+        if (data < hoje) {
+            return {
+                valido: false,
+                mensagem: "INGRESSO EXPIRADO",
+            };
+        }
+
+        if (data > hoje) {
+            return {
+                valido: false,
+                mensagem: "INGRESSO AINDA NÃO VÁLIDO",
+            };
+        }
+
+        return {
+            valido: true,
+            mensagem: "",
+        };
+    }
+
     function extrairQr(texto: string) {
         const valor = limpar(texto);
 
@@ -90,6 +135,13 @@ export default function PortariaPage() {
                 return;
             }
 
+            const validade = verificarValidadeData(encontrado.dataVisita);
+
+            if (!validade.valido) {
+                setMensagem(validade.mensagem);
+                return;
+            }
+
             setMensagem("INGRESSO VÁLIDO");
         } catch (error) {
             console.error(error);
@@ -147,6 +199,13 @@ export default function PortariaPage() {
     async function confirmarEntrada() {
         if (!pedido) return;
 
+        const validade = verificarValidadeData(pedido.dataVisita);
+
+        if (!validade.valido) {
+            setMensagem(validade.mensagem);
+            return;
+        }
+
         if (!funcionario.trim()) {
             setMensagem("INFORME O NOME DO FUNCIONÁRIO");
             return;
@@ -193,11 +252,14 @@ export default function PortariaPage() {
     const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
     const validadoPor = pedidoAny?.validadoPor || "";
 
+    const validadeAtual = verificarValidadeData(pedido?.dataVisita);
+
     const valido =
         pedido &&
         pedido.statusPagamento === "pago" &&
         pedido.statusOperacional !== "utilizado" &&
-        pedido.statusOperacional !== "bloqueado";
+        pedido.statusOperacional !== "bloqueado" &&
+        validadeAtual.valido;
 
     const usado = pedido?.statusOperacional === "utilizado";
 
@@ -247,6 +309,7 @@ export default function PortariaPage() {
                             <p>Produto: {pedido.produto}</p>
                             <p>Qtd: {pedido.quantidade}</p>
                             <p>Código: {pedido.codigoIngresso}</p>
+                            <p>Data da visita: {formatarData(pedido.dataVisita)}</p>
                             <p>
                                 Pagamento:{" "}
                                 {pedido.statusPagamento === "pago"
