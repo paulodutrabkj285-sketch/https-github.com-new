@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 
 type Pedido = {
   id: string;
@@ -14,31 +15,24 @@ type Pedido = {
   email?: string;
   dataVisita?: string;
   dataEntrada?: string;
-  noites?: number;
-  quantidadePessoas?: number;
   quantidade?: number;
   valorUnitario?: number;
   valorTotal?: number;
-
   statusPagamento?: string;
   statusOperacional?: string;
-
-  pagbankCheckoutId?: string;
-  pagbankReferenceId?: string;
-  pagbankPayUrl?: string;
-  pagbankStatus?: string;
-
   codigoIngresso?: string;
   qrCodeIngresso?: string;
-
   createdAt?: string;
   updatedAt?: string;
 };
 
 export default function AdminPedidosPage() {
+  const router = useRouter();
+
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  const [busca, setBusca] = useState("");
   const [filtroProduto, setFiltroProduto] = useState("todos");
   const [filtroPagamento, setFiltroPagamento] = useState("todos");
   const [filtroOperacional, setFiltroOperacional] = useState("todos");
@@ -92,6 +86,8 @@ export default function AdminPedidosPage() {
   }, [pedidos]);
 
   const pedidosFiltrados = useMemo(() => {
+    const textoBusca = busca.trim().toLowerCase();
+
     return pedidos.filter((pedido) => {
       const produtoOk =
         filtroProduto === "todos" || pedido.produto === filtroProduto;
@@ -107,9 +103,52 @@ export default function AdminPedidosPage() {
       const dataPedido = pedido.dataEntrada || pedido.dataVisita || "";
       const dataOk = !filtroData || dataPedido === filtroData;
 
-      return produtoOk && pagamentoOk && operacionalOk && dataOk;
+      const buscaOk =
+        !textoBusca ||
+        (pedido.nome || "").toLowerCase().includes(textoBusca) ||
+        (pedido.cpf || "").toLowerCase().includes(textoBusca) ||
+        (pedido.email || "").toLowerCase().includes(textoBusca) ||
+        (pedido.telefone || "").toLowerCase().includes(textoBusca) ||
+        (pedido.codigoIngresso || "").toLowerCase().includes(textoBusca) ||
+        (pedido.produto || "").toLowerCase().includes(textoBusca) ||
+        (pedido.id || "").toLowerCase().includes(textoBusca);
+
+      return produtoOk && pagamentoOk && operacionalOk && dataOk && buscaOk;
     });
-  }, [pedidos, filtroProduto, filtroPagamento, filtroOperacional, filtroData]);
+  }, [
+    pedidos,
+    busca,
+    filtroProduto,
+    filtroPagamento,
+    filtroOperacional,
+    filtroData,
+  ]);
+
+  function formatarMoeda(valor?: number) {
+    return Number(valor || 0).toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
+  function formatarData(valor?: string) {
+    if (!valor) return "-";
+
+    const partes = valor.split("-");
+    if (partes.length === 3) {
+      return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    }
+
+    return new Date(valor).toLocaleDateString("pt-BR");
+  }
+
+  function limparFiltros() {
+    setBusca("");
+    setFiltroProduto("todos");
+    setFiltroPagamento("todos");
+    setFiltroOperacional("todos");
+    setFiltroData("");
+  }
 
   return (
     <main
@@ -183,7 +222,7 @@ export default function AdminPedidosPage() {
                   margin: 0,
                 }}
               >
-                Visualize e filtre os pedidos salvos no Firestore.
+                Visualize, pesquise e filtre os pedidos salvos no Firestore.
               </p>
             </div>
           </div>
@@ -210,6 +249,20 @@ export default function AdminPedidosPage() {
           >
             Filtros
           </h2>
+
+          <div style={{ marginBottom: "20px" }}>
+            <label style={labelStyle}>
+              Buscar por nome, CPF, e-mail, telefone, código PMN ou produto
+            </label>
+
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Exemplo: Paulo, 12345678900, PMN-12345..."
+              style={inputStyle}
+            />
+          </div>
 
           <div
             style={{
@@ -267,7 +320,7 @@ export default function AdminPedidosPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Filtrar por data</label>
+              <label style={labelStyle}>Data da visita/entrada</label>
               <input
                 type="date"
                 value={filtroData}
@@ -277,28 +330,21 @@ export default function AdminPedidosPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: "16px" }}>
-            <button
-              type="button"
-              onClick={() => {
-                setFiltroProduto("todos");
-                setFiltroPagamento("todos");
-                setFiltroOperacional("todos");
-                setFiltroData("");
-              }}
-              style={{
-                padding: "12px 16px",
-                borderRadius: "12px",
-                border: "none",
-                backgroundColor: "#e5e7eb",
-                color: "#111827",
-                fontWeight: "bold",
-                cursor: "pointer",
-              }}
-            >
-              Limpar filtros
-            </button>
-          </div>
+          <button
+            onClick={limparFiltros}
+            style={{
+              marginTop: "18px",
+              backgroundColor: "#166534",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "12px",
+              padding: "12px 18px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            Limpar filtros
+          </button>
         </section>
 
         <section
@@ -315,91 +361,109 @@ export default function AdminPedidosPage() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              gap: "16px",
+              marginBottom: "18px",
+              gap: "12px",
               flexWrap: "wrap",
-              marginBottom: "20px",
             }}
           >
             <h2
               style={{
-                fontSize: "28px",
+                fontSize: "26px",
                 fontWeight: "bold",
                 color: "#166534",
                 margin: 0,
               }}
             >
-              Lista de pedidos
+              Pedidos encontrados: {pedidosFiltrados.length}
             </h2>
 
-            <div
-              style={{
-                fontSize: "15px",
-                color: "#4b5563",
-                fontWeight: 600,
-              }}
-            >
-              Total filtrado: {pedidosFiltrados.length}
-            </div>
+            <p style={{ margin: 0, color: "#64748b", fontWeight: "bold" }}>
+              Total geral: {pedidos.length}
+            </p>
           </div>
 
           {carregando ? (
-            <p style={{ color: "#4b5563" }}>Carregando pedidos...</p>
+            <p>Carregando pedidos...</p>
           ) : pedidosFiltrados.length === 0 ? (
-            <p style={{ color: "#4b5563" }}>
-              Nenhum pedido encontrado para os filtros selecionados.
-            </p>
+            <p>Nenhum pedido encontrado com os filtros selecionados.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
-                  minWidth: "1280px",
+                  minWidth: "980px",
                 }}
               >
                 <thead>
-                  <tr style={{ backgroundColor: "#f3f4f6" }}>
+                  <tr style={{ backgroundColor: "#f1f5f9" }}>
+                    <th style={thStyle}>Cliente</th>
                     <th style={thStyle}>Produto</th>
-                    <th style={thStyle}>Nome</th>
-                    <th style={thStyle}>Data visita</th>
-                    <th style={thStyle}>Data entrada</th>
-                    <th style={thStyle}>Qtd</th>
-                    <th style={thStyle}>Noites</th>
-                    <th style={thStyle}>Pessoas</th>
-                    <th style={thStyle}>Valor total</th>
+                    <th style={thStyle}>Código</th>
+                    <th style={thStyle}>Data</th>
+                    <th style={thStyle}>Qtd.</th>
+                    <th style={thStyle}>Valor</th>
                     <th style={thStyle}>Pagamento</th>
                     <th style={thStyle}>Operacional</th>
-                    <th style={thStyle}>Código ingresso</th>
-                    <th style={thStyle}>Criado em</th>
+                    <th style={thStyle}>Ações</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {pedidosFiltrados.map((pedido) => (
-                    <tr key={pedido.id}>
+                    <tr key={pedido.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                      <td style={tdStyle}>
+                        <strong>{pedido.nome || "-"}</strong>
+                        <br />
+                        <span style={{ color: "#64748b", fontSize: "13px" }}>
+                          {pedido.email || "-"}
+                        </span>
+                        <br />
+                        <span style={{ color: "#64748b", fontSize: "13px" }}>
+                          CPF: {pedido.cpf || "-"}
+                        </span>
+                      </td>
+
                       <td style={tdStyle}>{pedido.produto || "-"}</td>
-                      <td style={tdStyle}>{pedido.nome || "-"}</td>
-                      <td style={tdStyle}>{pedido.dataVisita || "-"}</td>
-                      <td style={tdStyle}>{pedido.dataEntrada || "-"}</td>
-                      <td style={tdStyle}>{pedido.quantidade ?? "-"}</td>
-                      <td style={tdStyle}>{pedido.noites ?? "-"}</td>
-                      <td style={tdStyle}>{pedido.quantidadePessoas ?? "-"}</td>
+
                       <td style={tdStyle}>
-                        {pedido.valorTotal !== undefined
-                          ? `R$ ${pedido.valorTotal},00`
-                          : "-"}
+                        <strong>{pedido.codigoIngresso || "-"}</strong>
                       </td>
+
                       <td style={tdStyle}>
-                        <span style={statusPagamentoStyle(pedido.statusPagamento || "")}>
-                          {pedido.statusPagamento || "-"}
-                        </span>
+                        {formatarData(pedido.dataEntrada || pedido.dataVisita)}
                       </td>
+
+                      <td style={tdStyle}>{pedido.quantidade || 0}</td>
+
                       <td style={tdStyle}>
-                        <span style={statusOperacionalStyle(pedido.statusOperacional || "")}>
-                          {pedido.statusOperacional || "-"}
-                        </span>
+                        {formatarMoeda(Number(pedido.valorTotal || 0))}
                       </td>
-                      <td style={tdStyle}>{pedido.codigoIngresso || "-"}</td>
-                      <td style={tdStyle}>{formatarDataHora(pedido.createdAt)}</td>
+
+                      <td style={tdStyle}>
+                        <StatusBadge tipo="pagamento" status={pedido.statusPagamento} />
+                      </td>
+
+                      <td style={tdStyle}>
+                        <StatusBadge tipo="operacional" status={pedido.statusOperacional} />
+                      </td>
+
+                      <td style={tdStyle}>
+                        <button
+                          onClick={() => router.push(`/admin/pedidos/${pedido.id}`)}
+                          style={{
+                            backgroundColor: "#166534",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: "10px",
+                            padding: "10px 14px",
+                            fontWeight: "bold",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Ver detalhes
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -412,162 +476,86 @@ export default function AdminPedidosPage() {
   );
 }
 
-function formatarDataHora(valor?: string) {
-  if (!valor) return "-";
+function StatusBadge({
+  status,
+  tipo,
+}: {
+  status?: string;
+  tipo: "pagamento" | "operacional";
+}) {
+  const valor = status || (tipo === "pagamento" ? "pendente" : "ativo");
 
-  const data = new Date(valor);
+  let backgroundColor = "#e2e8f0";
+  let color = "#334155";
 
-  if (isNaN(data.getTime())) return valor;
-
-  return data.toLocaleString("pt-BR");
-}
-
-function statusPagamentoStyle(status: string): React.CSSProperties {
-  const base: React.CSSProperties = {
-    display: "inline-block",
-    padding: "6px 10px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: 700,
-    textTransform: "capitalize",
-  };
-
-  if (status === "pendente") {
-    return {
-      ...base,
-      backgroundColor: "#fef3c7",
-      color: "#92400e",
-    };
+  if (valor === "pago" || valor === "ativo") {
+    backgroundColor = "#dcfce7";
+    color = "#166534";
   }
 
-  if (status === "pago") {
-    return {
-      ...base,
-      backgroundColor: "#dcfce7",
-      color: "#166534",
-    };
+  if (valor === "pendente") {
+    backgroundColor = "#fef9c3";
+    color = "#854d0e";
   }
 
-  if (status === "em_analise") {
-    return {
-      ...base,
-      backgroundColor: "#dbeafe",
-      color: "#1d4ed8",
-    };
+  if (valor === "utilizado" || valor === "bloqueado" || valor === "valor_divergente") {
+    backgroundColor = "#fee2e2";
+    color = "#991b1b";
   }
 
-  if (status === "cancelado" || status === "expirado") {
-    return {
-      ...base,
-      backgroundColor: "#fee2e2",
-      color: "#991b1b",
-    };
-  }
-
-  return {
-    ...base,
-    backgroundColor: "#e5e7eb",
-    color: "#374151",
-  };
-}
-
-function statusOperacionalStyle(status: string): React.CSSProperties {
-  const base: React.CSSProperties = {
-    display: "inline-block",
-    padding: "6px 10px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: 700,
-    textTransform: "capitalize",
-  };
-
-  if (status === "ativo") {
-    return {
-      ...base,
-      backgroundColor: "#ecfccb",
-      color: "#3f6212",
-    };
-  }
-
-  if (status === "utilizado") {
-    return {
-      ...base,
-      backgroundColor: "#dcfce7",
-      color: "#166534",
-    };
-  }
-
-  if (status === "remarcado") {
-    return {
-      ...base,
-      backgroundColor: "#ede9fe",
-      color: "#6d28d9",
-    };
-  }
-
-  if (status === "credito") {
-    return {
-      ...base,
-      backgroundColor: "#fef3c7",
-      color: "#92400e",
-    };
-  }
-
-  if (status === "cancelado") {
-    return {
-      ...base,
-      backgroundColor: "#fee2e2",
-      color: "#991b1b",
-    };
-  }
-
-  return {
-    ...base,
-    backgroundColor: "#e5e7eb",
-    color: "#374151",
-  };
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        borderRadius: "999px",
+        padding: "6px 10px",
+        fontSize: "12px",
+        fontWeight: "bold",
+        backgroundColor,
+        color,
+        textTransform: "uppercase",
+      }}
+    >
+      {valor}
+    </span>
+  );
 }
 
 const labelStyle: React.CSSProperties = {
   display: "block",
+  fontWeight: "bold",
+  color: "#334155",
   marginBottom: "8px",
-  fontWeight: 600,
-  color: "#374151",
-};
-
-const selectStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "14px 16px",
-  borderRadius: "12px",
-  border: "1px solid #d1d5db",
-  outline: "none",
-  fontSize: "16px",
-  boxSizing: "border-box",
-  backgroundColor: "#ffffff",
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "14px 16px",
-  borderRadius: "12px",
-  border: "1px solid #d1d5db",
-  outline: "none",
+  padding: "12px",
+  borderRadius: "10px",
+  border: "1px solid #cbd5e1",
   fontSize: "16px",
-  boxSizing: "border-box",
+};
+
+const selectStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: "10px",
+  border: "1px solid #cbd5e1",
+  fontSize: "16px",
   backgroundColor: "#ffffff",
 };
 
 const thStyle: React.CSSProperties = {
+  padding: "14px",
   textAlign: "left",
-  padding: "12px",
-  borderBottom: "1px solid #d1d5db",
-  color: "#111827",
+  color: "#334155",
   fontSize: "14px",
+  borderBottom: "1px solid #cbd5e1",
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "12px",
-  borderBottom: "1px solid #e5e7eb",
-  color: "#374151",
+  padding: "14px",
+  verticalAlign: "top",
+  color: "#1f2937",
   fontSize: "14px",
 };
