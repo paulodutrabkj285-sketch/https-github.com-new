@@ -15,6 +15,7 @@ export default function PagamentoPage() {
   const [verificando, setVerificando] = useState(false);
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
+  const [formaPagamento, setFormaPagamento] = useState<"pix" | "cartao">("pix");
 
   const mensagemPixExpirado =
     "PIX expirado. Gere um novo pedido para realizar o pagamento.";
@@ -213,11 +214,12 @@ export default function PagamentoPage() {
 
             <div>
               <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
-                Pagamento via PIX
+                Escolha sua forma de pagamento
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg text-white/90">
-                Pix gerado automaticamente pela integração Sicredi.
+                Pague via Pix Sicredi ou acompanhe a implantação do pagamento
+                com cartão.
               </p>
             </div>
           </div>
@@ -225,65 +227,189 @@ export default function PagamentoPage() {
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl">
-            <h2 className="mb-5 text-3xl font-bold text-[#166534]">
-              PIX QRCode
-            </h2>
+            <div className="mb-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormaPagamento("pix")}
+                className={`rounded-2xl p-4 text-lg font-bold transition ${formaPagamento === "pix"
+                    ? "bg-green-600 text-white shadow-lg"
+                    : "bg-gray-200 text-gray-700"
+                  }`}
+              >
+                PIX
+              </button>
 
-            {carregando ? (
-              <div className="rounded-2xl bg-gray-100 p-6 text-center font-bold text-gray-600">
-                Gerando Pix pelo Sicredi...
-              </div>
-            ) : pixExpirado ? (
-              <div className="rounded-2xl border border-red-300 bg-red-100 p-5 text-red-800">
-                <h3 className="text-2xl font-bold">PIX expirado</h3>
-                <p className="mt-2">
-                  Gere um novo pedido para realizar o pagamento.
-                </p>
-              </div>
-            ) : erro ? (
-              <div className="rounded-2xl border border-red-300 bg-red-100 p-5 text-red-800">
-                {erro}
-              </div>
-            ) : (
-              <>
-                <p className="mb-4 text-gray-600">
-                  Escaneie o QRCode abaixo ou copie o código PIX.
+              <button
+                type="button"
+                onClick={() => setFormaPagamento("cartao")}
+                className={`rounded-2xl p-4 text-lg font-bold transition ${formaPagamento === "cartao"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "bg-gray-200 text-gray-700"
+                  }`}
+              >
+                Cartão
+              </button>
+            </div>
+
+            {formaPagamento === "cartao" ? (
+              <div className="rounded-2xl border border-blue-300 bg-blue-50 p-6">
+                <h2 className="mb-4 text-3xl font-bold text-blue-700">
+                  Cartão de Crédito
+                </h2>
+
+                <p className="mb-4 text-gray-700">
+                  A opção de cartão está em implantação junto ao Sicredi.
+                  Estamos aguardando a homologação do gateway e do antifraude.
                 </p>
 
-                <div className="mb-6 flex justify-center">
-                  <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-lg">
-                    <QRCodeSVG
-                      value={pixCopiaCola}
-                      size={230}
-                      bgColor="#ffffff"
-                      fgColor="#166534"
-                      level="H"
-                      includeMargin
+                <div className="grid gap-4 rounded-2xl border bg-white p-5">
+                  <div>
+                    <label className="mb-2 block font-bold text-gray-700">
+                      Nome impresso no cartão
+                    </label>
+                    <input
+                      disabled
+                      placeholder="Disponível em breve"
+                      className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
                     />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block font-bold text-gray-700">
+                      Número do cartão
+                    </label>
+                    <input
+                      disabled
+                      placeholder="0000 0000 0000 0000"
+                      className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-2 block font-bold text-gray-700">
+                        Validade
+                      </label>
+                      <input
+                        disabled
+                        placeholder="MM/AA"
+                        className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block font-bold text-gray-700">
+                        CVV
+                      </label>
+                      <input
+                        disabled
+                        placeholder="123"
+                        className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block font-bold text-gray-700">
+                      Parcelas
+                    </label>
+                    <select
+                      disabled
+                      className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                    >
+                      <option>1x de {valorNumero.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}</option>
+                    </select>
                   </div>
                 </div>
 
-                <h3 className="mb-3 text-xl font-bold text-[#166534]">
-                  PIX copia e cola
-                </h3>
-
-                <textarea
-                  value={pixCopiaCola}
-                  readOnly
-                  className="h-44 w-full resize-none rounded-2xl border border-gray-300 bg-gray-50 p-4 text-sm outline-none"
-                />
+                <div className="mt-5 rounded-2xl border border-blue-200 bg-white p-4 text-sm text-gray-700">
+                  <p>
+                    <strong>Status:</strong> Em homologação
+                  </p>
+                  <p>
+                    <strong>Gateway:</strong> Aguardando definição Sicredi
+                  </p>
+                  <p>
+                    <strong>Antifraude:</strong> Aguardando definição
+                  </p>
+                  <p>
+                    <strong>Integração:</strong> Preparada no checkout
+                  </p>
+                </div>
 
                 <button
-                  onClick={copiarPix}
-                  className="mt-5 w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500"
+                  disabled
+                  className="mt-5 w-full rounded-2xl bg-gray-400 px-5 py-4 text-lg font-bold text-white"
                 >
-                  Copiar PIX copia e cola
+                  Cartão disponível em breve
                 </button>
+              </div>
+            ) : (
+              <>
+                <h2 className="mb-5 text-3xl font-bold text-[#166534]">
+                  PIX QRCode
+                </h2>
 
-                <div className="mt-6 rounded-2xl border border-green-300 bg-green-100 p-4 text-sm leading-relaxed text-green-900">
-                  <strong>Pagamento seguro:</strong> cobrança Pix gerada pelo
-                  Sicredi para o Parque Mundo Novo.
-                </div>
+                {carregando ? (
+                  <div className="rounded-2xl bg-gray-100 p-6 text-center font-bold text-gray-600">
+                    Gerando Pix pelo Sicredi...
+                  </div>
+                ) : pixExpirado ? (
+                  <div className="rounded-2xl border border-red-300 bg-red-100 p-5 text-red-800">
+                    <h3 className="text-2xl font-bold">PIX expirado</h3>
+                    <p className="mt-2">
+                      Gere um novo pedido para realizar o pagamento.
+                    </p>
+                  </div>
+                ) : erro ? (
+                  <div className="rounded-2xl border border-red-300 bg-red-100 p-5 text-red-800">
+                    {erro}
+                  </div>
+                ) : (
+                  <>
+                    <p className="mb-4 text-gray-600">
+                      Escaneie o QRCode abaixo ou copie o código PIX.
+                    </p>
+
+                    <div className="mb-6 flex justify-center">
+                      <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-lg">
+                        <QRCodeSVG
+                          value={pixCopiaCola}
+                          size={230}
+                          bgColor="#ffffff"
+                          fgColor="#166534"
+                          level="H"
+                          includeMargin
+                        />
+                      </div>
+                    </div>
+
+                    <h3 className="mb-3 text-xl font-bold text-[#166534]">
+                      PIX copia e cola
+                    </h3>
+
+                    <textarea
+                      value={pixCopiaCola}
+                      readOnly
+                      className="h-44 w-full resize-none rounded-2xl border border-gray-300 bg-gray-50 p-4 text-sm outline-none"
+                    />
+
+                    <button
+                      onClick={copiarPix}
+                      className="mt-5 w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500"
+                    >
+                      Copiar PIX copia e cola
+                    </button>
+
+                    <div className="mt-6 rounded-2xl border border-green-300 bg-green-100 p-4 text-sm leading-relaxed text-green-900">
+                      <strong>Pagamento seguro:</strong> cobrança Pix gerada
+                      pelo Sicredi para o Parque Mundo Novo.
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -307,6 +433,11 @@ export default function PagamentoPage() {
               <p>
                 <strong>Quantidade:</strong> {quantidade}
               </p>
+
+              <p>
+                <strong>Forma:</strong>{" "}
+                {formaPagamento === "pix" ? "Pix" : "Cartão"}
+              </p>
             </div>
 
             <hr className="my-6 border-gray-300" />
@@ -318,7 +449,11 @@ export default function PagamentoPage() {
               })}
             </p>
 
-            {pixExpirado ? (
+            {formaPagamento === "cartao" ? (
+              <div className="mb-4 rounded-2xl border border-blue-300 bg-blue-100 p-4 text-sm leading-relaxed text-blue-900">
+                Pagamento com cartão em fase de homologação com Sicredi.
+              </div>
+            ) : pixExpirado ? (
               <div className="mb-4 rounded-2xl border border-red-300 bg-red-100 p-4 text-sm leading-relaxed text-red-900">
                 Este Pix expirou. Volte para a página de ingressos e crie um
                 novo pedido.
@@ -330,27 +465,39 @@ export default function PagamentoPage() {
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={verificarPagamento}
-              disabled={verificando || pixExpirado}
-              className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {pixExpirado
-                ? "PIX expirado"
-                : verificando
-                  ? "Verificando pagamento..."
-                  : "Já fiz o PIX"}
-            </button>
+            {formaPagamento === "pix" && (
+              <button
+                type="button"
+                onClick={verificarPagamento}
+                disabled={verificando || pixExpirado}
+                className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {pixExpirado
+                  ? "PIX expirado"
+                  : verificando
+                    ? "Verificando pagamento..."
+                    : "Já fiz o PIX"}
+              </button>
+            )}
 
-            {mensagem && !pixExpirado && (
+            {formaPagamento === "cartao" && (
+              <button
+                type="button"
+                disabled
+                className="block w-full rounded-2xl bg-gray-400 px-5 py-4 text-center text-lg font-bold text-white shadow-lg disabled:cursor-not-allowed"
+              >
+                Cartão em implantação
+              </button>
+            )}
+
+            {mensagem && !pixExpirado && formaPagamento === "pix" && (
               <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
                 {mensagem}
               </div>
             )}
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso só será liberado se o Sicredi confirmar o pagamento e o
+              O ingresso só será liberado se o pagamento for confirmado e o
               valor pago for igual ao valor do pedido.
             </p>
           </aside>
