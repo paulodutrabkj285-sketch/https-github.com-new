@@ -6,16 +6,17 @@ import { useRouter } from "next/navigation";
 export default function IngressosPage() {
   const router = useRouter();
 
+  const [imagemAtual, setImagemAtual] = useState(0);
+  const [mostrarLocalizacao, setMostrarLocalizacao] = useState(false);
+
   const linkMaps =
-    "https://maps.google.com/maps?vet=10CAAQoqAOahcKEwiA3azy-YeVAxUAAAAAHQAAAAAQBg..i&pvq=CgwvZy8xcHYyZl9kaGIiFwoRcGFycXVlIG11bmRvIG5vdm8QAhgD&lqi=ChlwYXJxdWUgbXVuZG8gbm92byB1cnViaWNpSOrj_qbolYCACFopEAAQARACGAAYARgCGAMiGXBhcnF1ZSBtdW5kbyBub3ZvIHVydWJpY2mSAQpmYWlyZ3JvdW5k&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=br&sa=X&ftid=0x952046a2f62d7365:0x34bd4695f0794ad2";
+    "https://maps.google.com/maps?vet=10CAAQoqAOahcKEwiA3azy-YeVAxUAAAAAHQAAAAAQBg..i&pvq=CgwvZy8xcHYyZl9kaGIiFwoRcGFycXVlIG11bmRvIG5vdm8QAhgD&lqi=ChlwYXJxdWUgbXVuZG8gbm92byB1cnViaWNpY2mSAQpmYWlyZ3JvdW5k&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=br&sa=X&ftid=0x952046a2f62d7365:0x34bd4695f0794ad2";
 
   const imagens = [
     { url: "/fotos/fundo-geral.jpg", posicao: "center 35%" },
     { url: "/fotos/cachoeira-alta.png", posicao: "center 18%" },
     { url: "/fotos/cachoeira-lago.png", posicao: "center 25%" },
   ];
-
-  const [imagemAtual, setImagemAtual] = useState(0);
 
   useEffect(() => {
     const intervalo = setInterval(() => {
@@ -88,32 +89,38 @@ export default function IngressosPage() {
           <p className="mt-4 max-w-3xl text-lg text-white/90 drop-shadow-md md:text-2xl">
             Compre seu ingresso online com praticidade e segurança.
           </p>
-        </section>
 
-        <section className="mt-6 rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-sm">
-          <h2 className="text-2xl font-black text-[#166534]">
-            📍 Localização e funcionamento
-          </h2>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white shadow">
+              🕒 Todos os dias das 08h às 18h
+            </span>
 
-          <p className="mt-3 text-base font-semibold text-gray-800">
-            Parque Mundo Novo
-          </p>
+            <button
+              type="button"
+              onClick={() => setMostrarLocalizacao((valor) => !valor)}
+              className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white shadow transition hover:bg-white/25"
+            >
+              📍 {mostrarLocalizacao ? "Ocultar localização" : "Ver localização"}
+            </button>
+          </div>
 
-          <p className="mt-2 text-gray-700">
-            Funcionamento diário das <strong>08h00 às 18h00</strong>.
-          </p>
+          {mostrarLocalizacao && (
+            <div className="mt-5 rounded-2xl border border-white/20 bg-black/30 p-4 text-white">
+              <p className="font-bold">Parque Mundo Novo</p>
 
-          <p className="mt-2 text-sm text-gray-600">
-            Clique no botão abaixo para abrir a rota no Google Maps.
-          </p>
+              <p className="mt-1 text-sm text-white/85">
+                Clique no botão abaixo para abrir a rota no Google Maps.
+              </p>
 
-          <a
-            href={linkMaps}
-            target="_blank"
-            className="mt-5 inline-block rounded-2xl bg-green-700 px-6 py-4 font-bold text-white shadow-lg transition hover:bg-green-600"
-          >
-            📍 Como chegar pelo Google Maps
-          </a>
+              <a
+                href={linkMaps}
+                target="_blank"
+                className="mt-4 inline-block rounded-xl bg-green-600 px-5 py-3 font-bold text-white shadow-lg transition hover:bg-green-500"
+              >
+                📍 Como chegar pelo Google Maps
+              </a>
+            </div>
+          )}
         </section>
 
         <section className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
