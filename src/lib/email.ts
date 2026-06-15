@@ -81,27 +81,48 @@ export async function enviarIngressoPorEmail({
           <h3 style="margin-top: 0;">Regras de utilização do ingresso</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-            <li>O ingresso é válido somente para a data informada na compra.</li>
-            <li>O ingresso deverá ser apresentado na entrada do Parque Mundo Novo.</li>
-            <li>O QR Code do ingresso poderá ser utilizado apenas uma única vez.</li>
+            <li>O Parque Mundo Novo funciona diariamente das 08h00 às 18h00.</li>
+            <li>O ingresso é válido para a data selecionada no momento da compra.</li>
+            <li>Por motivo de imprevistos, o visitante poderá antecipar sua visita em até 24 horas antes da data originalmente adquirida.</li>
+            <li>Exemplo: ingresso comprado para domingo poderá ser utilizado no sábado.</li>
+            <li>Ingressos não utilizados poderão ter a data remarcada mediante contato prévio com a administração do parque.</li>
+            <li>Cada ingresso possui código único e poderá ser utilizado apenas uma vez.</li>
             <li>Após validado na portaria, o ingresso não poderá ser reutilizado.</li>
-            <li>Em caso de não comparecimento na data da visita, a remarcação ou conversão em crédito dependerá das regras internas definidas pelo Parque Mundo Novo.</li>
-            <li>Guarde este e-mail e o PDF anexo até o momento da entrada.</li>
           </ul>
         </div>
 
         <div style="background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">Importante sobre produtos e serviços</h3>
-
-          <p style="line-height: 1.6; margin-bottom: 10px;">
-            Alguns produtos, atrações e serviços do Parque Mundo Novo podem ser vendidos separadamente e não estão inclusos no ingresso de entrada do parque.
-          </p>
+          <h3 style="margin-top: 0;">O que está incluso no ingresso do Parque</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-            <li>Elevador Panorâmico</li>
-            <li>Camping</li>
-            <li>Produtos, alimentos e bebidas consumidos no local</li>
-            <li>Serviços extras ou atrações vendidas separadamente</li>
+            <li>Acesso às áreas abertas para visitação.</li>
+            <li>Mirantes.</li>
+            <li>Cachoeiras abertas ao público.</li>
+            <li>Trilhas liberadas para visitação.</li>
+            <li>Áreas de contemplação e lazer.</li>
+          </ul>
+        </div>
+
+        <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d; padding: 18px; border-radius: 14px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">O que NÃO está incluso no ingresso de entrada</h3>
+
+          <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+            <li>Camping.</li>
+            <li>Elevador Panorâmico.</li>
+            <li>Tirolesa.</li>
+            <li>Alimentação e bebidas.</li>
+            <li>Hospedagem.</li>
+            <li>Produtos e serviços adicionais oferecidos pelo parque.</li>
+          </ul>
+        </div>
+
+        <div style="background: #f0fdf4; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">Informações importantes</h3>
+
+          <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+            <li>Algumas atrações possuem cobrança separada.</li>
+            <li>O parque poderá suspender determinadas atividades por questões climáticas ou de segurança.</li>
+            <li>Ao adquirir o ingresso, o visitante declara estar ciente destas condições de utilização.</li>
           </ul>
         </div>
 
