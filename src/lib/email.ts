@@ -125,7 +125,29 @@ export async function enviarIngressoPorEmail({
             <li>Ao adquirir o ingresso, o visitante declara estar ciente destas condições de utilização.</li>
           </ul>
         </div>
+<div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
+  <h3 style="margin-top: 0;">📍 Localização do Parque</h3>
 
+  <p>
+    <strong>Parque Mundo Novo</strong>
+  </p>
+
+  <p>
+    Funcionamento diário das <strong>08h00 às 18h00</strong>.
+  </p>
+
+  <p>
+    Utilize o botão abaixo para abrir a rota diretamente no Google Maps.
+  </p>
+
+  <a
+    href="https://maps.google.com/maps?vet=10CAAQoqAOahcKEwiA3azy-YeVAxUAAAAAHQAAAAAQBg..i&pvq=CgwvZy8xcHYyZl9kaGIiFwoRcGFycXVlIG11bmRvIG5vdm8QAhgD&lqi=ChlwYXJxdWUgbXVuZG8gbm92byB1cnViaWNpSOrj_qbolYCACFopEAAQARACGAAYARgCGAMiGXBhcnF1ZSBtdW5kbyBub3ZvIHVydWJpY2mSAQpmYWlyZ3JvdW5k&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=br&sa=X&ftid=0x952046a2f62d7365:0x34bd4695f0794ad2"
+    target="_blank"
+    style="display:inline-block; background:#166534; color:white; padding:12px 18px; border-radius:12px; text-decoration:none; font-weight:bold; margin-top:10px;"
+  >
+    📍 Como chegar pelo Google Maps
+  </a>
+</div>
         <p style="font-size: 13px; color: #666; margin-top: 24px;">
           Apresente o PDF com QR Code na entrada do Parque Mundo Novo. Este ingresso só poderá ser utilizado uma vez.
         </p>
