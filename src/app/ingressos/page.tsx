@@ -123,6 +123,24 @@ export default function IngressosPage() {
           )}
         </section>
 
+        <section className="mt-8 rounded-3xl bg-white/90 p-6 text-gray-800 shadow-xl backdrop-blur-sm">
+          <h2 className="text-3xl font-bold text-green-800">
+            ⭐ Avaliação dos Visitantes
+          </h2>
+
+          <p className="mt-4 text-lg">
+            Nota média de <strong>4,5 estrelas</strong> no Google.
+          </p>
+
+          <p>
+            Mais de <strong>1.600 avaliações</strong>.
+          </p>
+
+          <p className="mt-3">
+            📍 Urubici - Santa Catarina
+          </p>
+        </section>
+
         <section className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {ingressos.map((item) => (
             <div
@@ -160,6 +178,81 @@ export default function IngressosPage() {
             </div>
           ))}
         </section>
+
+        <footer className="mt-16 rounded-3xl bg-emerald-950/90 p-8 text-white shadow-2xl backdrop-blur-sm">
+          <div className="grid gap-8 md:grid-cols-3">
+            <div>
+              <h3 className="mb-4 text-xl font-bold">Parque Mundo Novo</h3>
+
+              <p className="text-white/85">
+                Parque ecológico localizado em Urubici, na Serra Catarinense.
+              </p>
+
+              <p className="mt-3 text-white/85">
+                Natureza, trilhas, cachoeiras, mirantes e experiências para toda
+                a família.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="mb-4 text-xl font-bold">Contato</h3>
+
+              <p>📍 SC-110 KM 34 - Urubici/SC</p>
+
+              <p className="mt-2">📧 contato@parquemundonovosc.com.br</p>
+
+              <p className="mt-2">🕒 Todos os dias das 08h às 18h</p>
+
+              <a
+                href={linkMaps}
+                target="_blank"
+                className="mt-4 inline-block rounded-xl bg-green-600 px-5 py-3 font-bold text-white shadow-lg transition hover:bg-green-500"
+              >
+                📍 Como chegar
+              </a>
+            </div>
+
+            <div>
+              <h3 className="mb-4 text-xl font-bold">Redes Sociais</h3>
+
+              <a
+                href="https://www.instagram.com/parquemundonovo"
+                target="_blank"
+                className="block hover:text-green-300"
+              >
+                📸 Instagram
+              </a>
+
+              <a
+                href="https://www.facebook.com"
+                target="_blank"
+                className="mt-2 block hover:text-green-300"
+              >
+                📘 Facebook
+              </a>
+
+              <p className="mt-5 text-sm text-white/70">
+                Acompanhe novidades, fotos e informações atualizadas do parque.
+              </p>
+            </div>
+          </div>
+
+          <hr className="my-6 border-white/20" />
+
+          <div className="text-center text-sm text-white/80">
+            <p>© 2026 Parque Mundo Novo - Todos os direitos reservados</p>
+
+            <div className="mt-2 flex flex-wrap justify-center gap-4">
+              <a href="/politica-privacidade" className="underline">
+                Política de Privacidade
+              </a>
+
+              <a href="/termos-de-uso" className="underline">
+                Termos de Uso
+              </a>
+            </div>
+          </div>
+        </footer>
       </div>
     </main>
   );
