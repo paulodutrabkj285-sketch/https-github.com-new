@@ -60,20 +60,23 @@ export default function PortariaPage() {
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
 
-        const data = new Date(`${dataVisita}T00:00:00`);
-        data.setHours(0, 0, 0, 0);
+        const dataIngresso = new Date(`${dataVisita}T00:00:00`);
+        dataIngresso.setHours(0, 0, 0, 0);
 
-        if (data < hoje) {
-            return {
-                valido: false,
-                mensagem: "INGRESSO EXPIRADO",
-            };
-        }
+        const antecipacaoPermitida = new Date(dataIngresso);
+        antecipacaoPermitida.setDate(antecipacaoPermitida.getDate() - 1);
 
-        if (data > hoje) {
+        if (hoje < antecipacaoPermitida) {
             return {
                 valido: false,
                 mensagem: "INGRESSO AINDA NÃO VÁLIDO",
+            };
+        }
+
+        if (hoje > dataIngresso) {
+            return {
+                valido: false,
+                mensagem: "INGRESSO EXPIRADO",
             };
         }
 
