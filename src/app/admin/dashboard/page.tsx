@@ -42,6 +42,55 @@ export default function DashboardPage() {
     window.print();
   }
 
+  function exportarCSV() {
+    const cabecalho = [
+      "Nome",
+      "Produto",
+      "Quantidade",
+      "Valor",
+      "Pagamento",
+      "Data",
+      "Email",
+      "Telefone",
+      "Codigo Ingresso",
+    ];
+
+    const linhas = pedidos.map((pedido: any) => [
+      pedido.nome || "",
+      pedido.produto || "",
+      pedido.quantidade || "",
+      pedido.valorTotal || "",
+      pedido.statusPagamento || "",
+      pedido.createdAt
+        ? new Date(pedido.createdAt).toLocaleDateString("pt-BR")
+        : "",
+      pedido.email || "",
+      pedido.telefone || "",
+      pedido.codigoIngresso || "",
+    ]);
+
+    const csv = [
+      cabecalho.join(";"),
+      ...linhas.map((linha) => linha.join(";")),
+    ].join("\n");
+
+    const blob = new Blob(["\ufeff" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `vendas-parque-${new Date()
+      .toLocaleDateString("pt-BR")
+      .replace(/\//g, "-")}.csv`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
       <div className="mx-auto max-w-7xl">
@@ -83,6 +132,13 @@ export default function DashboardPage() {
               className="rounded-xl bg-orange-600 px-5 py-3 font-bold text-white"
             >
               📄 Entradas do Dia
+            </button>
+
+            <button
+              onClick={exportarCSV}
+              className="rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white"
+            >
+              📊 Exportar Excel
             </button>
           </section>
         </div>
@@ -311,7 +367,7 @@ export default function DashboardPage() {
   );
 }
 
-function Card({ titulo, valor }: { titulo: string; valor: string | number }) {
+function Card({ titulo, valor }: { titulo: string | number; valor: string | number }) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md">
       <p className="text-sm font-semibold text-gray-500">{titulo}</p>
