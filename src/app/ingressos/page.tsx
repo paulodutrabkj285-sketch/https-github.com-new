@@ -90,6 +90,12 @@ export default function IngressosPage() {
             Compre seu ingresso online com praticidade e segurança.
           </p>
 
+          <div className="mt-4">
+            <span className="rounded-full border border-yellow-400/30 bg-yellow-500/20 px-4 py-2 text-sm font-semibold text-yellow-100 shadow">
+              ⭐ 4,5/5 no Google • +1.600 avaliações
+            </span>
+          </div>
+
           <div className="mt-5 flex flex-wrap gap-3">
             <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white shadow">
               🕒 Todos os dias das 08h às 18h
@@ -109,6 +115,10 @@ export default function IngressosPage() {
               <p className="font-bold">Parque Mundo Novo</p>
 
               <p className="mt-1 text-sm text-white/85">
+                SC-110 KM 34 - Urubici/SC
+              </p>
+
+              <p className="mt-1 text-sm text-white/85">
                 Clique no botão abaixo para abrir a rota no Google Maps.
               </p>
 
@@ -121,24 +131,6 @@ export default function IngressosPage() {
               </a>
             </div>
           )}
-        </section>
-
-        <section className="mt-8 rounded-3xl bg-white/90 p-6 text-gray-800 shadow-xl backdrop-blur-sm">
-          <h2 className="text-3xl font-bold text-green-800">
-            ⭐ Avaliação dos Visitantes
-          </h2>
-
-          <p className="mt-4 text-lg">
-            Nota média de <strong>4,5 estrelas</strong> no Google.
-          </p>
-
-          <p>
-            Mais de <strong>1.600 avaliações</strong>.
-          </p>
-
-          <p className="mt-3">
-            📍 Urubici - Santa Catarina
-          </p>
         </section>
 
         <section className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -189,8 +181,7 @@ export default function IngressosPage() {
               </p>
 
               <p className="mt-3 text-white/85">
-                Natureza, trilhas, cachoeiras, mirantes e experiências para toda
-                a família.
+                ⭐ 4,5/5 no Google • +1.600 avaliações
               </p>
             </div>
 
@@ -230,10 +221,6 @@ export default function IngressosPage() {
               >
                 📘 Facebook
               </a>
-
-              <p className="mt-5 text-sm text-white/70">
-                Acompanhe novidades, fotos e informações atualizadas do parque.
-              </p>
             </div>
           </div>
 
