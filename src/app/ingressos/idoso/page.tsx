@@ -15,7 +15,7 @@ export default function IdosoPage() {
   const [quantidade, setQuantidade] = useState(1);
   const [salvando, setSalvando] = useState(false);
 
-  const valorUnitario = 30;
+  const valorUnitario = 1.00;
 
   const valorTotal = useMemo(() => {
     return quantidade * valorUnitario;
