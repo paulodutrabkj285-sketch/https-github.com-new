@@ -10,6 +10,7 @@ export default function PortariaPage() {
     const [carregando, setCarregando] = useState(false);
     const [cameraAtiva, setCameraAtiva] = useState(false);
     const [codigoManual, setCodigoManual] = useState("");
+    const [cpfBusca, setCpfBusca] = useState("");
     const [funcionario, setFuncionario] = useState("");
 
     const [entradasHoje, setEntradasHoje] = useState(0);
@@ -24,6 +25,10 @@ export default function PortariaPage() {
 
     function limpar(valor: string) {
         return String(valor || "").trim();
+    }
+
+    function limparCpf(valor: string) {
+        return String(valor || "").replace(/\D/g, "");
     }
 
     function formatarDataHora(valor?: string) {
@@ -151,6 +156,35 @@ export default function PortariaPage() {
         }
     }
 
+    function validarPedidoEncontrado(encontrado: Pedido, codigo?: string) {
+        setPedido(encontrado);
+        setCodigoManual(encontrado.codigoIngresso || codigo || "");
+
+        if (encontrado.statusPagamento !== "pago") {
+            setMensagem("INGRESSO NÃO PAGO");
+            return;
+        }
+
+        if (encontrado.statusOperacional === "utilizado") {
+            setMensagem("INGRESSO JÁ UTILIZADO");
+            return;
+        }
+
+        if (encontrado.statusOperacional === "bloqueado") {
+            setMensagem("INGRESSO BLOQUEADO");
+            return;
+        }
+
+        const validade = verificarValidadeData(encontrado.dataVisita);
+
+        if (!validade.valido) {
+            setMensagem(validade.mensagem);
+            return;
+        }
+
+        setMensagem("INGRESSO VÁLIDO");
+    }
+
     async function buscarIngresso(textoQr: string) {
         try {
             setCarregando(true);
@@ -175,35 +209,52 @@ export default function PortariaPage() {
                 return;
             }
 
-            setPedido(encontrado);
-            setCodigoManual(encontrado.codigoIngresso || dadosQr.codigo);
-
-            if (encontrado.statusPagamento !== "pago") {
-                setMensagem("INGRESSO NÃO PAGO");
-                return;
-            }
-
-            if (encontrado.statusOperacional === "utilizado") {
-                setMensagem("INGRESSO JÁ UTILIZADO");
-                return;
-            }
-
-            if (encontrado.statusOperacional === "bloqueado") {
-                setMensagem("INGRESSO BLOQUEADO");
-                return;
-            }
-
-            const validade = verificarValidadeData(encontrado.dataVisita);
-
-            if (!validade.valido) {
-                setMensagem(validade.mensagem);
-                return;
-            }
-
-            setMensagem("INGRESSO VÁLIDO");
+            validarPedidoEncontrado(encontrado, dadosQr.codigo);
         } catch (error) {
             console.error(error);
             setMensagem("ERRO AO VALIDAR INGRESSO");
+        } finally {
+            setCarregando(false);
+        }
+    }
+
+    async function buscarPorCpf() {
+        try {
+            setCarregando(true);
+            setPedido(null);
+
+            const cpfLimpo = limparCpf(cpfBusca);
+
+            if (!cpfLimpo) {
+                setMensagem("DIGITE O CPF");
+                return;
+            }
+
+            const pedidos = await listarPedidos();
+
+            const encontrados = pedidos.filter((item) => {
+                const cpfPedido = limparCpf(item.cpf || "");
+                return cpfPedido === cpfLimpo;
+            });
+
+            if (encontrados.length === 0) {
+                setMensagem("CPF NÃO ENCONTRADO");
+                return;
+            }
+
+            const encontrado =
+                encontrados.find(
+                    (item) =>
+                        item.statusPagamento === "pago" &&
+                        item.statusOperacional !== "utilizado" &&
+                        item.statusOperacional !== "bloqueado" &&
+                        verificarValidadeData(item.dataVisita).valido
+                ) || encontrados[0];
+
+            validarPedidoEncontrado(encontrado, encontrado.codigoIngresso || "");
+        } catch (error) {
+            console.error(error);
+            setMensagem("ERRO AO BUSCAR CPF");
         } finally {
             setCarregando(false);
         }
@@ -382,6 +433,7 @@ export default function PortariaPage() {
                     {pedido && (
                         <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-lg font-bold">
                             <p>Cliente: {pedido.nome}</p>
+                            <p>CPF: {pedido.cpf}</p>
                             <p>Produto: {pedido.produto}</p>
                             <p>Qtd: {pedido.quantidade}</p>
                             <p>Código: {pedido.codigoIngresso}</p>
@@ -450,6 +502,24 @@ export default function PortariaPage() {
                         </button>
                     </div>
 
+                    <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+                        <input
+                            type="text"
+                            value={cpfBusca}
+                            onChange={(e) => setCpfBusca(e.target.value)}
+                            placeholder="Digite o CPF"
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold outline-none focus:border-green-700"
+                        />
+
+                        <button
+                            onClick={buscarPorCpf}
+                            disabled={carregando}
+                            className="rounded-2xl bg-purple-600 px-5 py-4 font-black text-white disabled:opacity-60"
+                        >
+                            CPF
+                        </button>
+                    </div>
+
                     <div className="mt-4">
                         <input
                             type="text"
@@ -464,6 +534,7 @@ export default function PortariaPage() {
                         onClick={() => {
                             setPedido(null);
                             setCodigoManual("");
+                            setCpfBusca("");
                             setMensagem("Aguardando leitura do ingresso");
                         }}
                         className="mt-4 w-full rounded-2xl border border-slate-300 px-5 py-4 font-bold text-slate-700"
