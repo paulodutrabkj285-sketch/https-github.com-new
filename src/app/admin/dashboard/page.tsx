@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const dicasFinanceiras = gerarDicasFinanceiras(resumo, pedidos);
   const estatisticas = gerarEstatisticasProdutos(pedidos);
   const faturamentoPorDia = gerarFaturamentoPorDia(pedidos);
+  const entradasHoje = gerarEntradasHoje(pedidos);
 
   function formatarMoeda(valor: number) {
     return valor.toLocaleString("pt-BR", {
@@ -91,6 +92,45 @@ export default function DashboardPage() {
     document.body.removeChild(link);
   }
 
+  function exportarEntradasHoje() {
+    const cabecalho = [
+      "Cliente",
+      "CPF",
+      "Produto",
+      "Codigo",
+      "Funcionario",
+      "Data Entrada",
+    ];
+
+    const linhas = entradasHoje.map((pedido: any) => [
+      pedido.nome || "",
+      pedido.cpf || "",
+      pedido.produto || "",
+      pedido.codigoIngresso || "",
+      pedido.validadoPor || "",
+      pedido.utilizadoEm || pedido.validadoEm || "",
+    ]);
+
+    const csv = [
+      cabecalho.join(";"),
+      ...linhas.map((linha) => linha.join(";")),
+    ].join("\n");
+
+    const blob = new Blob(["\ufeff" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "entradas-hoje.csv";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
       <div className="mx-auto max-w-7xl">
@@ -128,10 +168,10 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={imprimirRelatorio}
+              onClick={exportarEntradasHoje}
               className="rounded-xl bg-orange-600 px-5 py-3 font-bold text-white"
             >
-              📄 Entradas do Dia
+              📋 Exportar Entradas
             </button>
 
             <button
@@ -260,16 +300,11 @@ export default function DashboardPage() {
                     <div
                       className="w-24 rounded-t-2xl bg-yellow-500"
                       style={{
-                        height: `${Math.max(
-                          resumo.totalPendentes * 15,
-                          30
-                        )}px`,
+                        height: `${Math.max(resumo.totalPendentes * 15, 30)}px`,
                       }}
                     />
 
-                    <p className="mt-3 font-bold text-yellow-700">
-                      Pendentes
-                    </p>
+                    <p className="mt-3 font-bold text-yellow-700">Pendentes</p>
                     <span>{resumo.totalPendentes}</span>
                   </div>
                 </div>
@@ -307,6 +342,60 @@ export default function DashboardPage() {
                     </div>
                   ))
                 )}
+              </div>
+            </section>
+
+            <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-2xl font-bold text-[#166534]">
+                  Entradas de Hoje
+                </h2>
+
+                <span className="rounded-full bg-green-100 px-4 py-2 font-bold text-green-800">
+                  {entradasHoje.length} visitantes
+                </span>
+              </div>
+
+              <div className="mt-5 overflow-x-auto">
+                <table className="w-full min-w-[900px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-b bg-gray-50 text-sm text-gray-600">
+                      <th className="p-3">Cliente</th>
+                      <th className="p-3">CPF</th>
+                      <th className="p-3">Produto</th>
+                      <th className="p-3">Código</th>
+                      <th className="p-3">Funcionário</th>
+                      <th className="p-3">Entrada</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {entradasHoje.length === 0 ? (
+                      <tr>
+                        <td className="p-3 text-gray-500" colSpan={6}>
+                          Nenhuma entrada registrada hoje.
+                        </td>
+                      </tr>
+                    ) : (
+                      entradasHoje.map((pedido: any) => (
+                        <tr key={pedido.id} className="border-b text-sm">
+                          <td className="p-3 font-semibold">{pedido.nome}</td>
+                          <td className="p-3">{pedido.cpf || "-"}</td>
+                          <td className="p-3">{pedido.produto}</td>
+                          <td className="p-3">{pedido.codigoIngresso}</td>
+                          <td className="p-3">{pedido.validadoPor || "-"}</td>
+                          <td className="p-3">
+                            {pedido.utilizadoEm || pedido.validadoEm
+                              ? new Date(
+                                pedido.utilizadoEm || pedido.validadoEm
+                              ).toLocaleString("pt-BR")
+                              : "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </section>
 
@@ -367,13 +456,38 @@ export default function DashboardPage() {
   );
 }
 
-function Card({ titulo, valor }: { titulo: string | number; valor: string | number }) {
+function Card({
+  titulo,
+  valor,
+}: {
+  titulo: string | number;
+  valor: string | number;
+}) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md">
       <p className="text-sm font-semibold text-gray-500">{titulo}</p>
       <h2 className="mt-3 text-2xl font-bold text-[#166534]">{valor}</h2>
     </div>
   );
+}
+
+function gerarEntradasHoje(pedidos: Pedido[]) {
+  return pedidos.filter((pedido: any) => {
+    if (pedido.statusOperacional !== "utilizado") return false;
+
+    const dataEntrada = pedido.utilizadoEm || pedido.validadoEm;
+
+    if (!dataEntrada) return false;
+
+    const hoje = new Date();
+    const entrada = new Date(dataEntrada);
+
+    return (
+      entrada.getDate() === hoje.getDate() &&
+      entrada.getMonth() === hoje.getMonth() &&
+      entrada.getFullYear() === hoje.getFullYear()
+    );
+  });
 }
 
 function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
