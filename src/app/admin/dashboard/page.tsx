@@ -31,6 +31,7 @@ export default function DashboardPage() {
   const estatisticas = gerarEstatisticasProdutos(pedidos);
   const faturamentoPorDia = gerarFaturamentoPorDia(pedidos);
   const entradasHoje = gerarEntradasHoje(pedidos);
+  const operacional = gerarDashboardOperacional(pedidos, resumo);
 
   function formatarMoeda(valor: number) {
     return valor.toLocaleString("pt-BR", {
@@ -218,6 +219,23 @@ export default function DashboardPage() {
               <Card
                 titulo="Valor líquido estimado"
                 valor={formatarMoeda(resumo.faturamentoLiquido)}
+              />
+            </section>
+
+            <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <Card titulo="Visitantes Hoje" valor={operacional.visitantesHoje} />
+              <Card titulo="Visitantes Mês" valor={operacional.visitantesMes} />
+              <Card
+                titulo="Receita Hoje"
+                valor={formatarMoeda(operacional.receitaHoje)}
+              />
+              <Card
+                titulo="Receita Mês"
+                valor={formatarMoeda(operacional.receitaMes)}
+              />
+              <Card
+                titulo="Ticket Médio"
+                valor={formatarMoeda(operacional.ticketMedio)}
               />
             </section>
 
@@ -488,6 +506,85 @@ function gerarEntradasHoje(pedidos: Pedido[]) {
       entrada.getFullYear() === hoje.getFullYear()
     );
   });
+}
+
+function gerarDashboardOperacional(pedidos: Pedido[], resumo: any) {
+  const hoje = new Date();
+
+  const visitantesHoje = pedidos.filter((pedido: any) => {
+    if (pedido.statusOperacional !== "utilizado") return false;
+
+    const dataEntrada = pedido.utilizadoEm || pedido.validadoEm;
+    if (!dataEntrada) return false;
+
+    const data = new Date(dataEntrada);
+
+    return (
+      data.getDate() === hoje.getDate() &&
+      data.getMonth() === hoje.getMonth() &&
+      data.getFullYear() === hoje.getFullYear()
+    );
+  }).length;
+
+  const visitantesMes = pedidos.filter((pedido: any) => {
+    if (pedido.statusOperacional !== "utilizado") return false;
+
+    const dataEntrada = pedido.utilizadoEm || pedido.validadoEm;
+    if (!dataEntrada) return false;
+
+    const data = new Date(dataEntrada);
+
+    return (
+      data.getMonth() === hoje.getMonth() &&
+      data.getFullYear() === hoje.getFullYear()
+    );
+  }).length;
+
+  const receitaHoje = pedidos
+    .filter((pedido: any) => {
+      if (pedido.statusPagamento !== "pago") return false;
+      if (!pedido.createdAt) return false;
+
+      const data = new Date(pedido.createdAt);
+
+      return (
+        data.getDate() === hoje.getDate() &&
+        data.getMonth() === hoje.getMonth() &&
+        data.getFullYear() === hoje.getFullYear()
+      );
+    })
+    .reduce(
+      (total: number, pedido: any) => total + Number(pedido.valorTotal || 0),
+      0
+    );
+
+  const receitaMes = pedidos
+    .filter((pedido: any) => {
+      if (pedido.statusPagamento !== "pago") return false;
+      if (!pedido.createdAt) return false;
+
+      const data = new Date(pedido.createdAt);
+
+      return (
+        data.getMonth() === hoje.getMonth() &&
+        data.getFullYear() === hoje.getFullYear()
+      );
+    })
+    .reduce(
+      (total: number, pedido: any) => total + Number(pedido.valorTotal || 0),
+      0
+    );
+
+  const ticketMedio =
+    resumo.totalPagos > 0 ? receitaMes / resumo.totalPagos : 0;
+
+  return {
+    visitantesHoje,
+    visitantesMes,
+    receitaHoje,
+    receitaMes,
+    ticketMedio,
+  };
 }
 
 function gerarDicasFinanceiras(resumo: any, pedidos: Pedido[]) {
