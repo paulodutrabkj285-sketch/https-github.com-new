@@ -28,10 +28,12 @@ export type PedidoInput = {
   valorTotal: number;
   statusPagamento: string;
   statusOperacional: string;
+
   pagbankCheckoutId?: string;
   pagbankReferenceId?: string;
   pagbankPayUrl?: string;
   pagbankStatus?: string;
+
   codigoIngresso?: string;
   qrCodeIngresso?: string;
 
@@ -39,6 +41,19 @@ export type PedidoInput = {
   validadoPor?: string;
   validadoEm?: string;
   utilizadoEm?: string;
+
+  // Lembretes de compra pendente
+  lembrete24hEnviado?: boolean;
+  lembrete24hEnviadoEm?: string;
+  lembrete7dEnviado?: boolean;
+  lembrete7dEnviadoEm?: string;
+
+  // Preparação para cartão futuramente
+  formaPagamento?: string;
+  parcelas?: number;
+  cartaoStatus?: string;
+  cartaoGateway?: string;
+  cartaoTransactionId?: string;
 };
 
 export type Pedido = PedidoInput & {
@@ -51,6 +66,16 @@ export type Pedido = PedidoInput & {
   sicrediPixCopiaCola?: string;
   sicrediLocation?: string;
   valorPago?: number;
+
+  emailIngressoEnviado?: boolean;
+  emailIngressoEnviadoEm?: string;
+  emailIngressoErro?: string;
+  emailIngressoErroEm?: string;
+  emailIngressoReenviado?: boolean;
+  emailIngressoReenviadoEm?: string;
+
+  pixEndToEndId?: string;
+  pixHorario?: string;
 };
 
 function gerarCodigoIngresso() {
