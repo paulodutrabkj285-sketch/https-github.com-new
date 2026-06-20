@@ -73,12 +73,18 @@ export async function POST(req: NextRequest) {
             mensagem: "Ingresso reenviado com sucesso.",
         });
     } catch (error: any) {
-        console.error("ERRO AO REENVIAR INGRESSO:", error?.message || error);
+        const mensagemErro =
+            error?.message ||
+            error?.response ||
+            JSON.stringify(error) ||
+            "Erro desconhecido";
+
+        console.error("ERRO AO REENVIAR INGRESSO:", mensagemErro);
 
         return NextResponse.json(
             {
                 ok: false,
-                error: "Erro ao reenviar ingresso.",
+                error: mensagemErro,
             },
             { status: 500 }
         );
