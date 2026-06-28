@@ -1,36 +1,39 @@
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Portaria Parque Mundo Novo",
-  description: "Sistema de validação de ingressos do Parque Mundo Novo",
-  manifest: "/manifest.webmanifest",
-  icons: {
-    icon: "/logo-final.png",
-    shortcut: "/logo-final.png",
-    apple: "/logo-final.png",
-  },
-};
+import { auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
-export const viewport: Viewport = {
-  themeColor: "#064e3b",
-};
-
-export default function RootLayout({
+export default function DashboardLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-  return (
-    <html lang="pt-BR">
-      <head>
-        <meta name="application-name" content="Portaria PMN" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="Portaria PMN" />
-        <meta name="mobile-web-app-capable" content="yes" />
-      </head>
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
-      <body>{children}</body>
-    </html>
-  );
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        router.push("/admin");
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#eef3ed]">
+        <h1 className="text-2xl font-bold text-[#166534]">
+          Carregando painel...
+        </h1>
+      </main>
+    );
+  }
+
+  return <>{children}</>;
 }
