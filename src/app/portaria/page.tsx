@@ -12,6 +12,7 @@ export default function PortariaPage() {
     const [codigoManual, setCodigoManual] = useState("");
     const [cpfBusca, setCpfBusca] = useState("");
     const [funcionario, setFuncionario] = useState("");
+    const [splash, setSplash] = useState(true);
 
     const [entradasHoje, setEntradasHoje] = useState(0);
     const [entradasMes, setEntradasMes] = useState(0);
@@ -21,7 +22,24 @@ export default function PortariaPage() {
 
     useEffect(() => {
         atualizarContadores();
+
+        const timer = setTimeout(() => {
+            setSplash(false);
+        }, 1800);
+
+        return () => clearTimeout(timer);
     }, []);
+
+    function vibrar(tipo: "sucesso" | "erro") {
+        if (typeof navigator === "undefined") return;
+        if (!navigator.vibrate) return;
+
+        if (tipo === "sucesso") {
+            navigator.vibrate(120);
+        } else {
+            navigator.vibrate([180, 100, 180]);
+        }
+    }
 
     function limpar(valor: string) {
         return String(valor || "").trim();
@@ -162,16 +180,19 @@ export default function PortariaPage() {
 
         if (encontrado.statusPagamento !== "pago") {
             setMensagem("INGRESSO NÃO PAGO");
+            vibrar("erro");
             return;
         }
 
         if (encontrado.statusOperacional === "utilizado") {
             setMensagem("INGRESSO JÁ UTILIZADO");
+            vibrar("erro");
             return;
         }
 
         if (encontrado.statusOperacional === "bloqueado") {
             setMensagem("INGRESSO BLOQUEADO");
+            vibrar("erro");
             return;
         }
 
@@ -179,10 +200,12 @@ export default function PortariaPage() {
 
         if (!validade.valido) {
             setMensagem(validade.mensagem);
+            vibrar("erro");
             return;
         }
 
         setMensagem("INGRESSO VÁLIDO");
+        vibrar("sucesso");
     }
 
     async function buscarIngresso(textoQr: string) {
@@ -206,6 +229,7 @@ export default function PortariaPage() {
 
             if (!encontrado) {
                 setMensagem("INGRESSO NÃO ENCONTRADO");
+                vibrar("erro");
                 return;
             }
 
@@ -213,6 +237,7 @@ export default function PortariaPage() {
         } catch (error) {
             console.error(error);
             setMensagem("ERRO AO VALIDAR INGRESSO");
+            vibrar("erro");
         } finally {
             setCarregando(false);
         }
@@ -227,6 +252,7 @@ export default function PortariaPage() {
 
             if (!cpfLimpo) {
                 setMensagem("DIGITE O CPF");
+                vibrar("erro");
                 return;
             }
 
@@ -239,6 +265,7 @@ export default function PortariaPage() {
 
             if (encontrados.length === 0) {
                 setMensagem("CPF NÃO ENCONTRADO");
+                vibrar("erro");
                 return;
             }
 
@@ -255,6 +282,7 @@ export default function PortariaPage() {
         } catch (error) {
             console.error(error);
             setMensagem("ERRO AO BUSCAR CPF");
+            vibrar("erro");
         } finally {
             setCarregando(false);
         }
@@ -287,6 +315,7 @@ export default function PortariaPage() {
                 console.error(error);
                 setMensagem("NÃO FOI POSSÍVEL ACESSAR A CÂMERA");
                 setCameraAtiva(false);
+                vibrar("erro");
             }
         }, 300);
     }
@@ -312,11 +341,13 @@ export default function PortariaPage() {
 
         if (!validade.valido) {
             setMensagem(validade.mensagem);
+            vibrar("erro");
             return;
         }
 
         if (!funcionario.trim()) {
             setMensagem("INFORME O NOME DO FUNCIONÁRIO");
+            vibrar("erro");
             return;
         }
 
@@ -342,10 +373,12 @@ export default function PortariaPage() {
             } as Pedido);
 
             setMensagem("ENTRADA CONFIRMADA");
+            vibrar("sucesso");
             await atualizarContadores();
         } catch (error) {
             console.error(error);
             setMensagem("ERRO AO CONFIRMAR ENTRADA");
+            vibrar("erro");
         } finally {
             setCarregando(false);
         }
@@ -374,10 +407,45 @@ export default function PortariaPage() {
     const usado = pedido?.statusOperacional === "utilizado";
 
     const painelClass = valido
-        ? "bg-green-600/95 border-green-400"
+        ? "bg-green-600/95 border-green-300"
         : usado || pedido
-            ? "bg-red-600/95 border-red-400"
-            : "bg-slate-900/80 border-white/30";
+            ? "bg-red-600/95 border-red-300"
+            : "bg-slate-950/85 border-white/30";
+
+    if (splash) {
+        return (
+            <main
+                className="flex min-h-screen items-center justify-center bg-cover bg-center px-6 text-white"
+                style={{
+                    backgroundImage: "url('/fotos/fundo-geral.jpg')",
+                }}
+            >
+                <div className="absolute inset-0 bg-black/70" />
+
+                <div className="relative z-10 flex flex-col items-center text-center">
+                    <img
+                        src="/logo-final.png"
+                        alt="Parque Mundo Novo"
+                        className="h-36 w-36 rounded-3xl bg-white/10 object-contain p-3 shadow-2xl"
+                    />
+
+                    <h1 className="mt-6 text-3xl font-black drop-shadow-lg">
+                        Parque Mundo Novo
+                    </h1>
+
+                    <p className="mt-2 text-lg font-semibold text-white/90">
+                        Portaria Digital
+                    </p>
+
+                    <div className="mt-8 h-2 w-44 overflow-hidden rounded-full bg-white/20">
+                        <div className="h-full w-1/2 animate-pulse rounded-full bg-green-400" />
+                    </div>
+
+                    <p className="mt-4 text-sm text-white/70">Carregando sistema...</p>
+                </div>
+            </main>
+        );
+    }
 
     return (
         <main
@@ -386,27 +454,38 @@ export default function PortariaPage() {
                 backgroundImage: "url('/fotos/fundo-geral.jpg')",
             }}
         >
-            <div className="absolute inset-0 bg-black/45" />
+            <div className="absolute inset-0 bg-black/65" />
 
             <div className="relative z-10 mx-auto max-w-md">
                 <header className="mb-5 text-center">
-                    <h1 className="text-3xl font-black drop-shadow-lg">Portaria</h1>
-                    <p className="mt-1 text-sm text-white/90">Parque Mundo Novo</p>
+                    <img
+                        src="/logo-final.png"
+                        alt="Parque Mundo Novo"
+                        className="mx-auto h-24 w-24 rounded-3xl bg-white/10 object-contain p-2 shadow-xl"
+                    />
+
+                    <h1 className="mt-3 text-3xl font-black drop-shadow-lg">
+                        Portaria Digital
+                    </h1>
+
+                    <p className="mt-1 text-sm font-semibold text-white/90">
+                        Parque Mundo Novo
+                    </p>
                 </header>
 
                 <div className="mb-5 grid grid-cols-3 gap-2">
-                    <div className="rounded-2xl bg-green-700/90 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">Hoje</p>
+                    <div className="rounded-2xl bg-green-700/95 p-3 text-center shadow-lg">
+                        <p className="text-xs font-bold">👥 Hoje</p>
                         <p className="text-2xl font-black">{entradasHoje}</p>
                     </div>
 
-                    <div className="rounded-2xl bg-blue-700/90 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">Mês</p>
+                    <div className="rounded-2xl bg-blue-700/95 p-3 text-center shadow-lg">
+                        <p className="text-xs font-bold">📅 Mês</p>
                         <p className="text-2xl font-black">{entradasMes}</p>
                     </div>
 
-                    <div className="rounded-2xl bg-purple-700/90 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">Total</p>
+                    <div className="rounded-2xl bg-purple-700/95 p-3 text-center shadow-lg">
+                        <p className="text-xs font-bold">🏆 Total</p>
                         <p className="text-2xl font-black">{totalUtilizados}</p>
                     </div>
                 </div>
@@ -414,13 +493,22 @@ export default function PortariaPage() {
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl backdrop-blur-sm ${painelClass}`}
                 >
-                    <p className="text-6xl">
-                        {valido ? "🟢" : usado || pedido ? "🔴" : "📷"}
+                    <p
+                        className={`text-7xl ${!pedido && !cameraAtiva ? "animate-pulse" : ""
+                            }`}
+                    >
+                        {valido ? "✅" : usado || pedido ? "⛔" : "📷"}
                     </p>
 
                     <h2 className="mt-4 text-4xl font-black leading-tight drop-shadow-lg">
                         {mensagem}
                     </h2>
+
+                    {valido && (
+                        <p className="mt-3 rounded-2xl bg-white/20 p-3 text-lg font-bold">
+                            Liberado para confirmação da entrada.
+                        </p>
+                    )}
 
                     {usado && usadoEm && (
                         <div className="mt-4 rounded-2xl bg-white/20 p-4 text-center text-xl font-black">
@@ -458,14 +546,14 @@ export default function PortariaPage() {
                         <button
                             onClick={iniciarCamera}
                             disabled={carregando}
-                            className="w-full rounded-2xl bg-green-700 px-5 py-6 text-2xl font-black text-white disabled:opacity-60"
+                            className="w-full rounded-2xl bg-green-700 px-5 py-6 text-2xl font-black text-white shadow-lg disabled:opacity-60"
                         >
                             📷 ESCANEAR QR CODE
                         </button>
                     ) : (
                         <button
                             onClick={pararCamera}
-                            className="w-full rounded-2xl bg-red-600 px-5 py-5 text-xl font-black text-white"
+                            className="w-full rounded-2xl bg-red-600 px-5 py-5 text-xl font-black text-white shadow-lg"
                         >
                             FECHAR CÂMERA
                         </button>
@@ -490,6 +578,7 @@ export default function PortariaPage() {
                             onClick={() => {
                                 if (!codigoManual.trim()) {
                                     setMensagem("DIGITE O CÓDIGO DO INGRESSO");
+                                    vibrar("erro");
                                     return;
                                 }
 
@@ -549,7 +638,7 @@ export default function PortariaPage() {
                         disabled={carregando}
                         className="mt-5 w-full rounded-3xl bg-green-500 px-5 py-6 text-2xl font-black text-white shadow-xl disabled:opacity-60"
                     >
-                        CONFIRMAR ENTRADA
+                        ✅ CONFIRMAR ENTRADA
                     </button>
                 )}
 
@@ -558,7 +647,7 @@ export default function PortariaPage() {
                         disabled
                         className="mt-5 w-full rounded-3xl bg-red-700 px-5 py-6 text-2xl font-black text-white shadow-xl"
                     >
-                        ENTRADA BLOQUEADA
+                        ⛔ ENTRADA BLOQUEADA
                     </button>
                 )}
             </div>
