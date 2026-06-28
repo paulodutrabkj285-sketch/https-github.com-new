@@ -38,12 +38,21 @@ function criarTransporter() {
       host,
       port,
       secure: port === 465,
-      auth: {
-        user,
-        pass,
-      },
+      auth: { user, pass },
     }),
   };
+}
+
+function formatarData(data?: string) {
+  if (!data) return "";
+
+  const partes = data.split("-");
+
+  if (partes.length === 3) {
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+
+  return data;
 }
 
 export async function enviarIngressoPorEmail({
@@ -61,6 +70,8 @@ export async function enviarIngressoPorEmail({
     console.log("E-mail não configurado. Envio ignorado.");
     return;
   }
+
+  const dataVisitaFormatada = formatarData(dataVisita);
 
   const pdfBuffer = await gerarPdfIngresso({
     nome,
@@ -92,8 +103,10 @@ export async function enviarIngressoPorEmail({
 
         <p><strong>Produto:</strong> ${produto}</p>
         <p><strong>Quantidade:</strong> ${quantidade}</p>
-        ${dataVisita ? `<p><strong>Data da visita:</strong> ${dataVisita}</p>` : ""}
-        <p><strong>Pedido:</strong> ${pedidoId}</p>
+        ${dataVisitaFormatada
+      ? `<p><strong>Data da visita:</strong> ${dataVisitaFormatada}</p>`
+      : ""
+    }
 
         <p style="margin-top: 24px;">
           Seu ingresso em PDF está anexado neste e-mail.
