@@ -6,11 +6,17 @@ export default function manifest(): MetadataRoute.Manifest {
         short_name: "Portaria PMN",
         description: "Sistema de validação de ingressos do Parque Mundo Novo",
         start_url: "/portaria",
+        scope: "/",
         display: "standalone",
-        background_color: "#065f46",
-        theme_color: "#065f46",
         orientation: "portrait",
+        background_color: "#064e3b",
+        theme_color: "#064e3b",
         icons: [
+            {
+                src: "/logo-final.png",
+                sizes: "512x512",
+                type: "image/png",
+            },
             {
                 src: "/icon-192.png",
                 sizes: "192x192",
