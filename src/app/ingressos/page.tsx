@@ -33,6 +33,7 @@ export default function IngressosPage() {
       preco: "R$ 60,00",
       imagem: "/fotos/ingresso-parque.jpg",
       rota: "/ingressos/parque",
+      botao: "Comprar ingresso",
     },
     {
       titulo: "Meia Entrada Idoso",
@@ -40,6 +41,7 @@ export default function IngressosPage() {
       preco: "R$ 30,00",
       imagem: "/fotos/idoso-cachoeira.jpg",
       rota: "/ingressos/idoso",
+      botao: "Comprar ingresso",
     },
     {
       titulo: "Camping",
@@ -47,6 +49,7 @@ export default function IngressosPage() {
       preco: "A partir de R$ 100,00",
       imagem: "/fotos/camping.jpg",
       rota: "/ingressos/camping",
+      botao: "Comprar ingresso",
     },
     {
       titulo: "Elevador Panorâmico",
@@ -54,6 +57,16 @@ export default function IngressosPage() {
       preco: "R$ 75,00",
       imagem: "/fotos/elevador-novo.jpg",
       rota: "/ingressos/elevador",
+      botao: "Comprar ingresso",
+    },
+    {
+      titulo: "Agências e Guias",
+      descricao:
+        "Cadastro para agências, guias, operadoras e transportadoras turísticas que levam grupos ao parque.",
+      preco: "Cadastro de parceiro",
+      imagem: "/fotos/fundo-geral.jpg",
+      rota: "/parceiros/cadastro",
+      botao: "Cadastrar parceiro",
     },
   ];
 
@@ -74,7 +87,7 @@ export default function IngressosPage() {
 
       <div className="absolute inset-0 bg-black/45" />
 
-      <div className="relative z-10 mx-auto max-w-6xl">
+      <div className="relative z-10 mx-auto max-w-7xl">
         <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-8 shadow-2xl backdrop-blur-sm">
           <img
             src="/logo-final.png"
@@ -133,7 +146,7 @@ export default function IngressosPage() {
           )}
         </section>
 
-        <section className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {ingressos.map((item) => (
             <div
               key={item.titulo}
@@ -164,7 +177,7 @@ export default function IngressosPage() {
                   onClick={() => router.push(item.rota)}
                   className="mt-6 rounded-xl bg-green-600 px-5 py-4 font-bold text-white shadow-lg transition hover:bg-green-500 active:scale-95"
                 >
-                  Comprar ingresso
+                  {item.botao}
                 </button>
               </div>
             </div>
