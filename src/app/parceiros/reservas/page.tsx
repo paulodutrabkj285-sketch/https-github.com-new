@@ -160,228 +160,243 @@ export default function ReservaParceiroPage() {
     }
 
     return (
-        <main className="min-h-screen bg-slate-950 text-white px-4 py-8">
-            <div className="max-w-5xl mx-auto">
-                <div className="mb-8">
-                    <p className="text-sm text-emerald-400 font-semibold">
-                        Parque Mundo Novo
-                    </p>
-                    <h1 className="text-3xl font-bold mt-2">
-                        Reserva para Agências e Guias
-                    </h1>
-                    <p className="text-slate-300 mt-2">
-                        Área exclusiva para reservas de excursões, grupos turísticos,
-                        agências e guias cadastrados.
-                    </p>
-                </div>
+        <main className="relative min-h-screen overflow-hidden text-white">
+            <div
+                className="absolute inset-0 bg-cover bg-center bg-fixed"
+                style={{
+                    backgroundImage: "url('/fundo-geral.jpg')",
+                }}
+            />
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <section className="lg:col-span-2 bg-white text-slate-900 rounded-2xl p-6 shadow-xl">
-                        <h2 className="text-xl font-bold mb-4">Dados da visita</h2>
+            <div className="absolute inset-0 bg-black/65" />
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <label className="block">
-                                <span className="font-medium">Data da visita</span>
-                                <input
-                                    type="date"
-                                    value={dataVisita}
-                                    onChange={(e) => setDataVisita(e.target.value)}
-                                    className="mt-1 w-full rounded-lg border px-3 py-2"
-                                />
-                            </label>
+            <div className="relative z-10 px-4 py-8">
+                <div className="max-w-5xl mx-auto">
+                    <div className="mb-8 rounded-2xl bg-black/35 backdrop-blur-sm border border-white/10 p-6 shadow-xl">
+                        <p className="text-sm text-emerald-300 font-semibold">
+                            Parque Mundo Novo
+                        </p>
 
-                            <label className="block">
-                                <span className="font-medium">Chegada prevista</span>
-                                <input
-                                    type="time"
-                                    value={horaPrevista}
-                                    onChange={(e) => setHoraPrevista(e.target.value)}
-                                    className="mt-1 w-full rounded-lg border px-3 py-2"
-                                />
-                            </label>
+                        <h1 className="text-3xl font-bold mt-2">
+                            Reserva para Agências e Guias
+                        </h1>
 
-                            <label className="block">
-                                <span className="font-medium">Tipo de veículo</span>
-                                <select
-                                    value={tipoVeiculo}
-                                    onChange={(e) => setTipoVeiculo(e.target.value)}
-                                    className="mt-1 w-full rounded-lg border px-3 py-2"
-                                >
-                                    <option>Van</option>
-                                    <option>Micro-ônibus</option>
-                                    <option>Ônibus</option>
-                                </select>
-                            </label>
+                        <p className="text-slate-100 mt-2">
+                            Área exclusiva para reservas de excursões, grupos turísticos,
+                            agências e guias cadastrados.
+                        </p>
+                    </div>
 
-                            <label className="block">
-                                <span className="font-medium">Adultos</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={adultos}
-                                    onChange={(e) => setAdultos(Number(e.target.value))}
-                                    className="mt-1 w-full rounded-lg border px-3 py-2"
-                                />
-                            </label>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <section className="lg:col-span-2 bg-white/95 text-slate-900 rounded-2xl p-6 shadow-xl backdrop-blur">
+                            <h2 className="text-xl font-bold mb-4">Dados da visita</h2>
 
-                            <label className="block">
-                                <span className="font-medium">Idosos / meia entrada</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={idosos}
-                                    onChange={(e) => setIdosos(Number(e.target.value))}
-                                    className="mt-1 w-full rounded-lg border px-3 py-2"
-                                />
-                            </label>
-
-                            <div className="block">
-                                <span className="font-medium">Elevador Panorâmico</span>
-                                <div className="mt-2 flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setTemElevador(false)}
-                                        className={`px-4 py-2 rounded-lg border ${!temElevador
-                                            ? "bg-slate-900 text-white"
-                                            : "bg-white text-slate-900"
-                                            }`}
-                                    >
-                                        Não
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setTemElevador(true)}
-                                        className={`px-4 py-2 rounded-lg border ${temElevador
-                                            ? "bg-slate-900 text-white"
-                                            : "bg-white text-slate-900"
-                                            }`}
-                                    >
-                                        Sim
-                                    </button>
-                                </div>
-                            </div>
-
-                            {temElevador && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <label className="block">
-                                    <span className="font-medium">Quantidade Elevador</span>
+                                    <span className="font-medium">Data da visita</span>
                                     <input
-                                        type="number"
-                                        min={0}
-                                        value={qtdElevador}
-                                        onChange={(e) => setQtdElevador(Number(e.target.value))}
+                                        type="date"
+                                        value={dataVisita}
+                                        onChange={(e) => setDataVisita(e.target.value)}
                                         className="mt-1 w-full rounded-lg border px-3 py-2"
                                     />
                                 </label>
-                            )}
-                        </div>
 
-                        <label className="block mt-4">
-                            <span className="font-medium">Observações</span>
-                            <textarea
-                                value={observacoes}
-                                onChange={(e) => setObservacoes(e.target.value)}
-                                placeholder="Ex: chegada prevista 09:30, grupo escolar, ônibus XYZ..."
-                                className="mt-1 w-full rounded-lg border px-3 py-2 min-h-28"
-                            />
-                        </label>
+                                <label className="block">
+                                    <span className="font-medium">Chegada prevista</span>
+                                    <input
+                                        type="time"
+                                        value={horaPrevista}
+                                        onChange={(e) => setHoraPrevista(e.target.value)}
+                                        className="mt-1 w-full rounded-lg border px-3 py-2"
+                                    />
+                                </label>
 
-                        {mensagem && (
-                            <div className="mt-4 rounded-lg bg-slate-100 p-3 text-slate-800 font-medium">
-                                {mensagem}
-                            </div>
-                        )}
+                                <label className="block">
+                                    <span className="font-medium">Tipo de veículo</span>
+                                    <select
+                                        value={tipoVeiculo}
+                                        onChange={(e) => setTipoVeiculo(e.target.value)}
+                                        className="mt-1 w-full rounded-lg border px-3 py-2"
+                                    >
+                                        <option>Van</option>
+                                        <option>Micro-ônibus</option>
+                                        <option>Ônibus</option>
+                                    </select>
+                                </label>
 
-                        <button
-                            onClick={salvarReserva}
-                            disabled={carregando}
-                            className="mt-6 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-bold py-3"
-                        >
-                            {carregando ? "Criando reserva..." : "Criar reserva da agência"}
-                        </button>
-                    </section>
+                                <label className="block">
+                                    <span className="font-medium">Adultos</span>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        value={adultos}
+                                        onChange={(e) => setAdultos(Number(e.target.value))}
+                                        className="mt-1 w-full rounded-lg border px-3 py-2"
+                                    />
+                                </label>
 
-                    <aside className="bg-white text-slate-900 rounded-2xl p-6 shadow-xl h-fit">
-                        <h2 className="text-xl font-bold mb-4">Resumo da reserva</h2>
+                                <label className="block">
+                                    <span className="font-medium">Idosos / meia entrada</span>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        value={idosos}
+                                        onChange={(e) => setIdosos(Number(e.target.value))}
+                                        className="mt-1 w-full rounded-lg border px-3 py-2"
+                                    />
+                                </label>
 
-                        <div className="space-y-3 text-sm">
-                            <div className="flex justify-between">
-                                <span>Adultos</span>
-                                <strong>{adultos}</strong>
-                            </div>
+                                <div className="block">
+                                    <span className="font-medium">Elevador Panorâmico</span>
 
-                            <div className="flex justify-between">
-                                <span>Idosos</span>
-                                <strong>{idosos}</strong>
-                            </div>
+                                    <div className="mt-2 flex gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setTemElevador(false);
+                                                setQtdElevador(0);
+                                            }}
+                                            className={`px-4 py-2 rounded-lg border transition ${!temElevador
+                                                    ? "bg-slate-900 text-white"
+                                                    : "bg-white text-slate-900"
+                                                }`}
+                                        >
+                                            Não
+                                        </button>
 
-                            <div className="flex justify-between">
-                                <span>Total visitantes</span>
-                                <strong>{calculo.totalVisitantes}</strong>
-                            </div>
-
-                            <hr />
-
-                            <div className="flex justify-between">
-                                <span>Adultos bruto</span>
-                                <strong>{formatarMoeda(calculo.valorAdultosBruto)}</strong>
-                            </div>
-
-                            <div className="flex justify-between text-emerald-700">
-                                <span>Desconto adultos 5%</span>
-                                <strong>- {formatarMoeda(calculo.descontoAdultos)}</strong>
-                            </div>
-
-                            <div className="flex justify-between">
-                                <span>Idosos</span>
-                                <strong>{formatarMoeda(calculo.valorIdososFinal)}</strong>
-                            </div>
-
-                            <p className="text-xs text-slate-500">
-                                Meia entrada não recebe desconto adicional.
-                            </p>
-
-                            {temElevador && (
-                                <>
-                                    <div className="flex justify-between">
-                                        <span>Elevador bruto</span>
-                                        <strong>
-                                            {formatarMoeda(calculo.valorElevadorBruto)}
-                                        </strong>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTemElevador(true)}
+                                            className={`px-4 py-2 rounded-lg border transition ${temElevador
+                                                    ? "bg-slate-900 text-white"
+                                                    : "bg-white text-slate-900"
+                                                }`}
+                                        >
+                                            Sim
+                                        </button>
                                     </div>
+                                </div>
 
-                                    <div className="flex justify-between text-emerald-700">
-                                        <span>Desconto elevador 5%</span>
-                                        <strong>- {formatarMoeda(calculo.descontoElevador)}</strong>
-                                    </div>
-                                </>
+                                {temElevador && (
+                                    <label className="block">
+                                        <span className="font-medium">Quantidade Elevador</span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            value={qtdElevador}
+                                            onChange={(e) => setQtdElevador(Number(e.target.value))}
+                                            className="mt-1 w-full rounded-lg border px-3 py-2"
+                                        />
+                                    </label>
+                                )}
+                            </div>
+
+                            <label className="block mt-4">
+                                <span className="font-medium">Observações</span>
+                                <textarea
+                                    value={observacoes}
+                                    onChange={(e) => setObservacoes(e.target.value)}
+                                    placeholder="Ex: chegada prevista 09:30, grupo escolar, ônibus XYZ..."
+                                    className="mt-1 w-full rounded-lg border px-3 py-2 min-h-28"
+                                />
+                            </label>
+
+                            {mensagem && (
+                                <div className="mt-4 rounded-lg bg-slate-100 p-3 text-slate-800 font-medium">
+                                    {mensagem}
+                                </div>
                             )}
 
-                            <hr />
+                            <button
+                                onClick={salvarReserva}
+                                disabled={carregando}
+                                className="mt-6 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-bold py-3 transition"
+                            >
+                                {carregando ? "Criando reserva..." : "Criar reserva da agência"}
+                            </button>
+                        </section>
 
-                            <div className="flex justify-between">
-                                <span>Valor bruto</span>
-                                <strong>{formatarMoeda(calculo.valorBruto)}</strong>
+                        <aside className="bg-white/95 text-slate-900 rounded-2xl p-6 shadow-xl h-fit backdrop-blur">
+                            <h2 className="text-xl font-bold mb-4">Resumo da reserva</h2>
+
+                            <div className="space-y-3 text-sm">
+                                <div className="flex justify-between">
+                                    <span>Adultos</span>
+                                    <strong>{adultos}</strong>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span>Idosos</span>
+                                    <strong>{idosos}</strong>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span>Total visitantes</span>
+                                    <strong>{calculo.totalVisitantes}</strong>
+                                </div>
+
+                                <hr />
+
+                                <div className="flex justify-between">
+                                    <span>Adultos bruto</span>
+                                    <strong>{formatarMoeda(calculo.valorAdultosBruto)}</strong>
+                                </div>
+
+                                <div className="flex justify-between text-emerald-700">
+                                    <span>Desconto adultos 5%</span>
+                                    <strong>- {formatarMoeda(calculo.descontoAdultos)}</strong>
+                                </div>
+
+                                <div className="flex justify-between">
+                                    <span>Idosos</span>
+                                    <strong>{formatarMoeda(calculo.valorIdososFinal)}</strong>
+                                </div>
+
+                                <p className="text-xs text-slate-500">
+                                    Meia entrada não recebe desconto adicional.
+                                </p>
+
+                                {temElevador && (
+                                    <>
+                                        <div className="flex justify-between">
+                                            <span>Elevador bruto</span>
+                                            <strong>{formatarMoeda(calculo.valorElevadorBruto)}</strong>
+                                        </div>
+
+                                        <div className="flex justify-between text-emerald-700">
+                                            <span>Desconto elevador 5%</span>
+                                            <strong>- {formatarMoeda(calculo.descontoElevador)}</strong>
+                                        </div>
+                                    </>
+                                )}
+
+                                <hr />
+
+                                <div className="flex justify-between">
+                                    <span>Valor bruto</span>
+                                    <strong>{formatarMoeda(calculo.valorBruto)}</strong>
+                                </div>
+
+                                <div className="flex justify-between text-emerald-700">
+                                    <span>Desconto total</span>
+                                    <strong>- {formatarMoeda(calculo.valorDesconto)}</strong>
+                                </div>
+
+                                <div className="flex justify-between text-lg">
+                                    <span className="font-bold">Valor final</span>
+                                    <strong>{formatarMoeda(calculo.valorFinal)}</strong>
+                                </div>
                             </div>
 
-                            <div className="flex justify-between text-emerald-700">
-                                <span>Desconto total</span>
-                                <strong>- {formatarMoeda(calculo.valorDesconto)}</strong>
+                            <div className="mt-5 rounded-xl bg-slate-100 p-4 text-xs text-slate-600">
+                                <p>
+                                    Camping não aparece neste fluxo, pois será vendido somente
+                                    para cliente final.
+                                </p>
                             </div>
-
-                            <div className="flex justify-between text-lg">
-                                <span className="font-bold">Valor final</span>
-                                <strong>{formatarMoeda(calculo.valorFinal)}</strong>
-                            </div>
-                        </div>
-
-                        <div className="mt-5 rounded-xl bg-slate-100 p-4 text-xs text-slate-600">
-                            <p>
-                                Camping não aparece neste fluxo, pois será vendido somente para
-                                cliente final.
-                            </p>
-                        </div>
-                    </aside>
+                        </aside>
+                    </div>
                 </div>
             </div>
         </main>
