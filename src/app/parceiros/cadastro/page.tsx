@@ -84,7 +84,7 @@ export default function CadastroParceiroPage() {
                 observacoes: form.observacoes.trim(),
             });
 
-            const idCriado = resultado?.id || "";
+            const idCriado = const idCriado = resultado || "";
 
             setAgenciaId(idCriado);
             setSucesso(true);
