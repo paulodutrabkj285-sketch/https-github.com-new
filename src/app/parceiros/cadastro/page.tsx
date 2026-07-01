@@ -1,323 +1,389 @@
 "use client";
 
-import { criarAgencia } from "@/lib/agencias";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-export default function CadastroParceiroPage() {
+const VALOR_ADULTO = 60;
+const VALOR_IDOSO = 30;
+const VALOR_ELEVADOR = 75;
+const DESCONTO_AGENCIA = 0.05;
+
+export default function ReservaParceiroPage() {
+    const [dataVisita, setDataVisita] = useState("");
+    const [horaPrevista, setHoraPrevista] = useState("");
+    const [tipoVeiculo, setTipoVeiculo] = useState("Ônibus");
+    const [adultos, setAdultos] = useState(0);
+    const [idosos, setIdosos] = useState(0);
+    const [temElevador, setTemElevador] = useState(false);
+    const [qtdElevador, setQtdElevador] = useState(0);
+    const [observacoes, setObservacoes] = useState("");
     const [carregando, setCarregando] = useState(false);
-    const [sucesso, setSucesso] = useState(false);
-    const [erro, setErro] = useState("");
+    const [mensagem, setMensagem] = useState("");
 
-    const [form, setForm] = useState({
-        nomeEmpresa: "",
-        responsavel: "",
-        documento: "",
-        cadastur: "",
-        tipoParceiro: "agencia",
-        telefone: "",
-        whatsapp: "",
-        email: "",
-        cidade: "",
-        estado: "",
-        observacoes: "",
-    });
+    const calculo = useMemo(() => {
+        const valorAdultosBruto = adultos * VALOR_ADULTO;
+        const descontoAdultos = valorAdultosBruto * DESCONTO_AGENCIA;
+        const valorAdultosFinal = valorAdultosBruto - descontoAdultos;
 
-    function alterarCampo(
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-    ) {
-        const { name, value } = e.target;
+        const valorIdososFinal = idosos * VALOR_IDOSO;
 
-        setForm((atual) => ({
-            ...atual,
-            [name]: value,
-        }));
+        const valorElevadorBruto = temElevador ? qtdElevador * VALOR_ELEVADOR : 0;
+        const descontoElevador = valorElevadorBruto * DESCONTO_AGENCIA;
+        const valorElevadorFinal = valorElevadorBruto - descontoElevador;
+
+        const valorBruto =
+            valorAdultosBruto + valorIdososFinal + valorElevadorBruto;
+
+        const valorDesconto = descontoAdultos + descontoElevador;
+
+        const valorFinal =
+            valorAdultosFinal + valorIdososFinal + valorElevadorFinal;
+
+        const totalVisitantes = adultos + idosos;
+
+        return {
+            valorAdultosBruto,
+            descontoAdultos,
+            valorAdultosFinal,
+            valorIdososFinal,
+            valorElevadorBruto,
+            descontoElevador,
+            valorElevadorFinal,
+            valorBruto,
+            valorDesconto,
+            valorFinal,
+            totalVisitantes,
+        };
+    }, [adultos, idosos, temElevador, qtdElevador]);
+
+    function formatarMoeda(valor: number) {
+        return valor.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+        });
     }
 
-    function validarFormulario() {
-        if (!form.nomeEmpresa.trim()) return "Informe o nome da empresa ou guia.";
-        if (!form.responsavel.trim()) return "Informe o responsável.";
-        if (!form.documento.trim()) return "Informe o CPF ou CNPJ.";
-        if (!form.cadastur.trim()) return "Informe o número do Cadastur.";
-        if (!form.telefone.trim()) return "Informe o telefone.";
-        if (!form.whatsapp.trim()) return "Informe o WhatsApp.";
-        if (!form.email.trim()) return "Informe o e-mail.";
-        if (!form.cidade.trim()) return "Informe a cidade.";
-        if (!form.estado.trim()) return "Informe o estado.";
-
-        return "";
+    function gerarCodigoGrupo() {
+        const ano = new Date().getFullYear();
+        const numero = Math.floor(100000 + Math.random() * 900000);
+        return `GRP-${ano}-${numero}`;
     }
 
-    async function enviarCadastro(e: React.FormEvent) {
-        e.preventDefault();
+    async function salvarReserva() {
+        setMensagem("");
 
-        setErro("");
-        setSucesso(false);
+        if (!dataVisita) {
+            setMensagem("Informe a data da visita.");
+            return;
+        }
 
-        const erroValidacao = validarFormulario();
+        if (adultos <= 0 && idosos <= 0) {
+            setMensagem("Informe pelo menos 1 visitante.");
+            return;
+        }
 
-        if (erroValidacao) {
-            setErro(erroValidacao);
+        if (temElevador && qtdElevador <= 0) {
+            setMensagem("Informe a quantidade de elevadores.");
             return;
         }
 
         try {
             setCarregando(true);
 
-            await criarAgencia({
-                nomeEmpresa: form.nomeEmpresa.trim(),
-                responsavel: form.responsavel.trim(),
-                documento: form.documento.trim(),
-                cadastur: form.cadastur.trim(),
-                tipoParceiro: form.tipoParceiro as
-                    | "agencia"
-                    | "guia"
-                    | "transportadora"
-                    | "operadora",
-                telefone: form.telefone.trim(),
-                whatsapp: form.whatsapp.trim(),
-                email: form.email.trim(),
-                cidade: form.cidade.trim(),
-                estado: form.estado.trim().toUpperCase(),
-                observacoes: form.observacoes.trim(),
+            const codigoGrupo = gerarCodigoGrupo();
+
+            await addDoc(collection(db, "reservas_agencias"), {
+                agenciaId: null,
+                agenciaNome: "Agência não logada",
+
+                dataVisita,
+                horaPrevista,
+                tipoVeiculo,
+
+                adultos,
+                idosos,
+
+                elevador: temElevador,
+                qtdElevador: temElevador ? qtdElevador : 0,
+
+                observacoes,
+
+                valorAdultosBruto: calculo.valorAdultosBruto,
+                descontoAdultos: calculo.descontoAdultos,
+                valorAdultosFinal: calculo.valorAdultosFinal,
+
+                valorIdososFinal: calculo.valorIdososFinal,
+
+                valorElevadorBruto: calculo.valorElevadorBruto,
+                descontoElevador: calculo.descontoElevador,
+                valorElevadorFinal: calculo.valorElevadorFinal,
+
+                valorBruto: calculo.valorBruto,
+                valorDesconto: calculo.valorDesconto,
+                valorFinal: calculo.valorFinal,
+
+                totalVisitantes: calculo.totalVisitantes,
+
+                descontoAplicado: 5,
+                categoriaParceiro: "Bronze",
+
+                codigoGrupo,
+                qrCodeGrupo: null,
+
+                statusPagamento: "pendente",
+                statusOperacional: "reservado",
+
+                origem: "parceiros",
+                tipoReserva: "agencia_guia",
+
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
             });
 
-            setSucesso(true);
+            setMensagem(`Reserva criada com sucesso! Código do grupo: ${codigoGrupo}`);
 
-            setForm({
-                nomeEmpresa: "",
-                responsavel: "",
-                documento: "",
-                cadastur: "",
-                tipoParceiro: "agencia",
-                telefone: "",
-                whatsapp: "",
-                email: "",
-                cidade: "",
-                estado: "",
-                observacoes: "",
-            });
+            setDataVisita("");
+            setHoraPrevista("");
+            setTipoVeiculo("Ônibus");
+            setAdultos(0);
+            setIdosos(0);
+            setTemElevador(false);
+            setQtdElevador(0);
+            setObservacoes("");
         } catch (error) {
-            console.error(error);
-            setErro("Não foi possível enviar o cadastro. Tente novamente.");
+            console.error("Erro ao criar reserva:", error);
+            setMensagem("Erro ao criar reserva. Tente novamente.");
         } finally {
             setCarregando(false);
         }
     }
 
     return (
-        <main
-            className="relative min-h-screen bg-cover bg-center px-4 py-10 text-white"
-            style={{
-                backgroundImage: "url('/fotos/fundo-geral.jpg')",
-            }}
-        >
-            <div className="absolute inset-0 bg-black/65" />
+        <main className="min-h-screen bg-slate-950 text-white px-4 py-8">
+            <div className="max-w-5xl mx-auto">
+                <div className="mb-8">
+                    <p className="text-sm text-emerald-400 font-semibold">
+                        Parque Mundo Novo
+                    </p>
+                    <h1 className="text-3xl font-bold mt-2">
+                        Reserva para Agências e Guias
+                    </h1>
+                    <p className="text-slate-300 mt-2">
+                        Área exclusiva para reservas de excursões, grupos turísticos,
+                        agências e guias cadastrados.
+                    </p>
+                </div>
 
-            <div className="relative z-10 mx-auto max-w-4xl">
-                <section className="rounded-3xl border border-white/20 bg-emerald-950/85 p-6 shadow-2xl backdrop-blur-sm md:p-10">
-                    <div className="text-center">
-                        <img
-                            src="/logo-final.png"
-                            alt="Parque Mundo Novo"
-                            className="mx-auto h-28 w-28 rounded-3xl bg-white/10 object-contain p-3 shadow-xl"
-                        />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <section className="lg:col-span-2 bg-white text-slate-900 rounded-2xl p-6 shadow-xl">
+                        <h2 className="text-xl font-bold mb-4">Dados da visita</h2>
 
-                        <h1 className="mt-5 text-3xl font-black md:text-5xl">
-                            Cadastro de Parceiro
-                        </h1>
-
-                        <p className="mt-3 text-lg text-white/90">
-                            Agências, guias, operadoras e transportadoras turísticas.
-                        </p>
-
-                        <div className="mt-5 rounded-2xl bg-yellow-100 p-4 text-left text-sm font-semibold text-yellow-900">
-                            <p>
-                                ⚠️ O desconto de parceiro será aplicado apenas aos ingressos de
-                                entrada do parque, meia entrada e elevador panorâmico.
-                            </p>
-                            <p className="mt-2">
-                                🏕️ Camping não participa da política de desconto para agências
-                                e guias.
-                            </p>
-                        </div>
-                    </div>
-
-                    {sucesso && (
-                        <div className="mt-6 rounded-2xl bg-green-100 p-4 text-center font-bold text-green-800">
-                            Cadastro enviado com sucesso. Seu acesso foi criado como parceiro
-                            ativo.
-                        </div>
-                    )}
-
-                    {erro && (
-                        <div className="mt-6 rounded-2xl bg-red-100 p-4 text-center font-bold text-red-800">
-                            {erro}
-                        </div>
-                    )}
-
-                    <form onSubmit={enviarCadastro} className="mt-8 grid gap-5">
-                        <div className="grid gap-5 md:grid-cols-2">
-                            <Campo
-                                label="Nome da empresa / guia"
-                                name="nomeEmpresa"
-                                value={form.nomeEmpresa}
-                                onChange={alterarCampo}
-                                placeholder="Ex: Serra Turismo"
-                            />
-
-                            <Campo
-                                label="Responsável"
-                                name="responsavel"
-                                value={form.responsavel}
-                                onChange={alterarCampo}
-                                placeholder="Nome do responsável"
-                            />
-
-                            <Campo
-                                label="CPF ou CNPJ"
-                                name="documento"
-                                value={form.documento}
-                                onChange={alterarCampo}
-                                placeholder="Digite CPF ou CNPJ"
-                            />
-
-                            <Campo
-                                label="Número Cadastur"
-                                name="cadastur"
-                                value={form.cadastur}
-                                onChange={alterarCampo}
-                                placeholder="Cadastro oficial do turismo"
-                            />
-
-                            <div>
-                                <label className="mb-2 block text-sm font-bold">
-                                    Tipo de parceiro
-                                </label>
-
-                                <select
-                                    name="tipoParceiro"
-                                    value={form.tipoParceiro}
-                                    onChange={alterarCampo}
-                                    className="w-full rounded-2xl border border-white/20 bg-white px-4 py-4 font-bold text-slate-900 outline-none"
-                                >
-                                    <option value="agencia">Agência de turismo</option>
-                                    <option value="guia">Guia de turismo</option>
-                                    <option value="transportadora">
-                                        Transportadora turística
-                                    </option>
-                                    <option value="operadora">Operadora de turismo</option>
-                                </select>
-                            </div>
-
-                            <Campo
-                                label="Telefone"
-                                name="telefone"
-                                value={form.telefone}
-                                onChange={alterarCampo}
-                                placeholder="Telefone comercial"
-                            />
-
-                            <Campo
-                                label="WhatsApp"
-                                name="whatsapp"
-                                value={form.whatsapp}
-                                onChange={alterarCampo}
-                                placeholder="WhatsApp para contato"
-                            />
-
-                            <Campo
-                                label="E-mail"
-                                name="email"
-                                type="email"
-                                value={form.email}
-                                onChange={alterarCampo}
-                                placeholder="email@empresa.com.br"
-                            />
-
-                            <Campo
-                                label="Cidade"
-                                name="cidade"
-                                value={form.cidade}
-                                onChange={alterarCampo}
-                                placeholder="Cidade"
-                            />
-
-                            <Campo
-                                label="Estado"
-                                name="estado"
-                                value={form.estado}
-                                onChange={alterarCampo}
-                                placeholder="SC"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="mb-2 block text-sm font-bold">
-                                Observações
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label className="block">
+                                <span className="font-medium">Data da visita</span>
+                                <input
+                                    type="date"
+                                    value={dataVisita}
+                                    onChange={(e) => setDataVisita(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                                />
                             </label>
 
-                            <textarea
-                                name="observacoes"
-                                value={form.observacoes}
-                                onChange={alterarCampo}
-                                rows={4}
-                                placeholder="Informe detalhes sobre excursões, vans, ônibus ou volume médio de visitantes."
-                                className="w-full rounded-2xl border border-white/20 bg-white px-4 py-4 font-bold text-slate-900 outline-none"
-                            />
+                            <label className="block">
+                                <span className="font-medium">Chegada prevista</span>
+                                <input
+                                    type="time"
+                                    value={horaPrevista}
+                                    onChange={(e) => setHoraPrevista(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                                />
+                            </label>
+
+                            <label className="block">
+                                <span className="font-medium">Tipo de veículo</span>
+                                <select
+                                    value={tipoVeiculo}
+                                    onChange={(e) => setTipoVeiculo(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                                >
+                                    <option>Van</option>
+                                    <option>Micro-ônibus</option>
+                                    <option>Ônibus</option>
+                                </select>
+                            </label>
+
+                            <label className="block">
+                                <span className="font-medium">Adultos</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={adultos}
+                                    onChange={(e) => setAdultos(Number(e.target.value))}
+                                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                                />
+                            </label>
+
+                            <label className="block">
+                                <span className="font-medium">Idosos / meia entrada</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={idosos}
+                                    onChange={(e) => setIdosos(Number(e.target.value))}
+                                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                                />
+                            </label>
+
+                            <div className="block">
+                                <span className="font-medium">Elevador Panorâmico</span>
+                                <div className="mt-2 flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setTemElevador(false)}
+                                        className={`px-4 py-2 rounded-lg border ${!temElevador
+                                                ? "bg-slate-900 text-white"
+                                                : "bg-white text-slate-900"
+                                            }`}
+                                    >
+                                        Não
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setTemElevador(true)}
+                                        className={`px-4 py-2 rounded-lg border ${temElevador
+                                                ? "bg-slate-900 text-white"
+                                                : "bg-white text-slate-900"
+                                            }`}
+                                    >
+                                        Sim
+                                    </button>
+                                </div>
+                            </div>
+
+                            {temElevador && (
+                                <label className="block">
+                                    <span className="font-medium">Quantidade Elevador</span>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        value={qtdElevador}
+                                        onChange={(e) => setQtdElevador(Number(e.target.value))}
+                                        className="mt-1 w-full rounded-lg border px-3 py-2"
+                                    />
+                                </label>
+                            )}
                         </div>
 
-                        <div className="rounded-2xl bg-white/10 p-4 text-sm text-white/90">
-                            <p>
-                                Ao enviar o cadastro, o parceiro declara que as informações
-                                fornecidas são verdadeiras e que possui cadastro Cadastur válido.
-                            </p>
-                            <p className="mt-2">
-                                O Parque Mundo Novo poderá bloquear cadastros inconsistentes ou
-                                uso indevido dos descontos.
-                            </p>
-                        </div>
+                        <label className="block mt-4">
+                            <span className="font-medium">Observações</span>
+                            <textarea
+                                value={observacoes}
+                                onChange={(e) => setObservacoes(e.target.value)}
+                                placeholder="Ex: chegada prevista 09:30, grupo escolar, ônibus XYZ..."
+                                className="mt-1 w-full rounded-lg border px-3 py-2 min-h-28"
+                            />
+                        </label>
+
+                        {mensagem && (
+                            <div className="mt-4 rounded-lg bg-slate-100 p-3 text-slate-800 font-medium">
+                                {mensagem}
+                            </div>
+                        )}
 
                         <button
-                            type="submit"
+                            onClick={salvarReserva}
                             disabled={carregando}
-                            className="rounded-2xl bg-green-600 px-6 py-5 text-xl font-black text-white shadow-xl transition hover:bg-green-500 disabled:opacity-60"
+                            className="mt-6 w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-bold py-3"
                         >
-                            {carregando ? "Enviando cadastro..." : "Enviar cadastro"}
+                            {carregando ? "Criando reserva..." : "Criar reserva da agência"}
                         </button>
-                    </form>
-                </section>
+                    </section>
+
+                    <aside className="bg-white text-slate-900 rounded-2xl p-6 shadow-xl h-fit">
+                        <h2 className="text-xl font-bold mb-4">Resumo da reserva</h2>
+
+                        <div className="space-y-3 text-sm">
+                            <div className="flex justify-between">
+                                <span>Adultos</span>
+                                <strong>{adultos}</strong>
+                            </div>
+
+                            <div className="flex justify-between">
+                                <span>Idosos</span>
+                                <strong>{idosos}</strong>
+                            </div>
+
+                            <div className="flex justify-between">
+                                <span>Total visitantes</span>
+                                <strong>{calculo.totalVisitantes}</strong>
+                            </div>
+
+                            <hr />
+
+                            <div className="flex justify-between">
+                                <span>Adultos bruto</span>
+                                <strong>{formatarMoeda(calculo.valorAdultosBruto)}</strong>
+                            </div>
+
+                            <div className="flex justify-between text-emerald-700">
+                                <span>Desconto adultos 5%</span>
+                                <strong>- {formatarMoeda(calculo.descontoAdultos)}</strong>
+                            </div>
+
+                            <div className="flex justify-between">
+                                <span>Idosos</span>
+                                <strong>{formatarMoeda(calculo.valorIdososFinal)}</strong>
+                            </div>
+
+                            <p className="text-xs text-slate-500">
+                                Meia entrada não recebe desconto adicional.
+                            </p>
+
+                            {temElevador && (
+                                <>
+                                    <div className="flex justify-between">
+                                        <span>Elevador bruto</span>
+                                        <strong>
+                                            {formatarMoeda(calculo.valorElevadorBruto)}
+                                        </strong>
+                                    </div>
+
+                                    <div className="flex justify-between text-emerald-700">
+                                        <span>Desconto elevador 5%</span>
+                                        <strong>- {formatarMoeda(calculo.descontoElevador)}</strong>
+                                    </div>
+                                </>
+                            )}
+
+                            <hr />
+
+                            <div className="flex justify-between">
+                                <span>Valor bruto</span>
+                                <strong>{formatarMoeda(calculo.valorBruto)}</strong>
+                            </div>
+
+                            <div className="flex justify-between text-emerald-700">
+                                <span>Desconto total</span>
+                                <strong>- {formatarMoeda(calculo.valorDesconto)}</strong>
+                            </div>
+
+                            <div className="flex justify-between text-lg">
+                                <span className="font-bold">Valor final</span>
+                                <strong>{formatarMoeda(calculo.valorFinal)}</strong>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 rounded-xl bg-slate-100 p-4 text-xs text-slate-600">
+                            <p>
+                                Camping não aparece neste fluxo, pois será vendido somente para
+                                cliente final.
+                            </p>
+                        </div>
+                    </aside>
+                </div>
             </div>
         </main>
-    );
-}
-
-function Campo({
-    label,
-    name,
-    value,
-    onChange,
-    placeholder,
-    type = "text",
-}: {
-    label: string;
-    name: string;
-    value: string;
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    placeholder?: string;
-    type?: string;
-}) {
-    return (
-        <div>
-            <label className="mb-2 block text-sm font-bold">{label}</label>
-
-            <input
-                type={type}
-                name={name}
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-                className="w-full rounded-2xl border border-white/20 bg-white px-4 py-4 font-bold text-slate-900 outline-none"
-            />
-        </div>
     );
 }
