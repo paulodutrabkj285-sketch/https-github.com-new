@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import QRCode from "qrcode";
 import { db } from "@/lib/firebase";
 
 const VALOR_ADULTO = 60;
@@ -109,6 +110,13 @@ export default function ReservaParceiroPage() {
 
             const codigoGrupo = gerarCodigoGrupo();
 
+            const qrCodeGrupo = await QRCode.toDataURL(
+                JSON.stringify({
+                    tipo: "reserva_agencia",
+                    codigoGrupo,
+                })
+            );
+
             await addDoc(collection(db, "reservas_agencias"), {
                 agenciaId: null,
                 agenciaNome: "Agência não logada",
@@ -145,9 +153,11 @@ export default function ReservaParceiroPage() {
                 categoriaParceiro: "Bronze",
 
                 codigoGrupo,
-                qrCodeGrupo: null,
+                qrCodeGrupo,
 
-                statusPagamento: "pendente",
+                statusPagamento: "a_pagar_na_chegada",
+                formaPagamento: "pendente",
+                pagamentoNaChegada: true,
                 statusOperacional: "reservado",
 
                 origem: "parceiros",
@@ -157,7 +167,9 @@ export default function ReservaParceiroPage() {
                 updatedAt: serverTimestamp(),
             });
 
-            setMensagem(`Reserva criada com sucesso! Código do grupo: ${codigoGrupo}`);
+            setMensagem(
+                `Reserva criada com sucesso! Código do grupo: ${codigoGrupo}. O pagamento será realizado na chegada ao parque.`
+            );
 
             setDataVisita("");
             setHoraPrevista("");
