@@ -1,12 +1,14 @@
 "use client";
 
 import { criarAgencia } from "@/lib/agencias";
+import Link from "next/link";
 import { useState } from "react";
 
 export default function CadastroParceiroPage() {
     const [carregando, setCarregando] = useState(false);
     const [sucesso, setSucesso] = useState(false);
     const [erro, setErro] = useState("");
+    const [agenciaId, setAgenciaId] = useState("");
 
     const [form, setForm] = useState({
         nomeEmpresa: "",
@@ -52,6 +54,7 @@ export default function CadastroParceiroPage() {
 
         setErro("");
         setSucesso(false);
+        setAgenciaId("");
 
         const erroValidacao = validarFormulario();
 
@@ -63,7 +66,7 @@ export default function CadastroParceiroPage() {
         try {
             setCarregando(true);
 
-            await criarAgencia({
+            const resultado = await criarAgencia({
                 nomeEmpresa: form.nomeEmpresa.trim(),
                 responsavel: form.responsavel.trim(),
                 documento: form.documento.trim(),
@@ -81,6 +84,9 @@ export default function CadastroParceiroPage() {
                 observacoes: form.observacoes.trim(),
             });
 
+            const idCriado = resultado?.id || "";
+
+            setAgenciaId(idCriado);
             setSucesso(true);
 
             setForm({
@@ -103,6 +109,10 @@ export default function CadastroParceiroPage() {
             setCarregando(false);
         }
     }
+
+    const linkReserva = agenciaId
+        ? `/parceiros/reservas?agenciaId=${agenciaId}`
+        : "/parceiros/reservas";
 
     return (
         <main
@@ -132,8 +142,12 @@ export default function CadastroParceiroPage() {
 
                         <div className="mt-5 rounded-2xl bg-yellow-100 p-4 text-left text-sm font-semibold text-yellow-900">
                             <p>
-                                ⚠️ O desconto de parceiro será aplicado apenas aos ingressos de
-                                entrada do parque, meia entrada e elevador panorâmico.
+                                ⚠️ O desconto de parceiro será aplicado apenas ao ingresso
+                                adulto do parque e ao elevador panorâmico.
+                            </p>
+                            <p className="mt-2">
+                                👴 Meia entrada não recebe desconto adicional, pois já é um
+                                benefício legal.
                             </p>
                             <p className="mt-2">
                                 🏕️ Camping não participa da política de desconto para agências
@@ -143,9 +157,18 @@ export default function CadastroParceiroPage() {
                     </div>
 
                     {sucesso && (
-                        <div className="mt-6 rounded-2xl bg-green-100 p-4 text-center font-bold text-green-800">
-                            Cadastro enviado com sucesso. Seu acesso foi criado como parceiro
-                            ativo.
+                        <div className="mt-6 rounded-2xl bg-green-100 p-5 text-center font-bold text-green-800">
+                            <p>Cadastro enviado com sucesso.</p>
+                            <p className="mt-1">
+                                Agora o parceiro já pode fazer a reserva da excursão.
+                            </p>
+
+                            <Link
+                                href={linkReserva}
+                                className="mt-5 inline-block rounded-2xl bg-green-700 px-6 py-4 text-lg font-black text-white shadow-xl transition hover:bg-green-600"
+                            >
+                                Fazer reserva agora
+                            </Link>
                         </div>
                     )}
 
@@ -202,9 +225,7 @@ export default function CadastroParceiroPage() {
                                 >
                                     <option value="agencia">Agência de turismo</option>
                                     <option value="guia">Guia de turismo</option>
-                                    <option value="transportadora">
-                                        Transportadora turística
-                                    </option>
+                                    <option value="transportadora">Transportadora turística</option>
                                     <option value="operadora">Operadora de turismo</option>
                                 </select>
                             </div>
@@ -252,9 +273,7 @@ export default function CadastroParceiroPage() {
                         </div>
 
                         <div>
-                            <label className="mb-2 block text-sm font-bold">
-                                Observações
-                            </label>
+                            <label className="mb-2 block text-sm font-bold">Observações</label>
 
                             <textarea
                                 name="observacoes"
