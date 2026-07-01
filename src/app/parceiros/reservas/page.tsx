@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -9,7 +9,15 @@ const VALOR_IDOSO = 30;
 const VALOR_ELEVADOR = 75;
 const DESCONTO_AGENCIA = 0.05;
 
+const imagensFundo = [
+    "/fotos/fundo-geral.jpg",
+    "/fotos/cachoeira-alta.png",
+    "/fotos/cachoeira-lago.png",
+];
+
 export default function ReservaParceiroPage() {
+    const [imagemAtual, setImagemAtual] = useState(0);
+
     const [dataVisita, setDataVisita] = useState("");
     const [horaPrevista, setHoraPrevista] = useState("");
     const [tipoVeiculo, setTipoVeiculo] = useState("Ônibus");
@@ -20,6 +28,14 @@ export default function ReservaParceiroPage() {
     const [observacoes, setObservacoes] = useState("");
     const [carregando, setCarregando] = useState(false);
     const [mensagem, setMensagem] = useState("");
+
+    useEffect(() => {
+        const intervalo = setInterval(() => {
+            setImagemAtual((atual) => (atual + 1) % imagensFundo.length);
+        }, 7000);
+
+        return () => clearInterval(intervalo);
+    }, []);
 
     const calculo = useMemo(() => {
         const valorAdultosBruto = adultos * VALOR_ADULTO;
@@ -161,18 +177,22 @@ export default function ReservaParceiroPage() {
 
     return (
         <main className="relative min-h-screen overflow-hidden text-white">
-            <div
-                className="absolute inset-0 bg-cover bg-center bg-fixed"
-                style={{
-                    backgroundImage: "url('/ingressos/cachoeira-alta.jpg')"
-                }}
-            />
+            {imagensFundo.map((imagem, index) => (
+                <div
+                    key={imagem}
+                    className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ${index === imagemAtual ? "opacity-100" : "opacity-0"
+                        }`}
+                    style={{
+                        backgroundImage: `url('${imagem}')`,
+                    }}
+                />
+            ))}
 
             <div className="absolute inset-0 bg-black/65" />
 
             <div className="relative z-10 px-4 py-8">
                 <div className="max-w-5xl mx-auto">
-                    <div className="mb-8 rounded-2xl bg-black/35 backdrop-blur-sm border border-white/10 p-6 shadow-xl">
+                    <div className="mb-8 rounded-2xl bg-black/40 backdrop-blur-sm border border-white/10 p-6 shadow-xl">
                         <p className="text-sm text-emerald-300 font-semibold">
                             Parque Mundo Novo
                         </p>
@@ -258,8 +278,8 @@ export default function ReservaParceiroPage() {
                                                 setQtdElevador(0);
                                             }}
                                             className={`px-4 py-2 rounded-lg border transition ${!temElevador
-                                                ? "bg-slate-900 text-white"
-                                                : "bg-white text-slate-900"
+                                                    ? "bg-slate-900 text-white"
+                                                    : "bg-white text-slate-900"
                                                 }`}
                                         >
                                             Não
@@ -269,8 +289,8 @@ export default function ReservaParceiroPage() {
                                             type="button"
                                             onClick={() => setTemElevador(true)}
                                             className={`px-4 py-2 rounded-lg border transition ${temElevador
-                                                ? "bg-slate-900 text-white"
-                                                : "bg-white text-slate-900"
+                                                    ? "bg-slate-900 text-white"
+                                                    : "bg-white text-slate-900"
                                                 }`}
                                         >
                                             Sim
@@ -303,7 +323,7 @@ export default function ReservaParceiroPage() {
                             </label>
 
                             {mensagem && (
-                                <div className="mt-4 rounded-lg bg-slate-100 p-3 text-slate-800 font-medium">
+                                <div className="mt-4 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-emerald-800 font-medium">
                                     {mensagem}
                                 </div>
                             )}
@@ -389,7 +409,7 @@ export default function ReservaParceiroPage() {
                                 </div>
                             </div>
 
-                            <div className="mt-5 rounded-xl bg-slate-100 p-4 text-xs text-slate-600">
+                            <div className="mt-5 rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-xs text-emerald-800">
                                 <p>
                                     Camping não aparece neste fluxo, pois será vendido somente
                                     para cliente final.
