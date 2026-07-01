@@ -164,7 +164,7 @@ export default function ReservaParceiroPage() {
             <div
                 className="absolute inset-0 bg-cover bg-center bg-fixed"
                 style={{
-                    backgroundImage: "url('/fundo-geral.jpg')",
+                    backgroundImage: "url('/ingressos/fundo-geral.jpg')",
                 }}
             />
 
@@ -258,8 +258,8 @@ export default function ReservaParceiroPage() {
                                                 setQtdElevador(0);
                                             }}
                                             className={`px-4 py-2 rounded-lg border transition ${!temElevador
-                                                    ? "bg-slate-900 text-white"
-                                                    : "bg-white text-slate-900"
+                                                ? "bg-slate-900 text-white"
+                                                : "bg-white text-slate-900"
                                                 }`}
                                         >
                                             Não
@@ -269,8 +269,8 @@ export default function ReservaParceiroPage() {
                                             type="button"
                                             onClick={() => setTemElevador(true)}
                                             className={`px-4 py-2 rounded-lg border transition ${temElevador
-                                                    ? "bg-slate-900 text-white"
-                                                    : "bg-white text-slate-900"
+                                                ? "bg-slate-900 text-white"
+                                                : "bg-white text-slate-900"
                                                 }`}
                                         >
                                             Sim
