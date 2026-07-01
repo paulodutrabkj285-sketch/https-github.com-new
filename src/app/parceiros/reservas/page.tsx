@@ -164,7 +164,7 @@ export default function ReservaParceiroPage() {
             <div
                 className="absolute inset-0 bg-cover bg-center bg-fixed"
                 style={{
-                    backgroundImage: "url('/ingressos/fundo-geral.jpg')",
+                    backgroundImage: "url('/ingressos/cachoeira-alta.jpg')"
                 }}
             />
 
