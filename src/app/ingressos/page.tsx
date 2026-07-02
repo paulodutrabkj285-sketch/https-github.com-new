@@ -26,6 +26,29 @@ export default function IngressosPage() {
     return () => clearInterval(intervalo);
   }, [imagens.length]);
 
+  const confianca = [
+    {
+      icone: "🛡️",
+      titulo: "Compra 100% Segura",
+      texto: "Pagamento protegido e confirmação automática.",
+    },
+    {
+      icone: "⚡",
+      titulo: "Confirmação Imediata",
+      texto: "Receba seu ingresso digital após o pagamento.",
+    },
+    {
+      icone: "🎟️",
+      titulo: "QR Code Exclusivo",
+      texto: "Entrada rápida e segura na portaria do parque.",
+    },
+    {
+      icone: "📍",
+      titulo: "Aberto Todos os Dias",
+      texto: "Funcionamento das 08h às 18h.",
+    },
+  ];
+
   const ingressos = [
     {
       titulo: "Ingresso Parque",
@@ -146,6 +169,42 @@ export default function IngressosPage() {
           )}
         </section>
 
+        <section className="mt-8 rounded-3xl border border-white/20 bg-white/95 p-6 text-slate-900 shadow-2xl backdrop-blur-sm md:p-8">
+          <div className="text-center">
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-emerald-700">
+              Por que comprar online?
+            </p>
+
+            <h2 className="mt-2 text-3xl font-black md:text-4xl">
+              Mais rápido, mais seguro e sem filas
+            </h2>
+
+            <p className="mx-auto mt-3 max-w-3xl text-slate-600">
+              Compre seu ingresso oficial do Parque Mundo Novo pela internet,
+              receba o QR Code e apresente na portaria.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {confianca.map((item) => (
+              <div
+                key={item.titulo}
+                className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 text-center shadow transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+              >
+                <div className="text-4xl">{item.icone}</div>
+
+                <h3 className="mt-4 text-lg font-black text-emerald-950">
+                  {item.titulo}
+                </h3>
+
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                  {item.texto}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <section className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
           {ingressos.map((item) => (
             <div
@@ -203,7 +262,7 @@ export default function IngressosPage() {
 
               <p>📍 SC-110 KM 34 - Urubici/SC</p>
 
-              <p className="mt-2">📧 contato@parquemundonovosc.com.br</p>
+              <p className="mt-2">📧 contato@parquemundonovooficial.com.br</p>
 
               <p className="mt-2">🕒 Todos os dias das 08h às 18h</p>
 
