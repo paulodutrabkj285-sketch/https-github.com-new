@@ -17,8 +17,8 @@ export default function CampingPage() {
   const [tipoCamping, setTipoCamping] = useState("Barraca");
   const [salvando, setSalvando] = useState(false);
 
-  const valorPrimeiraDiaria = 1;
-  const valorDemaisDiarias = 1;
+  const valorPrimeiraDiaria = 100;
+  const valorDemaisDiarias = 80;
 
   const valorPorPessoa = useMemo(() => {
     if (diarias <= 1) return valorPrimeiraDiaria;
