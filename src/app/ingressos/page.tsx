@@ -47,50 +47,70 @@ export default function IngressosPage() {
     {
       icone: "🌄",
       titulo: "Aberto Todos os Dias",
-      texto: "Funcionamento diário das 08h às 18h.",
+      texto: "Funcionamento diário das 08h às 17h30.",
     },
   ];
 
   const atracoes = [
     {
       icone: "💧",
-      titulo: "Cachoeiras",
-      texto: "Paisagens naturais para contemplar e fotografar.",
+      titulo: "Cachoeira Mundo Novo",
+      texto: "A principal do parque. Queda impressionante e paisagens únicas.",
+      imagem: "/fotos/cachoeira-mundo-novo.jpg",
     },
     {
-      icone: "🏞️",
-      titulo: "Mirantes",
-      texto: "Vista especial da Serra Catarinense.",
+      icone: "💧",
+      titulo: "Cascata do Avencal",
+      texto: "Queda imponente de aproximadamente 100 metros de altura.",
+      imagem: "/fotos/cascata-avencal.jpg",
     },
     {
       icone: "🚠",
       titulo: "Elevador Panorâmico",
-      texto: "Experiência vendida separadamente.",
+      texto: "Experiência vendida separadamente com vista panorâmica.",
+      imagem: "/fotos/elevador-novo.jpg",
     },
     {
       icone: "🌤️",
       titulo: "Balanço do Infinito",
       texto: "Uma das atrações mais procuradas para fotos.",
+      imagem: "/fotos/balanco-infinito.jpg",
     },
     {
       icone: "🪨",
-      titulo: "Pedra Furada",
-      texto: "Réplica temática para visitação.",
-    },
-    {
-      icone: "🧒",
-      titulo: "Área Kids",
-      texto: "Espaço para tornar o passeio em família melhor.",
+      titulo: "Réplica da Pedra Furada",
+      texto: "Réplica temática para visitação e fotos.",
+      imagem: "/fotos/pedra-furada.jpg",
     },
     {
       icone: "🍽️",
       titulo: "Restaurante",
-      texto: "Estrutura de apoio para sua visita.",
+      texto: "Buffet variado com comida caseira e sabor da serra.",
+      imagem: "/fotos/restaurante.jpg",
     },
     {
       icone: "⛺",
       titulo: "Camping",
-      texto: "Opção com ingresso próprio.",
+      texto: "Estrutura completa para sua conexão com a natureza.",
+      imagem: "/fotos/camping.jpg",
+    },
+    {
+      icone: "🐶",
+      titulo: "Pet Friendly",
+      texto: "Seu pet é bem-vindo para aproveitar o parque com você.",
+      imagem: "/fotos/pet-friendly.jpg",
+    },
+    {
+      icone: "🚐",
+      titulo: "Camping para Motorhome",
+      texto: "O camping aceita motorhomes com estrutura adequada.",
+      imagem: "/fotos/motorhome.jpg",
+    },
+    {
+      icone: "🧒",
+      titulo: "Área Kids",
+      texto: "Espaço seguro e divertido para as crianças.",
+      imagem: "/fotos/area-kids.jpg",
     },
   ];
 
@@ -144,7 +164,7 @@ export default function IngressosPage() {
     "O Elevador Panorâmico é vendido separadamente.",
     "Meia entrada exige apresentação de documento na portaria.",
     "Camping possui ingresso próprio.",
-    "Funcionamento todos os dias, das 08h às 18h.",
+    "Funcionamento todos os dias, das 08h às 17h30.",
   ];
 
   const perguntas = [
@@ -249,12 +269,19 @@ export default function IngressosPage() {
                 inesquecíveis em Urubici/SC.
               </p>
 
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+              <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
                 <a
                   href="#comprar-ingressos"
                   className="rounded-full bg-emerald-500 px-8 py-4 text-center font-black text-emerald-950 shadow-2xl transition hover:-translate-y-1 hover:bg-emerald-400"
                 >
                   Comprar Ingressos
+                </a>
+
+                <a
+                  href="#conheca-parque"
+                  className="rounded-full border border-white/30 bg-white/10 px-8 py-4 text-center font-black backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/20"
+                >
+                  Conheça o Parque
                 </a>
 
                 <button
@@ -268,11 +295,19 @@ export default function IngressosPage() {
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
-                  🕒 Todos os dias das 08h às 18h
+                  🕒 Todos os dias das 08h às 17h30
                 </span>
 
                 <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
                   🎟️ Ingresso digital com QR Code
+                </span>
+
+                <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
+                  🐶 Pet Friendly
+                </span>
+
+                <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
+                  🚐 Camping aceita motorhome
                 </span>
               </div>
 
@@ -319,7 +354,7 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <section className="px-4 py-20">
+      <section id="conheca-parque" className="px-4 py-20">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
@@ -334,7 +369,8 @@ export default function IngressosPage() {
           <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 text-lg leading-relaxed text-emerald-50/85 shadow-2xl">
             O Parque Mundo Novo reúne paisagens naturais, cachoeiras, mirantes,
             restaurante, camping e atrações para visitantes que desejam
-            aproveitar o melhor da Serra Catarinense.
+            aproveitar o melhor da Serra Catarinense. O parque também é Pet
+            Friendly e o camping aceita motorhomes.
           </div>
         </div>
       </section>
@@ -349,17 +385,38 @@ export default function IngressosPage() {
             O que você encontra no parque
           </h2>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-emerald-50/75">
+            Natureza, aventura, estrutura para famílias e experiências para
+            aproveitar em um dos destinos mais bonitos da Serra Catarinense.
+          </p>
+
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
             {atracoes.map((item) => (
               <div
                 key={item.titulo}
-                className="rounded-[1.75rem] border border-white/10 bg-gradient-to-b from-white/[0.1] to-white/[0.04] p-6 shadow-xl transition hover:-translate-y-1 hover:border-emerald-300/40"
+                className="group relative min-h-[360px] overflow-hidden rounded-[1.75rem] border border-emerald-300/20 bg-black/40 shadow-xl transition hover:-translate-y-1 hover:border-emerald-300/50"
               >
-                <div className="text-4xl">{item.icone}</div>
-                <h3 className="mt-5 text-xl font-black">{item.titulo}</h3>
-                <p className="mt-3 text-sm leading-relaxed text-emerald-50/75">
-                  {item.texto}
-                </p>
+                <img
+                  src={item.imagem}
+                  alt={item.titulo}
+                  className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/10" />
+
+                <div className="relative z-10 flex h-full min-h-[360px] flex-col justify-end p-5">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-900/80 text-2xl shadow-lg">
+                    {item.icone}
+                  </div>
+
+                  <h3 className="text-xl font-black text-white">
+                    {item.titulo}
+                  </h3>
+
+                  <p className="mt-3 text-sm leading-relaxed text-white/85">
+                    {item.texto}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -600,7 +657,7 @@ export default function IngressosPage() {
             </p>
 
             <p className="mt-2 text-sm text-slate-600">
-              🕒 Todos os dias das 08h às 18h
+              🕒 Todos os dias das 08h às 17h30
             </p>
 
             <a
