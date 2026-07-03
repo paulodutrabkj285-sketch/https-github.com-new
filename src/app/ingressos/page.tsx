@@ -52,14 +52,46 @@ export default function IngressosPage() {
   ];
 
   const atracoes = [
-    { icone: "💧", titulo: "Cachoeiras", texto: "Paisagens naturais para contemplar e fotografar." },
-    { icone: "🏞️", titulo: "Mirantes", texto: "Vista especial da Serra Catarinense." },
-    { icone: "🚠", titulo: "Elevador Panorâmico", texto: "Experiência vendida separadamente." },
-    { icone: "🌤️", titulo: "Balanço do Infinito", texto: "Uma das atrações mais procuradas para fotos." },
-    { icone: "🪨", titulo: "Pedra Furada", texto: "Réplica temática para visitação." },
-    { icone: "🧒", titulo: "Área Kids", texto: "Espaço para tornar o passeio em família melhor." },
-    { icone: "🍽️", titulo: "Restaurante", texto: "Estrutura de apoio para sua visita." },
-    { icone: "⛺", titulo: "Camping", texto: "Opção com ingresso próprio." },
+    {
+      icone: "💧",
+      titulo: "Cachoeiras",
+      texto: "Paisagens naturais para contemplar e fotografar.",
+    },
+    {
+      icone: "🏞️",
+      titulo: "Mirantes",
+      texto: "Vista especial da Serra Catarinense.",
+    },
+    {
+      icone: "🚠",
+      titulo: "Elevador Panorâmico",
+      texto: "Experiência vendida separadamente.",
+    },
+    {
+      icone: "🌤️",
+      titulo: "Balanço do Infinito",
+      texto: "Uma das atrações mais procuradas para fotos.",
+    },
+    {
+      icone: "🪨",
+      titulo: "Pedra Furada",
+      texto: "Réplica temática para visitação.",
+    },
+    {
+      icone: "🧒",
+      titulo: "Área Kids",
+      texto: "Espaço para tornar o passeio em família melhor.",
+    },
+    {
+      icone: "🍽️",
+      titulo: "Restaurante",
+      texto: "Estrutura de apoio para sua visita.",
+    },
+    {
+      icone: "⛺",
+      titulo: "Camping",
+      texto: "Opção com ingresso próprio.",
+    },
   ];
 
   const ingressos = [
@@ -107,7 +139,8 @@ export default function IngressosPage() {
   ];
 
   const informacoes = [
-    "Ingresso válido por 30 dias após a confirmação do pagamento.",
+    "Ingresso válido por 6 meses a partir da data da compra.",
+    "O ingresso pode ser apresentado impresso ou pelo celular.",
     "O Elevador Panorâmico é vendido separadamente.",
     "Meia entrada exige apresentação de documento na portaria.",
     "Camping possui ingresso próprio.",
@@ -117,32 +150,48 @@ export default function IngressosPage() {
   const perguntas = [
     {
       pergunta: "Quanto tempo vale o ingresso?",
-      resposta: "O ingresso é válido por 30 dias após a confirmação do pagamento.",
+      resposta:
+        "Seu ingresso é válido por 6 meses a partir da data da compra. Dentro desse período, você escolhe o melhor dia para sua visita.",
+    },
+    {
+      pergunta: "Como recebo meu ingresso?",
+      resposta:
+        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail e WhatsApp, com QR Code para apresentar na entrada.",
     },
     {
       pergunta: "O elevador está incluso?",
-      resposta: "Não. O Elevador Panorâmico é vendido separadamente.",
+      resposta:
+        "Não. O Elevador Panorâmico é vendido separadamente do ingresso de entrada do parque.",
     },
     {
       pergunta: "Camping está incluso?",
-      resposta: "Não. O camping possui ingresso próprio.",
+      resposta:
+        "Não. O camping possui ingresso próprio e deve ser comprado separadamente.",
     },
     {
       pergunta: "Como funciona a meia entrada?",
-      resposta: "A meia entrada para idoso exige documento comprobatório.",
+      resposta:
+        "A meia entrada para idoso exige documento comprobatório no momento da visita.",
     },
     {
-      pergunta: "Recebo QR Code?",
-      resposta: "Sim. Após o pagamento, o sistema gera um QR Code exclusivo.",
+      pergunta: "Posso cancelar a compra?",
+      resposta:
+        "Sim. Você pode solicitar o cancelamento em até 7 dias corridos após o pagamento, desde que o ingresso ainda não tenha sido utilizado.",
+    },
+    {
+      pergunta: "Como solicito o cancelamento?",
+      resposta:
+        "Entre em contato pelo WhatsApp do parque informando o número do pedido. O reembolso é feito pelo mesmo meio de pagamento e pode levar alguns dias úteis.",
     },
     {
       pergunta: "Posso apresentar pelo celular?",
-      resposta: "Sim. Você pode apresentar o QR Code diretamente pelo celular.",
+      resposta:
+        "Sim. Você pode apresentar o QR Code diretamente pelo celular na entrada do parque.",
     },
   ];
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#06150f] text-white">
+    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#06150f] via-[#0b2418] to-[#f3f7ef] text-white">
       <section className="relative min-h-screen overflow-hidden px-4 py-8">
         {imagens.map((img, index) => (
           <div
@@ -196,7 +245,8 @@ export default function IngressosPage() {
               </h1>
 
               <p className="mt-6 max-w-3xl text-xl font-medium leading-relaxed text-white/90 drop-shadow-md md:text-2xl">
-                Natureza, cachoeiras, mirantes, camping e experiências inesquecíveis em Urubici/SC.
+                Natureza, cachoeiras, mirantes, camping e experiências
+                inesquecíveis em Urubici/SC.
               </p>
 
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
@@ -269,7 +319,7 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <section className="px-4 py-24">
+      <section className="px-4 py-20">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
@@ -283,13 +333,13 @@ export default function IngressosPage() {
 
           <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-6 text-lg leading-relaxed text-emerald-50/85 shadow-2xl">
             O Parque Mundo Novo reúne paisagens naturais, cachoeiras, mirantes,
-            restaurante, camping e atrações para visitantes que desejam aproveitar
-            o melhor da Serra Catarinense.
+            restaurante, camping e atrações para visitantes que desejam
+            aproveitar o melhor da Serra Catarinense.
           </div>
         </div>
       </section>
 
-      <section className="px-4 pb-24">
+      <section className="px-4 pb-20">
         <div className="mx-auto max-w-7xl">
           <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
             Atrações
@@ -318,7 +368,7 @@ export default function IngressosPage() {
 
       <section
         id="comprar-ingressos"
-        className="bg-gradient-to-b from-[#06150f] via-[#0b2619] to-[#06150f] px-4 py-24"
+        className="bg-gradient-to-b from-[#0b2619] to-[#f3f7ef] px-4 py-20"
       >
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto mb-12 max-w-3xl text-center">
@@ -326,12 +376,13 @@ export default function IngressosPage() {
               Ingressos Online
             </p>
 
-            <h2 className="mt-4 text-4xl font-black md:text-5xl">
+            <h2 className="mt-4 text-4xl font-black text-white md:text-5xl">
               Escolha sua experiência
             </h2>
 
-            <p className="mt-5 text-lg leading-relaxed text-emerald-50/75">
-              Compre pelo site oficial, receba seu QR Code e apresente na portaria pelo celular.
+            <p className="mt-5 text-lg leading-relaxed text-emerald-50/80">
+              Compre pelo site oficial, receba seu QR Code e apresente na
+              portaria pelo celular.
             </p>
           </div>
 
@@ -380,10 +431,10 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <section className="px-4 py-24">
+      <section className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
               Antes da visita
             </p>
 
@@ -396,7 +447,7 @@ export default function IngressosPage() {
             {informacoes.map((info) => (
               <div
                 key={info}
-                className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-5 text-sm font-semibold leading-relaxed text-emerald-50/85 shadow-xl"
+                className="rounded-[1.5rem] border border-emerald-100 bg-white p-5 text-sm font-semibold leading-relaxed text-slate-700 shadow-xl"
               >
                 ✓ {info}
               </div>
@@ -405,10 +456,81 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <section className="px-4 pb-24">
+      <section className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
+        <div className="mx-auto max-w-7xl rounded-[2.5rem] border border-emerald-100 bg-white p-6 shadow-2xl md:p-10">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
+                Compra e cancelamento
+              </p>
+
+              <h2 className="mt-4 text-4xl font-black">
+                Política do ingresso
+              </h2>
+
+              <p className="mt-4 text-slate-600">
+                Informações claras para o visitante comprar com segurança e
+                entender seus direitos antes da visita.
+              </p>
+            </div>
+
+            <div className="space-y-5 text-sm leading-relaxed text-slate-700 md:text-base">
+              <div>
+                <h3 className="font-black text-slate-900">
+                  Como funciona seu ingresso
+                </h3>
+                <p className="mt-2">
+                  Após a confirmação do pagamento, você recebe o ingresso
+                  digital por e-mail e WhatsApp. Basta apresentar o ingresso
+                  impresso ou no celular na entrada do parque.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-black text-slate-900">Validade</h3>
+                <p className="mt-2">
+                  Seu ingresso é válido por 6 meses a partir da data da compra.
+                  Dentro desse período, você escolhe o melhor dia para sua
+                  visita, com tranquilidade.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-black text-slate-900">
+                  Arrependimento e cancelamento
+                </h3>
+                <p className="mt-2">
+                  Você pode cancelar sua compra em até 7 dias corridos após a
+                  data do pagamento, desde que o ingresso ainda não tenha sido
+                  utilizado. Nesse caso, o valor pago será devolvido integralmente.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="font-black text-slate-900">
+                  Como solicitar o cancelamento
+                </h3>
+                <p className="mt-2">
+                  Entre em contato pelo WhatsApp do parque informando o número
+                  do pedido. O reembolso é feito pelo mesmo meio de pagamento
+                  utilizado na compra e pode levar alguns dias úteis para
+                  aparecer, conforme o prazo da operadora ou banco.
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-emerald-50 p-5 font-semibold text-emerald-950">
+                Passados os 7 dias ou após a utilização do ingresso, não é
+                possível solicitar reembolso.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#f3f7ef] px-4 pb-20 text-slate-900">
         <div className="mx-auto max-w-5xl">
           <div className="mb-10 text-center">
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
               FAQ
             </p>
 
@@ -419,18 +541,18 @@ export default function IngressosPage() {
             {perguntas.map((item) => (
               <details
                 key={item.pergunta}
-                className="group rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-5 shadow-xl"
+                className="group rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-xl"
               >
                 <summary className="cursor-pointer list-none text-lg font-black">
                   <span className="flex items-center justify-between gap-4">
                     {item.pergunta}
-                    <span className="text-emerald-300 transition group-open:rotate-45">
+                    <span className="text-emerald-600 transition group-open:rotate-45">
                       +
                     </span>
                   </span>
                 </summary>
 
-                <p className="mt-4 leading-relaxed text-emerald-50/75">
+                <p className="mt-4 leading-relaxed text-slate-600">
                   {item.resposta}
                 </p>
               </details>
@@ -439,29 +561,29 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <footer className="border-t border-white/10 bg-black/30 px-4 py-12">
+      <footer className="border-t border-emerald-100 bg-white px-4 py-12 text-slate-900">
         <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
           <div className="md:col-span-2">
             <div className="flex items-center gap-3">
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
-                className="h-14 w-14 rounded-2xl bg-white object-contain p-2"
+                className="h-14 w-14 rounded-2xl bg-white object-contain p-2 shadow"
               />
 
               <div>
                 <h3 className="text-xl font-black">Parque Mundo Novo</h3>
-                <p className="text-sm text-emerald-50/60">
+                <p className="text-sm text-slate-500">
                   Site oficial de ingressos
                 </p>
               </div>
             </div>
 
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-emerald-50/70">
+            <p className="mt-5 max-w-xl text-sm leading-relaxed text-slate-600">
               Parque ecológico localizado em Urubici, na Serra Catarinense.
             </p>
 
-            <p className="mt-3 text-sm font-bold text-yellow-100">
+            <p className="mt-3 text-sm font-bold text-amber-600">
               {avaliacaoGoogle}
             </p>
           </div>
@@ -469,15 +591,15 @@ export default function IngressosPage() {
           <div>
             <h3 className="mb-4 text-lg font-black">Contato</h3>
 
-            <p className="text-sm text-emerald-50/75">
+            <p className="text-sm text-slate-600">
               📍 SC-110 KM 34 - Urubici/SC
             </p>
 
-            <p className="mt-2 text-sm text-emerald-50/75">
+            <p className="mt-2 text-sm text-slate-600">
               📧 contato@parquemundonovooficial.com.br
             </p>
 
-            <p className="mt-2 text-sm text-emerald-50/75">
+            <p className="mt-2 text-sm text-slate-600">
               🕒 Todos os dias das 08h às 18h
             </p>
 
@@ -496,7 +618,7 @@ export default function IngressosPage() {
             <a
               href="https://www.instagram.com/parquemundonovo"
               target="_blank"
-              className="block text-sm text-emerald-50/75 hover:text-emerald-300"
+              className="block text-sm text-slate-600 hover:text-emerald-700"
             >
               📸 Instagram
             </a>
@@ -504,28 +626,28 @@ export default function IngressosPage() {
             <a
               href="https://www.facebook.com"
               target="_blank"
-              className="mt-2 block text-sm text-emerald-50/75 hover:text-emerald-300"
+              className="mt-2 block text-sm text-slate-600 hover:text-emerald-700"
             >
               📘 Facebook
             </a>
 
             <a
               href="/politica-privacidade"
-              className="mt-2 block text-sm text-emerald-50/75 hover:text-emerald-300"
+              className="mt-2 block text-sm text-slate-600 hover:text-emerald-700"
             >
               Política de Privacidade
             </a>
 
             <a
               href="/termos-de-uso"
-              className="mt-2 block text-sm text-emerald-50/75 hover:text-emerald-300"
+              className="mt-2 block text-sm text-slate-600 hover:text-emerald-700"
             >
               Termos de Uso
             </a>
           </div>
         </div>
 
-        <div className="mx-auto mt-10 max-w-7xl border-t border-white/10 pt-6 text-center text-xs text-emerald-50/45">
+        <div className="mx-auto mt-10 max-w-7xl border-t border-emerald-100 pt-6 text-center text-xs text-slate-400">
           © 2026 Parque Mundo Novo - Todos os direitos reservados
         </div>
       </footer>
