@@ -128,7 +128,7 @@ export default function IngressosPage() {
       titulo: "Meia Entrada Idoso",
       descricao: "Valor especial para idosos mediante documento comprobatório.",
       preco: "R$ 30,00",
-      imagem: "/fotos/idoso-cachoeira.jpg",
+      imagem: "/fotos/idoso-cachoeira.png",
       rota: "/ingressos/idoso",
       botao: "Comprar ingresso",
     },
