@@ -98,7 +98,7 @@ export default function IngressosPage() {
       icone: "🚐",
       titulo: "Camping para Motorhome",
       texto: "O camping aceita motorhomes com estrutura adequada.",
-      imagem: "/fotos/camping.png",
+      imagem: "/fotos/motorhome.png",
     },
     {
       icone: "🐶",
@@ -110,7 +110,7 @@ export default function IngressosPage() {
       icone: "🧒",
       titulo: "Área Kids",
       texto: "Espaço seguro e divertido para as crianças.",
-      imagem: "/fotos/fundo-geral.jpg",
+      imagem: "/fotos/area-kids.png",
     },
   ];
 
