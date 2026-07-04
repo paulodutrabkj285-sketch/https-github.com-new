@@ -56,7 +56,7 @@ export default function IngressosPage() {
       icone: "💧",
       titulo: "Cachoeira Mundo Novo",
       texto: "A principal do parque. Queda impressionante e paisagens únicas.",
-      imagem: "/fotos/cachoeira-mundo-novo.jpg",
+      imagem: "/fotos/cachoeira-mundo-novo.png",
     },
     {
       icone: "💧",
@@ -74,13 +74,13 @@ export default function IngressosPage() {
       icone: "🌤️",
       titulo: "Balanço do Infinito",
       texto: "Uma das atrações mais procuradas para fotos.",
-      imagem: "/fotos/balanco-infinito.jpg",
+      imagem: "/fotos/balanco-infinito.png",
     },
     {
       icone: "🪨",
       titulo: "Réplica da Pedra Furada",
       texto: "Réplica temática para visitação e fotos.",
-      imagem: "/fotos/pedra-furada.jpg",
+      imagem: "/fotos/pedra-furada.png",
     },
     {
       icone: "🍽️",
@@ -95,16 +95,16 @@ export default function IngressosPage() {
       imagem: "/fotos/camping.jpg",
     },
     {
-      icone: "🐶",
-      titulo: "Pet Friendly",
-      texto: "Seu pet é bem-vindo para aproveitar o parque com você.",
-      imagem: "/fotos/pet-friendly.jpg",
-    },
-    {
       icone: "🚐",
       titulo: "Camping para Motorhome",
       texto: "O camping aceita motorhomes com estrutura adequada.",
-      imagem: "/fotos/motorhome.jpg",
+      imagem: "/fotos/motorhome.png",
+    },
+    {
+      icone: "🐶",
+      titulo: "Pet Friendly",
+      texto: "Seu pet é bem-vindo para aproveitar o parque com você.",
+      imagem: "/fotos/pet-friendly.png",
     },
     {
       icone: "🧒",
