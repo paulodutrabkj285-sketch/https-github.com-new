@@ -134,11 +134,11 @@ export default function IngressosPage() {
     },
     {
       titulo: "Camping",
-      descricao: "Hospedagem no camping com natureza, tranquilidade e estrutura.",
+      descricao: "1ª diária R$ 100 por pessoa. A partir da 2ª diária R$ 80.",
       preco: "A partir de R$ 100,00",
       imagem: "/fotos/camping.png",
       rota: "/ingressos/camping",
-      botao: "Comprar ingresso",
+      botao: "Comprar camping",
     },
     {
       titulo: "Elevador Panorâmico",
@@ -159,12 +159,63 @@ export default function IngressosPage() {
   ];
 
   const informacoes = [
+    "Funcionamento todos os dias, das 08h às 17h30.",
     "Ingresso válido por 6 meses a partir da data da compra.",
     "O ingresso pode ser apresentado impresso ou pelo celular.",
     "O Elevador Panorâmico é vendido separadamente.",
     "Meia entrada exige apresentação de documento na portaria.",
-    "Camping possui ingresso próprio.",
-    "Funcionamento todos os dias, das 08h às 17h30.",
+    "Camping possui ingresso próprio e voucher de check-in.",
+  ];
+
+  const planejamento = [
+    {
+      icone: "🕒",
+      titulo: "Horário de Funcionamento",
+      texto:
+        "O Parque Mundo Novo está aberto todos os dias, das 08h00 às 17h30. Recomendamos chegar com antecedência para aproveitar melhor sua visita.",
+    },
+    {
+      icone: "🎫",
+      titulo: "Como funciona seu ingresso",
+      texto:
+        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail e WhatsApp. Basta apresentar o QR Code impresso ou pelo celular na entrada.",
+    },
+    {
+      icone: "🏕️",
+      titulo: "Camping",
+      texto:
+        "A 1ª diária custa R$ 100,00 por pessoa. A partir da 2ª diária, o valor passa para R$ 80,00 por pessoa/noite. Crianças até 10 anos completos não pagam. Após a compra, será emitido um voucher de check-in com data, dados da reserva e QR Code.",
+    },
+    {
+      icone: "🚗",
+      titulo: "Estacionamento próprio",
+      texto:
+        "O parque possui estacionamento próprio. Recomendamos manter o veículo trancado, conferir portas e vidros e não deixar objetos de valor aparentes. O Parque Mundo Novo não se responsabiliza por objetos esquecidos, perdidos, furtados ou danificados no interior dos veículos ou nas áreas de estacionamento.",
+    },
+    {
+      icone: "🎢",
+      titulo: "Serviços terceirizados",
+      texto:
+        "Tirolesa, tirolesa infantil, salto de pêndulo, restaurante, bistrô e Café El Torrador são serviços operados por empresas parceiras, com administração própria. O Parque Mundo Novo disponibiliza apenas o espaço físico e não se responsabiliza por operação, horários, valores, manutenção, cancelamentos ou indisponibilidade desses serviços.",
+    },
+    {
+      icone: "🌧️",
+      titulo: "Condições climáticas",
+      texto:
+        "Por segurança, atrações terceirizadas podem ser suspensas em caso de chuva, vento forte, neblina intensa ou outras condições climáticas adversas. A contratação dessas atividades é feita diretamente no local com os operadores responsáveis.",
+    },
+    {
+      icone: "🍽️",
+      titulo: "Estrutura disponível",
+      texto:
+        "Dentro do parque você encontra restaurante, bistrô, Café El Torrador, camping, área para motorhome, área kids, mirantes, cachoeiras, elevador panorâmico, estacionamento e espaço pet friendly.",
+    },
+    {
+      icone: "📞",
+      titulo: "Atendimento",
+      texto:
+        "Para dúvidas sobre ingressos, fale pelo WhatsApp (49) 99129-9991 ou pelo e-mail ingressosparquemundonovo@gmail.com.",
+    },
   ];
 
   const perguntas = [
@@ -186,7 +237,12 @@ export default function IngressosPage() {
     {
       pergunta: "Camping está incluso?",
       resposta:
-        "Não. O camping possui ingresso próprio e deve ser comprado separadamente.",
+        "Não. O camping possui ingresso próprio. A 1ª diária custa R$ 100,00 por pessoa e a partir da 2ª diária R$ 80,00 por pessoa/noite.",
+    },
+    {
+      pergunta: "Crianças pagam camping?",
+      resposta:
+        "Crianças até 10 anos completos não pagam, desde que acompanhadas por responsável.",
     },
     {
       pergunta: "Como funciona a meia entrada?",
@@ -201,12 +257,17 @@ export default function IngressosPage() {
     {
       pergunta: "Como solicito o cancelamento?",
       resposta:
-        "Entre em contato pelo WhatsApp do parque informando o número do pedido. O reembolso é feito pelo mesmo meio de pagamento e pode levar alguns dias úteis.",
+        "Entre em contato pelo WhatsApp do parque, (49) 99129-9991, informando o número do pedido. O reembolso é feito pelo mesmo meio de pagamento e pode levar alguns dias úteis.",
     },
     {
       pergunta: "Posso apresentar pelo celular?",
       resposta:
         "Sim. Você pode apresentar o QR Code diretamente pelo celular na entrada do parque.",
+    },
+    {
+      pergunta: "As atrações terceirizadas são vendidas pelo site?",
+      resposta:
+        "Não. Tirolesa, tirolesa infantil, salto de pêndulo, restaurante, bistrô e cafeteria são serviços terceirizados e devem ser contratados diretamente no local.",
     },
   ];
 
@@ -278,10 +339,10 @@ export default function IngressosPage() {
                 </a>
 
                 <a
-                  href="#conheca-parque"
+                  href="#planeje-sua-visita"
                   className="rounded-full border border-white/30 bg-white/10 px-8 py-4 text-center font-black backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/20"
                 >
-                  Conheça o Parque
+                  Planeje sua Visita
                 </a>
 
                 <button
@@ -441,6 +502,12 @@ export default function IngressosPage() {
               Compre pelo site oficial, receba seu QR Code e apresente na
               portaria pelo celular.
             </p>
+
+            <div className="mt-6 rounded-2xl border border-yellow-200/30 bg-yellow-400/15 p-4 text-left text-sm font-semibold leading-relaxed text-yellow-50">
+              ℹ️ Antes de finalizar sua compra, leia as informações sobre
+              validade do ingresso, política de cancelamento, camping,
+              estacionamento e serviços terceirizados.
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
@@ -488,27 +555,59 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <section className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-          <div>
+      <section id="planeje-sua-visita" className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto mb-12 max-w-3xl text-center">
             <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
-              Antes da visita
+              Planeje sua Visita
             </p>
 
-            <h2 className="mt-4 text-4xl font-black">
-              Informações importantes
+            <h2 className="mt-4 text-4xl font-black md:text-5xl">
+              Informações importantes antes de vir
             </h2>
+
+            <p className="mt-5 text-lg leading-relaxed text-slate-600">
+              Confira horários, regras do camping, validade dos ingressos,
+              serviços terceirizados, estacionamento e canais de atendimento.
+            </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {informacoes.map((info) => (
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+            {planejamento.map((item) => (
               <div
-                key={info}
-                className="rounded-[1.5rem] border border-emerald-100 bg-white p-5 text-sm font-semibold leading-relaxed text-slate-700 shadow-xl"
+                key={item.titulo}
+                className="rounded-[1.5rem] border border-emerald-100 bg-white p-6 shadow-xl"
               >
-                ✓ {info}
+                <div className="text-4xl">{item.icone}</div>
+
+                <h3 className="mt-4 text-xl font-black text-slate-900">
+                  {item.titulo}
+                </h3>
+
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                  {item.texto}
+                </p>
               </div>
             ))}
+          </div>
+
+          <div className="mt-8 rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-xl">
+            <h3 className="text-2xl font-black text-amber-900">
+              ⚠️ Atenção aos pertences
+            </h3>
+
+            <p className="mt-3 leading-relaxed text-amber-900/85">
+              Por ser um local de circulação de visitantes de diversos lugares,
+              recomendamos atenção especial aos seus pertences. Antes de iniciar
+              sua visita, certifique-se de que o veículo esteja trancado e que
+              objetos de valor não estejam visíveis.
+            </p>
+
+            <p className="mt-3 font-bold text-amber-950">
+              O Parque Mundo Novo não se responsabiliza por objetos esquecidos,
+              perdidos, furtados ou danificados no interior de veículos, no
+              estacionamento ou nas áreas de circulação do parque.
+            </p>
           </div>
         </div>
       </section>
@@ -539,7 +638,7 @@ export default function IngressosPage() {
                 <p className="mt-2">
                   Após a confirmação do pagamento, você recebe o ingresso
                   digital por e-mail e WhatsApp. Basta apresentar o ingresso
-                  impresso ou no celular na entrada do parque.
+                  impresso ou no celular na entrada do Parque Mundo Novo.
                 </p>
               </div>
 
@@ -548,7 +647,7 @@ export default function IngressosPage() {
                 <p className="mt-2">
                   Seu ingresso é válido por 6 meses a partir da data da compra.
                   Dentro desse período, você escolhe o melhor dia para sua
-                  visita, com tranquilidade.
+                  visita, respeitando o horário de funcionamento do parque.
                 </p>
               </div>
 
@@ -558,8 +657,9 @@ export default function IngressosPage() {
                 </h3>
                 <p className="mt-2">
                   Você pode cancelar sua compra em até 7 dias corridos após a
-                  data do pagamento, desde que o ingresso ainda não tenha sido
-                  utilizado. Nesse caso, o valor pago será devolvido integralmente.
+                  data do pagamento, conforme o Código de Defesa do Consumidor,
+                  desde que o ingresso ainda não tenha sido utilizado. Nesse
+                  caso, o valor pago será devolvido integralmente.
                 </p>
               </div>
 
@@ -568,10 +668,10 @@ export default function IngressosPage() {
                   Como solicitar o cancelamento
                 </h3>
                 <p className="mt-2">
-                  Entre em contato pelo WhatsApp do parque informando o número
-                  do pedido. O reembolso é feito pelo mesmo meio de pagamento
-                  utilizado na compra e pode levar alguns dias úteis para
-                  aparecer, conforme o prazo da operadora ou banco.
+                  Entre em contato pelo WhatsApp (49) 99129-9991 informando o
+                  número do pedido. O reembolso é feito pelo mesmo meio de
+                  pagamento utilizado na compra e pode levar alguns dias úteis,
+                  conforme prazo do banco ou operadora.
                 </p>
               </div>
 
@@ -580,6 +680,71 @@ export default function IngressosPage() {
                 possível solicitar reembolso.
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#0b2418] px-4 py-20 text-white">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-[2.5rem] border border-emerald-300/20 bg-emerald-950/70 p-8 shadow-2xl md:p-12">
+            <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+                  Turismo Responsável
+                </p>
+
+                <h2 className="mt-4 text-4xl font-black md:text-5xl">
+                  Preserve a natureza
+                </h2>
+
+                <p className="mt-5 text-lg leading-relaxed text-emerald-50/80">
+                  A natureza é o maior patrimônio do Parque Mundo Novo. Cada
+                  visitante tem um papel importante na conservação deste lugar.
+                </p>
+              </div>
+
+              <div className="space-y-3 text-emerald-50/85">
+                <p>🌱 Respeite a fauna e a flora.</p>
+                <p>🚯 Utilize as lixeiras ou leve seu lixo até um local adequado.</p>
+                <p>🚶 Permaneça nas trilhas e áreas sinalizadas.</p>
+                <p>💧 Preserve rios, cachoeiras e nascentes.</p>
+                <p>🐦 Não alimente nem capture animais silvestres.</p>
+                <p>🔥 Não faça fogo em locais não autorizados.</p>
+              </div>
+            </div>
+
+            <div className="mt-10 rounded-[2rem] bg-white/10 p-6 text-center shadow-xl">
+              <p className="text-2xl font-black leading-relaxed text-emerald-50 md:text-3xl">
+                “Da natureza, leve apenas fotografias, lembranças e momentos
+                inesquecíveis. Deixe apenas suas pegadas e o respeito por este
+                lugar tão especial.”
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
+              Antes da visita
+            </p>
+
+            <h2 className="mt-4 text-4xl font-black">
+              Informações importantes
+            </h2>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {informacoes.map((info) => (
+              <div
+                key={info}
+                className="rounded-[1.5rem] border border-emerald-100 bg-white p-5 text-sm font-semibold leading-relaxed text-slate-700 shadow-xl"
+              >
+                ✓ {info}
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -653,7 +818,11 @@ export default function IngressosPage() {
             </p>
 
             <p className="mt-2 text-sm text-slate-600">
-              📧 contato@parquemundonovooficial.com.br
+              📱 (49) 99129-9991
+            </p>
+
+            <p className="mt-2 text-sm text-slate-600">
+              📧 ingressosparquemundonovo@gmail.com
             </p>
 
             <p className="mt-2 text-sm text-slate-600">
