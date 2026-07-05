@@ -22,6 +22,9 @@ type EnviarLembreteParams = {
 const linkMaps =
   "https://maps.google.com/maps?vet=10CAAQoqAOahcKEwiA3azy-YeVAxUAAAAAHQAAAAAQBg..i&pvq=CgwvZy8xcHYyZl9kaGIiFwoRcGFycXVlIG11bmRvIG5vdm8QAhgD&lqi=ChlwYXJxdWUgbXVuZG8gbm92byB1cnViaWNpSOrj_qbolYCACFopEAAQARACGAAYARgCGAMiGXBhcnF1ZSBtdW5kbyBub3ZvIHVydWJpY2mSAQpmYWlyZ3JvdW5k&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=br&sa=X&ftid=0x952046a2f62d7365:0x34bd4695f0794ad2";
 
+const telefoneParque = "(49) 99129-9991";
+const emailIngressos = "ingressosparquemundonovo@gmail.com";
+
 function criarTransporter() {
   const host = process.env.EMAIL_HOST;
   const port = Number(process.env.EMAIL_PORT || 587);
@@ -85,10 +88,10 @@ export async function enviarIngressoPorEmail({
   const assunto = `Seu ingresso Parque Mundo Novo - ${codigoIngresso}`;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 680px; margin: 0 auto; background: #f4f8f4; padding: 24px;">
-      <div style="background: #064e3b; color: white; padding: 24px; border-radius: 18px; text-align: center;">
+    <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto; background: #f4f8f4; padding: 24px;">
+      <div style="background: #064e3b; color: white; padding: 26px; border-radius: 18px; text-align: center;">
         <h1 style="margin: 0; font-size: 28px;">Parque Mundo Novo</h1>
-        <p style="margin-top: 8px;">Ingresso confirmado</p>
+        <p style="margin-top: 8px; font-size: 16px;">Ingresso confirmado</p>
       </div>
 
       <div style="background: white; padding: 24px; border-radius: 18px; margin-top: 20px;">
@@ -103,30 +106,31 @@ export async function enviarIngressoPorEmail({
 
         <p><strong>Produto:</strong> ${produto}</p>
         <p><strong>Quantidade:</strong> ${quantidade}</p>
+        <p><strong>Pedido:</strong> ${pedidoId}</p>
         ${dataVisitaFormatada
-      ? `<p><strong>Data da visita:</strong> ${dataVisitaFormatada}</p>`
+      ? `<p><strong>Data informada:</strong> ${dataVisitaFormatada}</p>`
       : ""
     }
 
         <p style="margin-top: 24px;">
-          Seu ingresso em PDF está anexado neste e-mail.
+          Seu ingresso em PDF está anexado neste e-mail. Apresente o QR Code impresso ou diretamente pelo celular na entrada do Parque Mundo Novo.
         </p>
 
-        <div style="background: #fff7ed; border: 1px solid #fdba74; color: #7c2d12; padding: 18px; border-radius: 14px; margin-top: 24px;">
-          <h3 style="margin-top: 0;">Regras de utilização do ingresso</h3>
+        <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 24px;">
+          <h3 style="margin-top: 0;">📌 Informações principais</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-            <li>O Parque Mundo Novo funciona diariamente das 08h00 às 18h00.</li>
-            <li>O ingresso é válido para a data selecionada no momento da compra.</li>
-            <li>O visitante poderá antecipar sua visita em até 24 horas antes da data originalmente adquirida.</li>
-            <li>O ingresso também poderá ser utilizado em até 30 dias após a data inicialmente selecionada.</li>
+            <li>Funcionamento todos os dias, das <strong>08h00 às 17h30</strong>.</li>
+            <li>O ingresso é válido por <strong>6 meses</strong> a partir da data da compra.</li>
             <li>Cada ingresso possui código único e poderá ser utilizado apenas uma vez.</li>
             <li>Após validado na portaria, o ingresso não poderá ser reutilizado.</li>
+            <li>O Elevador Panorâmico é vendido separadamente.</li>
+            <li>Meia entrada exige apresentação de documento na portaria.</li>
           </ul>
         </div>
 
         <div style="background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">O que está incluso no ingresso do Parque</h3>
+          <h3 style="margin-top: 0;">🎫 O que está incluso no ingresso do Parque</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
             <li>Acesso às áreas abertas para visitação.</li>
@@ -134,40 +138,143 @@ export async function enviarIngressoPorEmail({
             <li>Cachoeiras abertas ao público.</li>
             <li>Trilhas liberadas para visitação.</li>
             <li>Áreas de contemplação e lazer.</li>
+            <li>Área Kids, quando disponível.</li>
           </ul>
         </div>
 
         <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">O que NÃO está incluso no ingresso de entrada</h3>
+          <h3 style="margin-top: 0;">⚠️ O que NÃO está incluso no ingresso de entrada</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
             <li>Camping.</li>
             <li>Elevador Panorâmico.</li>
             <li>Tirolesa.</li>
+            <li>Tirolesa Infantil.</li>
+            <li>Salto de Pêndulo.</li>
             <li>Alimentação e bebidas.</li>
             <li>Hospedagem.</li>
-            <li>Produtos e serviços adicionais oferecidos pelo parque.</li>
+            <li>Produtos e serviços adicionais oferecidos por parceiros dentro do parque.</li>
           </ul>
         </div>
 
         <div style="background: #f0fdf4; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">Informações importantes</h3>
+          <h3 style="margin-top: 0;">🏕️ Informações sobre o Camping</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-            <li>Algumas atrações possuem cobrança separada.</li>
-            <li>O parque poderá suspender determinadas atividades por questões climáticas ou de segurança.</li>
-            <li>Ao adquirir o ingresso, o visitante declara estar ciente destas condições de utilização.</li>
+            <li>1ª diária: <strong>R$ 100,00 por pessoa</strong>.</li>
+            <li>A partir da 2ª diária: <strong>R$ 80,00 por pessoa/noite</strong>.</li>
+            <li>Crianças até <strong>10 anos completos</strong> não pagam, desde que acompanhadas por responsável.</li>
+            <li>Após a confirmação do pagamento, será emitido um voucher de check-in com data, dados da reserva e QR Code.</li>
+            <li>Caso deseje permanecer por mais dias, a extensão da hospedagem deverá ser solicitada diretamente na recepção do parque, com pagamento das diárias adicionais.</li>
+            <li>O camping aceita motorhomes, conforme disponibilidade e orientação da equipe local.</li>
           </ul>
         </div>
 
+        <div style="background: #fff7ed; border: 1px solid #fdba74; color: #7c2d12; padding: 18px; border-radius: 14px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">🔄 Política de compra e cancelamento</h3>
+
+          <p style="line-height: 1.7;">
+            Conforme o artigo 49 do Código de Defesa do Consumidor, você pode solicitar o cancelamento da compra em até <strong>7 dias corridos</strong> após a data do pagamento, desde que o ingresso ainda não tenha sido utilizado.
+          </p>
+
+          <p style="line-height: 1.7; margin-bottom: 0;">
+            Nesse caso, o valor pago será devolvido integralmente pelo mesmo meio de pagamento utilizado na compra. Após o prazo de 7 dias ou após a utilização do ingresso, não será possível solicitar reembolso.
+          </p>
+        </div>
+
+        <div style="background: #fffbeb; border: 1px solid #facc15; color: #713f12; padding: 18px; border-radius: 14px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">🚗 Estacionamento e cuidado com pertences</h3>
+
+          <p style="line-height: 1.7;">
+            O Parque Mundo Novo possui estacionamento próprio para maior comodidade dos visitantes.
+          </p>
+
+          <ul style="padding-left: 20px; line-height: 1.7;">
+            <li>Mantenha o veículo sempre trancado.</li>
+            <li>Não deixe objetos de valor à vista.</li>
+            <li>Confira portas, vidros e porta-malas antes de iniciar a visita.</li>
+            <li>Certifique-se de que o veículo esteja devidamente fechado.</li>
+          </ul>
+
+          <p style="line-height: 1.7; font-weight: bold; margin-bottom: 0;">
+            O Parque Mundo Novo não se responsabiliza por objetos esquecidos, perdidos, furtados ou danificados no interior dos veículos, no estacionamento ou nas áreas de circulação do parque.
+          </p>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; padding: 18px; border-radius: 14px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">🎢 Serviços terceirizados</h3>
+
+          <p style="line-height: 1.7;">
+            Alguns serviços disponíveis dentro do Parque Mundo Novo são operados por empresas parceiras e possuem administração própria.
+          </p>
+
+          <ul style="padding-left: 20px; line-height: 1.7;">
+            <li>Tirolesa.</li>
+            <li>Tirolesa Infantil.</li>
+            <li>Salto de Pêndulo.</li>
+            <li>Restaurante.</li>
+            <li>Bistrô.</li>
+            <li>Café El Torrador.</li>
+          </ul>
+
+          <p style="line-height: 1.7;">
+            Esses serviços são contratados diretamente no local, com seus respectivos operadores. O Parque Mundo Novo disponibiliza apenas o espaço físico e não se responsabiliza pela operação, horários, valores, manutenção, disponibilidade, cancelamentos ou alterações desses serviços.
+          </p>
+
+          <p style="line-height: 1.7; margin-bottom: 0;">
+            Por segurança, atividades terceirizadas podem ser suspensas em caso de chuva, ventos fortes, neblina intensa ou outras condições climáticas adversas.
+          </p>
+        </div>
+
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">📍 Localização do Parque</h3>
+          <h3 style="margin-top: 0;">🍽️ Estrutura disponível no parque</h3>
+
+          <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+            <li>Cachoeira Mundo Novo.</li>
+            <li>Cascata do Avencal.</li>
+            <li>Elevador Panorâmico.</li>
+            <li>Mirantes.</li>
+            <li>Réplica da Pedra Furada.</li>
+            <li>Camping.</li>
+            <li>Área para Motorhome.</li>
+            <li>Área Kids.</li>
+            <li>Pet Friendly.</li>
+            <li>Restaurante.</li>
+            <li>Bistrô.</li>
+            <li>Café El Torrador.</li>
+            <li>Estacionamento próprio.</li>
+          </ul>
+        </div>
+
+        <div style="background: #064e3b; color: white; padding: 20px; border-radius: 14px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">🌿 Preserve a natureza</h3>
+
+          <p style="line-height: 1.7;">
+            A natureza é o maior patrimônio do Parque Mundo Novo. Pedimos a colaboração de todos para manter este ambiente limpo, seguro e preservado.
+          </p>
+
+          <ul style="padding-left: 20px; line-height: 1.7;">
+            <li>Respeite a fauna e a flora.</li>
+            <li>Utilize as lixeiras ou leve seu lixo até um local adequado.</li>
+            <li>Permaneça nas trilhas e áreas sinalizadas.</li>
+            <li>Preserve rios, cachoeiras e nascentes.</li>
+            <li>Não alimente nem capture animais silvestres.</li>
+            <li>Não faça fogo em locais não autorizados.</li>
+          </ul>
+
+          <p style="line-height: 1.7; font-weight: bold; margin-bottom: 0;">
+            Da natureza, leve apenas fotografias, lembranças e momentos inesquecíveis. Deixe apenas suas pegadas e o respeito por este lugar tão especial.
+          </p>
+        </div>
+
+        <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
+          <h3 style="margin-top: 0;">📍 Localização e atendimento</h3>
 
           <p><strong>Parque Mundo Novo</strong></p>
-
-          <p>Funcionamento diário das <strong>08h00 às 18h00</strong>.</p>
-
-          <p>Utilize o botão abaixo para abrir a rota diretamente no Google Maps.</p>
+          <p><strong>Endereço:</strong> SC-110 KM 34 - Urubici/SC</p>
+          <p><strong>Funcionamento:</strong> todos os dias, das 08h00 às 17h30</p>
+          <p><strong>WhatsApp:</strong> ${telefoneParque}</p>
+          <p><strong>E-mail para ingressos:</strong> ${emailIngressos}</p>
 
           <a
             href="${linkMaps}"
@@ -216,7 +323,7 @@ export async function enviarLembreteCompraPendente({
     return;
   }
 
-  const link = `https://parque-mundo-novo-ingressos.vercel.app/checkout/pagamento?pedidoId=${pedidoId}`;
+  const link = `https://www.parquemundonovooficial.com.br/checkout/pagamento?pedidoId=${pedidoId}`;
 
   const valorFormatado = Number(valorTotal || 0).toLocaleString("pt-BR", {
     style: "currency",
@@ -248,8 +355,19 @@ export async function enviarLembreteCompraPendente({
           Continuar compra
         </a>
 
+        <div style="background:#f0fdf4; border:1px solid #86efac; color:#14532d; padding:16px; border-radius:14px; margin-top:22px;">
+          <h3 style="margin-top:0;">Informações rápidas</h3>
+          <ul style="padding-left:20px; line-height:1.7; margin-bottom:0;">
+            <li>Funcionamento todos os dias, das <strong>08h às 17h30</strong>.</li>
+            <li>Ingresso digital com QR Code.</li>
+            <li>Validade de 6 meses após a compra.</li>
+            <li>Dúvidas: WhatsApp ${telefoneParque}.</li>
+            <li>E-mail: ${emailIngressos}.</li>
+          </ul>
+        </div>
+
         <p style="margin-top:24px; font-size:13px; color:#666;">
-          Parque Mundo Novo - Funcionamento todos os dias das 08h às 18h.
+          Parque Mundo Novo - Funcionamento todos os dias das 08h às 17h30.
         </p>
       </div>
     </div>
