@@ -339,11 +339,23 @@ export default function IngressosPage() {
                 </a>
 
                 <a
+                  href="/conheca-o-parque"
+                  className="rounded-full border border-white/30 bg-white/10 px-8 py-4 text-center font-black backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/20"
+                >
+                  Conheça o Parque
+                </a>
+
+                <a
                   href="#planeje-sua-visita"
                   className="rounded-full border border-white/30 bg-white/10 px-8 py-4 text-center font-black backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/20"
                 >
                   Planeje sua Visita
                 </a>
+
+
+
+
+
 
                 <button
                   type="button"
