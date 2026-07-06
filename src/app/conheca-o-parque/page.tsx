@@ -14,6 +14,8 @@ const fotos = [
     "/fotos/conheca/foto5.png",
     "/fotos/conheca/foto6.png",
     "/fotos/conheca/foto7.png",
+    "/fotos/conheca/foto8.png",
+
 ];
 
 export default function ConhecaOParquePage() {
