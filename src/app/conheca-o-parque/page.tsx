@@ -21,7 +21,7 @@ export default function ConhecaOParquePage() {
         <main className="min-h-screen bg-[#07130d] text-white">
             <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 text-center">
                 <video
-                    className="absolute inset-0 h-full w-full object-cover opacity-30"
+                    className="absolute inset-0 h-full w-full object-cover"
                     src="/videos/parque2.mp4"
                     autoPlay
                     muted
@@ -29,18 +29,18 @@ export default function ConhecaOParquePage() {
                     playsInline
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-b from-black/85 via-black/65 to-[#07130d]" />
+                <div className="absolute inset-0 bg-black/25" />
 
                 <div className="relative z-10 max-w-4xl">
-                    <p className="mb-4 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-300">
+                    <p className="mb-4 text-sm font-semibold uppercase tracking-[0.35em] text-emerald-300 drop-shadow-lg">
                         Parque Mundo Novo
                     </p>
 
-                    <h1 className="text-4xl font-black leading-tight md:text-7xl">
+                    <h1 className="text-4xl font-black leading-tight drop-shadow-[0_4px_20px_rgba(0,0,0,0.9)] md:text-7xl">
                         Conheça o Parque Mundo Novo
                     </h1>
 
-                    <p className="mx-auto mt-6 max-w-2xl text-lg text-white/85 md:text-2xl">
+                    <p className="mx-auto mt-6 max-w-2xl text-lg text-white drop-shadow-lg md:text-2xl">
                         Natureza, cachoeiras, mirantes, camping, gastronomia e experiências
                         inesquecíveis em um só lugar.
                     </p>
@@ -55,7 +55,7 @@ export default function ConhecaOParquePage() {
 
                         <a
                             href="#videos"
-                            className="rounded-full border border-white/40 bg-white/10 px-8 py-4 text-lg font-bold text-white backdrop-blur transition hover:bg-white/20"
+                            className="rounded-full border border-white/40 bg-black/20 px-8 py-4 text-lg font-bold text-white shadow-xl backdrop-blur transition hover:bg-black/35"
                         >
                             Ver Vídeos
                         </a>
