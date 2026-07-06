@@ -178,7 +178,7 @@ export default function IngressosPage() {
       icone: "🎫",
       titulo: "Como funciona seu ingresso",
       texto:
-        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail e WhatsApp. Basta apresentar o QR Code impresso ou pelo celular na entrada.",
+        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail . Basta apresentar o QR Code impresso ou pelo celular na entrada.",
     },
     {
       icone: "🏕️",
