@@ -116,6 +116,18 @@ export async function enviarIngressoPorEmail({
           Seu ingresso em PDF está anexado neste e-mail. Apresente o QR Code impresso ou diretamente pelo celular na entrada do Parque Mundo Novo.
         </p>
 
+        <div style="background:#eff6ff; border:1px solid #93c5fd; color:#1e3a8a; padding:18px; border-radius:14px; margin-top:20px;">
+          <h3 style="margin-top:0;">ℹ️ Informações importantes</h3>
+
+          <ul style="padding-left:20px; line-height:1.8; margin-bottom:0;">
+            <li>Apresente o QR Code na entrada do parque.</li>
+            <li>Documento oficial com foto poderá ser solicitado na portaria.</li>
+            <li>Caso tenha adquirido Meia Entrada, o documento comprobatório deverá estar no mesmo nome do comprador informado neste ingresso.</li>
+            <li>O Elevador Panorâmico possui ingresso próprio e é vendido separadamente.</li>
+            <li>O ingresso de entrada do parque não dá direito ao acesso ao Elevador Panorâmico.</li>
+          </ul>
+        </div>
+
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 24px;">
           <h3 style="margin-top: 0;">📌 Informações principais</h3>
 
@@ -124,8 +136,11 @@ export async function enviarIngressoPorEmail({
             <li>O ingresso é válido por <strong>6 meses</strong> a partir da data da compra.</li>
             <li>Cada ingresso possui código único e poderá ser utilizado apenas uma vez.</li>
             <li>Após validado na portaria, o ingresso não poderá ser reutilizado.</li>
-            <li>O Elevador Panorâmico é vendido separadamente.</li>
-            <li>Meia entrada exige apresentação de documento na portaria.</li>
+            <li>O Elevador Panorâmico é uma atração opcional vendida separadamente.</li>
+            <li>O ingresso do parque não dá direito ao acesso ao Elevador Panorâmico.</li>
+            <li>A meia entrada é pessoal e intransferível.</li>
+            <li>O documento que comprova o benefício deve estar no mesmo nome do comprador informado neste ingresso.</li>
+            <li>A apresentação do documento original é obrigatória na portaria.</li>
           </ul>
         </div>
 
@@ -143,10 +158,9 @@ export async function enviarIngressoPorEmail({
         </div>
 
         <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">⚠️ O que NÃO está incluso no ingresso de entrada</h3>
+          <h3 style="margin-top: 0;">⚠️ Atrações e serviços cobrados separadamente</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-            <li>Camping.</li>
             <li>Elevador Panorâmico.</li>
             <li>Tirolesa.</li>
             <li>Tirolesa Infantil.</li>
@@ -161,6 +175,7 @@ export async function enviarIngressoPorEmail({
           <h3 style="margin-top: 0;">🏕️ Informações sobre o Camping</h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+            <li>O camping pertence ao Parque Mundo Novo e possui voucher próprio com cobrança por diária.</li>
             <li>1ª diária: <strong>R$ 100,00 por pessoa</strong>.</li>
             <li>A partir da 2ª diária: <strong>R$ 80,00 por pessoa/noite</strong>.</li>
             <li>Crianças até <strong>10 anos completos</strong> não pagam, desde que acompanhadas por responsável.</li>
