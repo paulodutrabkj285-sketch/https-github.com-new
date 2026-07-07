@@ -21,6 +21,11 @@ export default function IdosoPage() {
     return quantidade * valorUnitario;
   }, [quantidade]);
 
+  const valorTotalFormatado = valorTotal.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
   function limparCpf(valor: string) {
     return valor.replace(/\D/g, "");
   }
@@ -92,7 +97,7 @@ export default function IdosoPage() {
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
       style={{
-        backgroundImage: "url('/fotos/idoso-cachoeira.jpg')",
+        backgroundImage: "url('/fotos/idoso-cachoeira.png')",
       }}
     >
       <div className="absolute inset-0 bg-black/45" />
@@ -114,11 +119,13 @@ export default function IdosoPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
-                Preencha os dados abaixo para adquirir a meia entrada para idosos.
+                Preencha os dados abaixo para adquirir a meia entrada para
+                idosos.
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code do ingresso será liberado após confirmação do pagamento.
+                O QR Code do ingresso será liberado após confirmação do
+                pagamento.
               </p>
             </div>
           </div>
@@ -238,7 +245,7 @@ export default function IdosoPage() {
             <hr className="my-6 border-gray-300" />
 
             <p className="mb-6 text-4xl font-bold text-[#166534]">
-              R$ {valorTotal},00
+              {valorTotalFormatado}
             </p>
 
             <button
@@ -253,7 +260,8 @@ export default function IdosoPage() {
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso será liberado somente após confirmação automática do pagamento.
+              O ingresso será liberado somente após confirmação automática do
+              pagamento.
             </p>
           </aside>
         </section>

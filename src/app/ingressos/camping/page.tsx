@@ -106,7 +106,7 @@ export default function CampingPage() {
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
       style={{
-        backgroundImage: "url('/fotos/camping.jpg')",
+        backgroundImage: "url('/fotos/camping.png')",
       }}
     >
       <div className="absolute inset-0 bg-black/45" />
