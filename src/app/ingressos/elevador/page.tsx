@@ -15,7 +15,7 @@ export default function ElevadorPage() {
   const [quantidade, setQuantidade] = useState(1);
   const [salvando, setSalvando] = useState(false);
 
-  const valorUnitario = 75;
+  const valorUnitario = 1;
 
   const valorTotal = useMemo(() => {
     return quantidade * valorUnitario;
