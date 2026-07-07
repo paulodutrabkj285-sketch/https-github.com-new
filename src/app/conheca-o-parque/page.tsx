@@ -1,5 +1,6 @@
 "use client";
 
+import Avaliacoes from "@/components/Avaliacoes";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -203,10 +204,10 @@ export default function ConhecaOParquePage() {
                                 type="button"
                                 onClick={() => setFotoAberta(index)}
                                 className={`group relative overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl outline-none transition hover:-translate-y-1 ${index === 0
-                                        ? "sm:col-span-2 sm:row-span-2"
-                                        : index === 5 || index === 8
-                                            ? "lg:col-span-2"
-                                            : ""
+                                    ? "sm:col-span-2 sm:row-span-2"
+                                    : index === 5 || index === 8
+                                        ? "lg:col-span-2"
+                                        : ""
                                     }`}
                             >
                                 <img
@@ -225,7 +226,7 @@ export default function ConhecaOParquePage() {
                     </div>
                 </div>
             </section>
-
+            <Avaliacoes />
             <section className="bg-[#0b1f14] px-6 py-20">
                 <div className="mx-auto max-w-7xl">
                     <div className="mb-12 text-center">
