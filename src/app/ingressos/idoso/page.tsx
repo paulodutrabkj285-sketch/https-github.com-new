@@ -26,6 +26,11 @@ export default function IdosoPage() {
     currency: "BRL",
   });
 
+  const valorUnitarioFormatado = valorUnitario.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
   function limparCpf(valor: string) {
     return valor.replace(/\D/g, "");
   }
@@ -57,15 +62,12 @@ export default function IdosoPage() {
         quantidade,
         valorUnitario,
         valorTotal,
-
         statusPagamento: "pendente",
         statusOperacional: "ativo",
-
         pagbankCheckoutId: "",
         pagbankReferenceId: "",
         pagbankPayUrl: "",
         pagbankStatus: "",
-
         codigoIngresso: "",
         qrCodeIngresso: "",
       });
@@ -127,6 +129,16 @@ export default function IdosoPage() {
                 O QR Code do ingresso será liberado após confirmação do
                 pagamento.
               </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🔒 Compra segura via Pix, com confirmação automática.
+                </div>
+
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🎟️ Ingresso digital com QR Code para validação na portaria.
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -137,9 +149,28 @@ export default function IdosoPage() {
               Dados da compra
             </h2>
 
-            <div className="mb-6 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
-              Importante: será obrigatório apresentar documento comprobatório
-              para utilização da meia entrada no acesso ao parque.
+            <div className="mb-6 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-950">
+              <p className="mb-2 font-black">📌 Informações importantes</p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li>A meia entrada é pessoal e intransferível.</li>
+
+                <li>
+                  O documento que comprova o direito ao benefício deverá estar
+                  no mesmo nome informado na compra.
+                </li>
+
+                <li>
+                  A apresentação do documento original é obrigatória na entrada
+                  do parque.
+                </li>
+
+                <li>
+                  Caso o benefício não possa ser comprovado, será necessário
+                  complementar o valor do ingresso conforme a política vigente do
+                  parque.
+                </li>
+              </ul>
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -229,7 +260,7 @@ export default function IdosoPage() {
               </p>
 
               <p>
-                <strong>Valor unitário:</strong> R$ 30,00
+                <strong>Valor unitário:</strong> {valorUnitarioFormatado}
               </p>
 
               <p>
@@ -263,6 +294,12 @@ export default function IdosoPage() {
               O ingresso será liberado somente após confirmação automática do
               pagamento.
             </p>
+
+            <p className="mt-3 text-xs leading-relaxed text-gray-500">
+              Ao prosseguir com a compra, você declara estar ciente das regras
+              de utilização, da política de cancelamento e das informações
+              específicas do ingresso selecionado.
+            </p>
           </aside>
         </section>
       </div>
@@ -279,10 +316,7 @@ function Campo({
 }) {
   return (
     <div>
-      <label className="mb-2 block font-semibold text-gray-700">
-        {label}
-      </label>
-
+      <label className="mb-2 block font-semibold text-gray-700">{label}</label>
       {children}
     </div>
   );

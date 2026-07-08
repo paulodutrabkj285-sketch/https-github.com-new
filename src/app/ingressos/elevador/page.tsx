@@ -21,6 +21,16 @@ export default function ElevadorPage() {
     return quantidade * valorUnitario;
   }, [quantidade]);
 
+  const valorTotalFormatado = valorTotal.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+  const valorUnitarioFormatado = valorUnitario.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
   function limparCpf(valor: string) {
     return valor.replace(/\D/g, "");
   }
@@ -52,15 +62,12 @@ export default function ElevadorPage() {
         quantidade,
         valorUnitario,
         valorTotal,
-
         statusPagamento: "pendente",
         statusOperacional: "ativo",
-
         pagbankCheckoutId: "",
         pagbankReferenceId: "",
         pagbankPayUrl: "",
         pagbankStatus: "",
-
         codigoIngresso: "",
         qrCodeIngresso: "",
       });
@@ -94,7 +101,6 @@ export default function ElevadorPage() {
       style={{
         backgroundImage: "url('/fotos/elevador-novo.png')",
       }}
-
     >
       <div className="absolute inset-0 bg-black/45" />
 
@@ -115,12 +121,24 @@ export default function ElevadorPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
-                Viva uma experiência incrível com vista panorâmica do Parque Mundo Novo.
+                Viva uma experiência incrível com vista panorâmica do Parque
+                Mundo Novo.
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code do ingresso será liberado após confirmação do pagamento.
+                O QR Code do ingresso será liberado após confirmação do
+                pagamento.
               </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🔒 Compra segura via Pix, com confirmação automática.
+                </div>
+
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🎟️ Ingresso digital com QR Code para validação na portaria.
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -131,9 +149,25 @@ export default function ElevadorPage() {
               Dados da compra
             </h2>
 
-            <div className="mb-6 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
-              Aviso importante: em caso de desistência, o ingresso poderá ser
-              remarcado ou convertido em crédito conforme regra definida pelo parque.
+            <div className="mb-6 rounded-2xl border border-orange-300 bg-orange-50 p-4 text-sm leading-relaxed text-orange-950">
+              <p className="mb-2 font-black">⚠️ Atenção</p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li>
+                  Este ingresso é válido exclusivamente para o{" "}
+                  <strong>Elevador Panorâmico</strong>.
+                </li>
+
+                <li>
+                  O Elevador Panorâmico não substitui o ingresso de entrada do
+                  Parque Mundo Novo.
+                </li>
+
+                <li>
+                  Para utilizar o elevador é necessário possuir também um
+                  ingresso válido de acesso ao parque.
+                </li>
+              </ul>
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -223,7 +257,7 @@ export default function ElevadorPage() {
               </p>
 
               <p>
-                <strong>Valor unitário:</strong> R$ 75,00
+                <strong>Valor unitário:</strong> {valorUnitarioFormatado}
               </p>
 
               <p>
@@ -239,7 +273,7 @@ export default function ElevadorPage() {
             <hr className="my-6 border-gray-300" />
 
             <p className="mb-6 text-4xl font-bold text-[#166534]">
-              R$ {valorTotal},00
+              {valorTotalFormatado}
             </p>
 
             <button
@@ -254,7 +288,14 @@ export default function ElevadorPage() {
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso será liberado somente após confirmação automática do pagamento.
+              O ingresso será liberado somente após confirmação automática do
+              pagamento.
+            </p>
+
+            <p className="mt-3 text-xs leading-relaxed text-gray-500">
+              Ao prosseguir com a compra, você declara estar ciente das regras
+              de utilização, da política de cancelamento e das informações
+              específicas do ingresso selecionado.
             </p>
           </aside>
         </section>
@@ -272,10 +313,7 @@ function Campo({
 }) {
   return (
     <div>
-      <label className="mb-2 block font-semibold text-gray-700">
-        {label}
-      </label>
-
+      <label className="mb-2 block font-semibold text-gray-700">{label}</label>
       {children}
     </div>
   );

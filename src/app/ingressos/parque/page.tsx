@@ -116,12 +116,24 @@ export default function ParquePage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
-                Preencha os dados abaixo para comprar seu ingresso online com praticidade e segurança.
+                Preencha os dados abaixo para comprar seu ingresso online com
+                praticidade e segurança.
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code do ingresso será liberado após confirmação do pagamento.
+                O QR Code do ingresso será liberado após confirmação do
+                pagamento.
               </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🔒 Compra segura via Pix, com confirmação automática.
+                </div>
+
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🎟️ Ingresso digital com QR Code para validação na portaria.
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -131,6 +143,29 @@ export default function ParquePage() {
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados do comprador
             </h2>
+
+            <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
+              <p className="mb-2 font-black">📌 Informações importantes</p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li>Este ingresso é válido para acesso ao Parque Mundo Novo.</li>
+
+                <li>
+                  O <strong>Elevador Panorâmico</strong> é uma atração opcional
+                  e possui ingresso vendido separadamente.
+                </li>
+
+                <li>
+                  O ingresso é pessoal e poderá ser solicitado juntamente com um
+                  documento oficial com foto.
+                </li>
+
+                <li>
+                  Após a validação na portaria, este ingresso não poderá ser
+                  reutilizado.
+                </li>
+              </ul>
+            </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <Campo label="Nome completo">
@@ -250,7 +285,14 @@ export default function ParquePage() {
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso será liberado somente após confirmação automática do pagamento.
+              O ingresso será liberado somente após confirmação automática do
+              pagamento.
+            </p>
+
+            <p className="mt-3 text-xs leading-relaxed text-gray-500">
+              Ao prosseguir com a compra, você declara estar ciente das regras
+              de utilização, da política de cancelamento e das informações
+              específicas do ingresso selecionado.
             </p>
           </aside>
         </section>

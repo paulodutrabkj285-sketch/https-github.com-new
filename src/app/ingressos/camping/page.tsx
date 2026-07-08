@@ -29,6 +29,16 @@ export default function CampingPage() {
     return valorPorPessoa * quantidadePessoas;
   }, [valorPorPessoa, quantidadePessoas]);
 
+  const valorPorPessoaFormatado = valorPorPessoa.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+  const valorTotalFormatado = valorTotal.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
   function limparCpf(valor: string) {
     return valor.replace(/\D/g, "");
   }
@@ -132,8 +142,19 @@ export default function CampingPage() {
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code da reserva será liberado após confirmação do pagamento.
+                O QR Code da reserva será liberado após confirmação do
+                pagamento.
               </p>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🔒 Compra segura via Pix, com confirmação automática.
+                </div>
+
+                <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+                  🏕️ Voucher digital com QR Code para o check-in.
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -144,10 +165,34 @@ export default function CampingPage() {
               Dados da reserva
             </h2>
 
-            <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-100 p-4 text-sm leading-relaxed text-gray-700">
-              Incluso: ingresso 24h por pessoa, banheiro com chuveiro quente,
-              área de churrasqueira, acesso às áreas inclusas do parque e
-              carregador para carro elétrico.
+            <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
+              <p className="mb-2 font-black">🏕️ Informações importantes</p>
+
+              <ul className="list-disc space-y-2 pl-5">
+                <li>
+                  O camping pertence ao Parque Mundo Novo e utiliza voucher
+                  próprio.
+                </li>
+
+                <li>
+                  A diária inclui acesso ao parque durante o período contratado.
+                </li>
+
+                <li>
+                  O voucher deverá ser apresentado no check-in juntamente com um
+                  documento oficial com foto.
+                </li>
+
+                <li>
+                  Permanências superiores às diárias contratadas deverão ser
+                  regularizadas diretamente na recepção do parque.
+                </li>
+
+                <li>
+                  Motorhomes são aceitos conforme disponibilidade e orientação da
+                  equipe do parque.
+                </li>
+              </ul>
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -290,7 +335,7 @@ export default function CampingPage() {
               </p>
 
               <p>
-                <strong>Valor por pessoa:</strong> R$ {valorPorPessoa},00
+                <strong>Valor por pessoa:</strong> {valorPorPessoaFormatado}
               </p>
 
               <p className="text-sm text-gray-500">
@@ -301,7 +346,7 @@ export default function CampingPage() {
             <hr className="my-6 border-gray-300" />
 
             <p className="mb-6 text-4xl font-bold text-[#166534]">
-              R$ {valorTotal},00
+              {valorTotalFormatado}
             </p>
 
             <button
@@ -316,7 +361,14 @@ export default function CampingPage() {
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              A reserva será liberada somente após confirmação automática do pagamento.
+              A reserva será liberada somente após confirmação automática do
+              pagamento.
+            </p>
+
+            <p className="mt-3 text-xs leading-relaxed text-gray-500">
+              Ao prosseguir com a compra, você declara estar ciente das regras
+              de utilização, da política de cancelamento e das informações
+              específicas da reserva de camping.
             </p>
           </aside>
         </section>
@@ -334,10 +386,7 @@ function Campo({
 }) {
   return (
     <div>
-      <label className="mb-2 block font-semibold text-gray-700">
-        {label}
-      </label>
-
+      <label className="mb-2 block font-semibold text-gray-700">{label}</label>
       {children}
     </div>
   );
