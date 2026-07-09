@@ -22,6 +22,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
             changeFrequency: "weekly",
             priority: 0.9,
         },
+
+        // NOVA PÁGINA DE SEO
+        {
+            url: `${baseUrl}/o-que-fazer-em-urubici`,
+            lastModified: new Date(),
+            changeFrequency: "weekly",
+            priority: 0.95,
+        },
+
         {
             url: `${baseUrl}/ingressos/parque`,
             lastModified: new Date(),
