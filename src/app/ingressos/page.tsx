@@ -123,7 +123,19 @@ export default function IngressosPage() {
       imagem: "/fotos/ingresso-parque.png",
       rota: "/ingressos/parque",
       botao: "Comprar ingresso",
-      destaque: true,
+      selo: "Mais procurado",
+      tipoSelo: "verde",
+    },
+    {
+      titulo: "Elevador Panorâmico",
+      descricao:
+        "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura. Vista privilegiada da Cascata do Avencal. Ingresso vendido separadamente.",
+      preco: "R$ 75,00",
+      imagem: "/fotos/elevador-novo.png",
+      rota: "/ingressos/elevador",
+      botao: "Comprar ingresso",
+      selo: "⭐ Experiência única",
+      tipoSelo: "dourado",
     },
     {
       titulo: "Meia Entrada Idoso",
@@ -132,6 +144,8 @@ export default function IngressosPage() {
       imagem: "/fotos/idoso-cachoeira.png",
       rota: "/ingressos/idoso",
       botao: "Comprar ingresso",
+      selo: "",
+      tipoSelo: "",
     },
     {
       titulo: "Camping",
@@ -140,15 +154,8 @@ export default function IngressosPage() {
       imagem: "/fotos/camping.png",
       rota: "/ingressos/camping",
       botao: "Comprar camping",
-    },
-    {
-      titulo: "Elevador Panorâmico",
-      descricao:
-        "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura. Ingresso vendido separadamente.",
-      preco: "R$ 75,00",
-      imagem: "/fotos/elevador-novo.png",
-      rota: "/ingressos/elevador",
-      botao: "Comprar ingresso",
+      selo: "",
+      tipoSelo: "",
     },
     {
       titulo: "Agências e Guias",
@@ -157,6 +164,8 @@ export default function IngressosPage() {
       imagem: "/fotos/fundo-geral.jpg",
       rota: "/parceiros/cadastro",
       botao: "Cadastrar parceiro",
+      selo: "",
+      tipoSelo: "",
     },
   ];
 
@@ -458,7 +467,7 @@ export default function IngressosPage() {
           <div className="mb-10 text-center">
             <div className="flex flex-wrap items-center justify-center gap-3">
               <span className="rounded-full border border-yellow-300/30 bg-yellow-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-yellow-100">
-                🏆 Atração exclusiva
+                ⭐ Experiência única
               </span>
 
               <span className="rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-cyan-100">
@@ -479,7 +488,7 @@ export default function IngressosPage() {
           </div>
 
           <div className="overflow-hidden rounded-[2.5rem] border border-cyan-200/20 bg-black shadow-[0_30px_100px_rgba(0,0,0,0.55)]">
-            <div className="relative min-h-[360px] md:min-h-[620px]">
+            <div className="relative min-h-[430px] md:min-h-[620px]">
               <video
                 className="absolute inset-0 h-full w-full object-cover"
                 autoPlay
@@ -492,47 +501,36 @@ export default function IngressosPage() {
                 <source src="/videos/elevador-home.mp4" type="video/mp4" />
               </video>
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/30 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/15 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/10" />
 
-              <div className="relative z-10 flex min-h-[360px] items-end p-6 md:min-h-[620px] md:items-center md:p-12">
-                <div className="max-w-2xl rounded-[2rem] border border-white/15 bg-black/45 p-6 shadow-2xl backdrop-blur-md md:p-9">
-                  <p className="text-sm font-black uppercase tracking-[0.3em] text-cyan-300">
+              <div className="relative z-10 flex min-h-[430px] items-end p-5 md:min-h-[620px] md:items-center md:p-10">
+                <div className="w-full max-w-md rounded-[1.75rem] border border-white/15 bg-black/55 p-5 shadow-2xl backdrop-blur-md md:p-7">
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300 md:text-sm">
                     Elevador Panorâmico
                   </p>
 
-                  <h3 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
+                  <h3 className="mt-3 text-3xl font-black leading-tight md:text-4xl">
                     Uma experiência impressionante em Urubici
                   </h3>
 
-                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <p className="font-black">📏 100 metros de altura</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <p className="font-black">🌄 Vista panorâmica</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <p className="font-black">💧 Cascata do Avencal</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
-                      <p className="font-black">📸 Cenário inesquecível</p>
-                    </div>
+                  <div className="mt-5 space-y-2 text-sm font-bold text-white/90">
+                    <p>📏 100 metros de altura</p>
+                    <p>🌄 Vista panorâmica</p>
+                    <p>💧 Cascata do Avencal</p>
+                    <p>📸 Cenário inesquecível</p>
                   </div>
 
-                  <div className="mt-6 rounded-2xl border border-orange-300/30 bg-orange-500/15 p-4 text-sm font-semibold leading-relaxed text-orange-50">
+                  <div className="mt-5 rounded-xl border border-orange-300/30 bg-orange-500/15 p-3 text-xs font-semibold leading-relaxed text-orange-50 md:text-sm">
                     ⚠️ O ingresso do Elevador Panorâmico é vendido
                     separadamente do ingresso de entrada do Parque Mundo Novo.
                   </div>
 
-                  <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                     <button
                       type="button"
                       onClick={() => router.push("/ingressos/elevador")}
-                      className="rounded-full bg-cyan-400 px-8 py-4 text-center font-black text-cyan-950 shadow-2xl transition hover:-translate-y-1 hover:bg-cyan-300 active:scale-95"
+                      className="rounded-full bg-cyan-400 px-6 py-3 text-center text-sm font-black text-cyan-950 shadow-xl transition hover:-translate-y-1 hover:bg-cyan-300 active:scale-95 md:text-base"
                     >
                       🎟️ Comprar ingresso do Elevador
                     </button>
@@ -684,9 +682,11 @@ export default function IngressosPage() {
             {ingressos.map((item) => (
               <div
                 key={item.titulo}
-                className={`group relative min-h-[440px] overflow-hidden rounded-3xl border shadow-2xl ${item.destaque
+                className={`group relative min-h-[440px] overflow-hidden rounded-3xl border shadow-2xl ${item.tipoSelo === "verde"
                     ? "border-emerald-300/60"
-                    : "border-white/20"
+                    : item.tipoSelo === "dourado"
+                      ? "border-yellow-300/70"
+                      : "border-white/20"
                   }`}
               >
                 <img
@@ -695,11 +695,16 @@ export default function IngressosPage() {
                   className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
                 />
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-black/10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/65 to-black/10" />
 
-                {item.destaque && (
-                  <div className="absolute left-4 top-4 z-10 rounded-full bg-emerald-400 px-3 py-1 text-xs font-black uppercase tracking-[0.15em] text-emerald-950 shadow-lg">
-                    Mais procurado
+                {item.selo && (
+                  <div
+                    className={`absolute left-4 top-4 z-10 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.15em] shadow-lg ${item.tipoSelo === "dourado"
+                        ? "bg-yellow-400 text-yellow-950"
+                        : "bg-emerald-400 text-emerald-950"
+                      }`}
+                  >
+                    {item.selo}
                   </div>
                 )}
 
@@ -717,7 +722,10 @@ export default function IngressosPage() {
                   <button
                     type="button"
                     onClick={() => router.push(item.rota)}
-                    className="mt-6 rounded-xl bg-emerald-600 px-5 py-4 font-black text-white shadow-lg transition hover:bg-emerald-500 active:scale-95"
+                    className={`mt-6 rounded-xl px-5 py-4 font-black text-white shadow-lg transition active:scale-95 ${item.tipoSelo === "dourado"
+                        ? "bg-yellow-500 text-yellow-950 hover:bg-yellow-400"
+                        : "bg-emerald-600 hover:bg-emerald-500"
+                      }`}
                   >
                     {item.botao}
                   </button>
@@ -885,7 +893,9 @@ export default function IngressosPage() {
 
               <div className="space-y-3 text-emerald-50/85">
                 <p>🌱 Respeite a fauna e a flora.</p>
-                <p>🚯 Utilize as lixeiras ou leve seu lixo até um local adequado.</p>
+                <p>
+                  🚯 Utilize as lixeiras ou leve seu lixo até um local adequado.
+                </p>
                 <p>🚶 Permaneça nas trilhas e áreas sinalizadas.</p>
                 <p>💧 Preserve rios, cachoeiras e nascentes.</p>
                 <p>🐦 Não alimente nem capture animais silvestres.</p>
