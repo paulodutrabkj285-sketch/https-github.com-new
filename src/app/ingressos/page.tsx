@@ -67,7 +67,8 @@ export default function IngressosPage() {
     {
       icone: "🚠",
       titulo: "Elevador Panorâmico",
-      texto: "Experiência vendida separadamente com vista panorâmica.",
+      texto:
+        "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura.",
       imagem: "/fotos/elevador-novo.png",
     },
     {
@@ -142,7 +143,8 @@ export default function IngressosPage() {
     },
     {
       titulo: "Elevador Panorâmico",
-      descricao: "Experiência vendida separadamente com vista panorâmica.",
+      descricao:
+        "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura. Ingresso vendido separadamente.",
       preco: "R$ 75,00",
       imagem: "/fotos/elevador-novo.png",
       rota: "/ingressos/elevador",
@@ -162,7 +164,7 @@ export default function IngressosPage() {
     "Funcionamento todos os dias, das 08h às 17h30.",
     "Ingresso válido por 6 meses a partir da data da compra.",
     "O ingresso pode ser apresentado impresso ou pelo celular.",
-    "O Elevador Panorâmico é vendido separadamente.",
+    "O Elevador Panorâmico possui ingresso próprio e é vendido separadamente.",
     "Meia entrada exige apresentação de documento na portaria.",
     "Camping possui ingresso próprio e voucher de check-in.",
   ];
@@ -178,7 +180,7 @@ export default function IngressosPage() {
       icone: "🎫",
       titulo: "Como funciona seu ingresso",
       texto:
-        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail . Basta apresentar o QR Code impresso ou pelo celular na entrada.",
+        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail. Basta apresentar o QR Code impresso ou pelo celular na entrada.",
     },
     {
       icone: "🏕️",
@@ -227,12 +229,17 @@ export default function IngressosPage() {
     {
       pergunta: "Como recebo meu ingresso?",
       resposta:
-        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail e WhatsApp, com QR Code para apresentar na entrada.",
+        "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail, com QR Code para apresentar na entrada.",
     },
     {
-      pergunta: "O elevador está incluso?",
+      pergunta: "O Elevador Panorâmico está incluso?",
       resposta:
-        "Não. O Elevador Panorâmico é vendido separadamente do ingresso de entrada do parque.",
+        "Não. O Elevador Panorâmico possui ingresso próprio e é vendido separadamente do ingresso de entrada do parque.",
+    },
+    {
+      pergunta: "O que torna o Elevador Panorâmico especial?",
+      resposta:
+        "Ele é o primeiro Elevador Panorâmico da América Latina com 100 metros de altura e proporciona uma vista privilegiada da Cascata do Avencal e da paisagem da Serra Catarinense.",
     },
     {
       pergunta: "Camping está incluso?",
@@ -247,7 +254,7 @@ export default function IngressosPage() {
     {
       pergunta: "Como funciona a meia entrada?",
       resposta:
-        "A meia entrada para idoso exige documento comprobatório no momento da visita.",
+        "A meia entrada para idoso exige documento comprobatório no mesmo nome informado na compra e sua apresentação na portaria.",
     },
     {
       pergunta: "Posso cancelar a compra?",
@@ -302,6 +309,7 @@ export default function IngressosPage() {
                 <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-200">
                   Site Oficial
                 </p>
+
                 <p className="text-lg font-black">Parque Mundo Novo</p>
               </div>
             </div>
@@ -309,6 +317,7 @@ export default function IngressosPage() {
             <a
               href={linkMaps}
               target="_blank"
+              rel="noopener noreferrer"
               className="hidden rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold backdrop-blur-md transition hover:bg-white/20 md:inline-block"
             >
               Como chegar
@@ -330,12 +339,26 @@ export default function IngressosPage() {
                 inesquecíveis em Urubici/SC.
               </p>
 
+              <div className="mt-6 inline-flex max-w-3xl rounded-2xl border border-cyan-200/30 bg-cyan-500/15 px-5 py-4 shadow-2xl backdrop-blur-md">
+                <p className="font-black leading-relaxed text-cyan-50">
+                  🏆 Conheça o primeiro Elevador Panorâmico da América Latina
+                  com 100 metros de altura.
+                </p>
+              </div>
+
               <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
                 <a
                   href="#comprar-ingressos"
                   className="rounded-full bg-emerald-500 px-8 py-4 text-center font-black text-emerald-950 shadow-2xl transition hover:-translate-y-1 hover:bg-emerald-400"
                 >
                   Comprar Ingressos
+                </a>
+
+                <a
+                  href="#elevador-panoramico"
+                  className="rounded-full bg-cyan-500 px-8 py-4 text-center font-black text-cyan-950 shadow-2xl transition hover:-translate-y-1 hover:bg-cyan-400"
+                >
+                  Conhecer o Elevador
                 </a>
 
                 <a
@@ -351,11 +374,6 @@ export default function IngressosPage() {
                 >
                   Planeje sua Visita
                 </a>
-
-
-
-
-
 
                 <button
                   type="button"
@@ -399,6 +417,7 @@ export default function IngressosPage() {
                   <a
                     href={linkMaps}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="mt-4 inline-block rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-lg transition hover:bg-emerald-500"
                   >
                     📍 Abrir no Google Maps
@@ -418,12 +437,151 @@ export default function IngressosPage() {
               className="rounded-[1.5rem] border border-white/10 bg-white/[0.07] p-5 shadow-xl transition hover:-translate-y-1 hover:bg-white/[0.12]"
             >
               <div className="text-4xl">{item.icone}</div>
+
               <h3 className="mt-4 text-lg font-black">{item.titulo}</h3>
+
               <p className="mt-2 text-sm leading-relaxed text-emerald-50/80">
                 {item.texto}
               </p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section
+        id="elevador-panoramico"
+        className="relative overflow-hidden px-4 py-24"
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#06150f] via-[#082519] to-[#0b2418]" />
+
+        <div className="relative z-10 mx-auto max-w-7xl">
+          <div className="mb-10 text-center">
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <span className="rounded-full border border-yellow-300/30 bg-yellow-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-yellow-100">
+                🏆 Atração exclusiva
+              </span>
+
+              <span className="rounded-full border border-cyan-300/30 bg-cyan-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-cyan-100">
+                100 metros de altura
+              </span>
+            </div>
+
+            <h2 className="mx-auto mt-6 max-w-5xl text-4xl font-black leading-tight text-white md:text-6xl">
+              O primeiro Elevador Panorâmico da América Latina com 100 metros
+              de altura
+            </h2>
+
+            <p className="mx-auto mt-6 max-w-3xl text-lg leading-relaxed text-emerald-50/80 md:text-xl">
+              Viva uma experiência única no Parque Mundo Novo e contemple a
+              Cascata do Avencal e as paisagens da Serra Catarinense de um ponto
+              de vista inesquecível.
+            </p>
+          </div>
+
+          <div className="overflow-hidden rounded-[2.5rem] border border-cyan-200/20 bg-black shadow-[0_30px_100px_rgba(0,0,0,0.55)]">
+            <div className="relative min-h-[360px] md:min-h-[620px]">
+              <video
+                className="absolute inset-0 h-full w-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                poster="/fotos/elevador-novo.png"
+              >
+                <source src="/videos/elevador-home.mp4" type="video/mp4" />
+              </video>
+
+              <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+
+              <div className="relative z-10 flex min-h-[360px] items-end p-6 md:min-h-[620px] md:items-center md:p-12">
+                <div className="max-w-2xl rounded-[2rem] border border-white/15 bg-black/45 p-6 shadow-2xl backdrop-blur-md md:p-9">
+                  <p className="text-sm font-black uppercase tracking-[0.3em] text-cyan-300">
+                    Elevador Panorâmico
+                  </p>
+
+                  <h3 className="mt-4 text-3xl font-black leading-tight md:text-5xl">
+                    Uma experiência impressionante em Urubici
+                  </h3>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <p className="font-black">📏 100 metros de altura</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <p className="font-black">🌄 Vista panorâmica</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <p className="font-black">💧 Cascata do Avencal</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <p className="font-black">📸 Cenário inesquecível</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border border-orange-300/30 bg-orange-500/15 p-4 text-sm font-semibold leading-relaxed text-orange-50">
+                    ⚠️ O ingresso do Elevador Panorâmico é vendido
+                    separadamente do ingresso de entrada do Parque Mundo Novo.
+                  </div>
+
+                  <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center">
+                    <button
+                      type="button"
+                      onClick={() => router.push("/ingressos/elevador")}
+                      className="rounded-full bg-cyan-400 px-8 py-4 text-center font-black text-cyan-950 shadow-2xl transition hover:-translate-y-1 hover:bg-cyan-300 active:scale-95"
+                    >
+                      🎟️ Comprar ingresso do Elevador
+                    </button>
+
+                    <p className="text-center text-2xl font-black sm:text-left">
+                      R$ 75,00
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-6 shadow-xl">
+              <p className="text-4xl">🏆</p>
+
+              <h3 className="mt-4 text-xl font-black">
+                Marco na América Latina
+              </h3>
+
+              <p className="mt-3 text-sm leading-relaxed text-emerald-50/75">
+                O primeiro Elevador Panorâmico da América Latina com 100 metros
+                de altura.
+              </p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-6 shadow-xl">
+              <p className="text-4xl">🌄</p>
+
+              <h3 className="mt-4 text-xl font-black">Paisagem privilegiada</h3>
+
+              <p className="mt-3 text-sm leading-relaxed text-emerald-50/75">
+                Uma nova perspectiva da Cascata do Avencal e das montanhas da
+                Serra Catarinense.
+              </p>
+            </div>
+
+            <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-6 shadow-xl">
+              <p className="text-4xl">🎟️</p>
+
+              <h3 className="mt-4 text-xl font-black">Ingresso exclusivo</h3>
+
+              <p className="mt-3 text-sm leading-relaxed text-emerald-50/75">
+                A atração possui ingresso próprio, disponível para compra no
+                site oficial.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -526,7 +684,9 @@ export default function IngressosPage() {
             {ingressos.map((item) => (
               <div
                 key={item.titulo}
-                className={`group relative min-h-[440px] overflow-hidden rounded-3xl border shadow-2xl ${item.destaque ? "border-emerald-300/60" : "border-white/20"
+                className={`group relative min-h-[440px] overflow-hidden rounded-3xl border shadow-2xl ${item.destaque
+                    ? "border-emerald-300/60"
+                    : "border-white/20"
                   }`}
               >
                 <img
@@ -555,6 +715,7 @@ export default function IngressosPage() {
                   <p className="mt-6 text-2xl font-black">{item.preco}</p>
 
                   <button
+                    type="button"
                     onClick={() => router.push(item.rota)}
                     className="mt-6 rounded-xl bg-emerald-600 px-5 py-4 font-black text-white shadow-lg transition hover:bg-emerald-500 active:scale-95"
                   >
@@ -567,7 +728,10 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <section id="planeje-sua-visita" className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
+      <section
+        id="planeje-sua-visita"
+        className="bg-[#f3f7ef] px-4 py-20 text-slate-900"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto mb-12 max-w-3xl text-center">
             <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
@@ -647,15 +811,17 @@ export default function IngressosPage() {
                 <h3 className="font-black text-slate-900">
                   Como funciona seu ingresso
                 </h3>
+
                 <p className="mt-2">
                   Após a confirmação do pagamento, você recebe o ingresso
-                  digital por e-mail e WhatsApp. Basta apresentar o ingresso
-                  impresso ou no celular na entrada do Parque Mundo Novo.
+                  digital por e-mail. Basta apresentar o ingresso impresso ou no
+                  celular na entrada do Parque Mundo Novo.
                 </p>
               </div>
 
               <div>
                 <h3 className="font-black text-slate-900">Validade</h3>
+
                 <p className="mt-2">
                   Seu ingresso é válido por 6 meses a partir da data da compra.
                   Dentro desse período, você escolhe o melhor dia para sua
@@ -667,6 +833,7 @@ export default function IngressosPage() {
                 <h3 className="font-black text-slate-900">
                   Arrependimento e cancelamento
                 </h3>
+
                 <p className="mt-2">
                   Você pode cancelar sua compra em até 7 dias corridos após a
                   data do pagamento, conforme o Código de Defesa do Consumidor,
@@ -679,6 +846,7 @@ export default function IngressosPage() {
                 <h3 className="font-black text-slate-900">
                   Como solicitar o cancelamento
                 </h3>
+
                 <p className="mt-2">
                   Entre em contato pelo WhatsApp (49) 99129-9991 informando o
                   número do pedido. O reembolso é feito pelo mesmo meio de
@@ -780,6 +948,7 @@ export default function IngressosPage() {
                 <summary className="cursor-pointer list-none text-lg font-black">
                   <span className="flex items-center justify-between gap-4">
                     {item.pergunta}
+
                     <span className="text-emerald-600 transition group-open:rotate-45">
                       +
                     </span>
@@ -807,6 +976,7 @@ export default function IngressosPage() {
 
               <div>
                 <h3 className="text-xl font-black">Parque Mundo Novo</h3>
+
                 <p className="text-sm text-slate-500">
                   Site oficial de ingressos
                 </p>
@@ -833,7 +1003,7 @@ export default function IngressosPage() {
               📱 (49) 99129-9991
             </p>
 
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 break-words text-sm text-slate-600">
               📧 ingressosparquemundonovo@gmail.com
             </p>
 
@@ -844,6 +1014,7 @@ export default function IngressosPage() {
             <a
               href={linkMaps}
               target="_blank"
+              rel="noopener noreferrer"
               className="mt-4 inline-block rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-lg transition hover:bg-emerald-500"
             >
               📍 Como chegar
@@ -856,6 +1027,7 @@ export default function IngressosPage() {
             <a
               href="https://www.instagram.com/parquemundonovo"
               target="_blank"
+              rel="noopener noreferrer"
               className="block text-sm text-slate-600 hover:text-emerald-700"
             >
               📸 Instagram
@@ -864,6 +1036,7 @@ export default function IngressosPage() {
             <a
               href="https://www.facebook.com"
               target="_blank"
+              rel="noopener noreferrer"
               className="mt-2 block text-sm text-slate-600 hover:text-emerald-700"
             >
               📘 Facebook
