@@ -488,7 +488,7 @@ export default function IngressosPage() {
           </div>
 
           <div className="overflow-hidden rounded-[2.5rem] border border-cyan-200/20 bg-black shadow-[0_30px_100px_rgba(0,0,0,0.55)]">
-            <div className="relative min-h-[430px] md:min-h-[620px]">
+            <div className="relative min-h-[360px] md:min-h-[620px]">
               <video
                 className="absolute inset-0 h-full w-full object-cover"
                 autoPlay
@@ -501,16 +501,16 @@ export default function IngressosPage() {
                 <source src="/videos/elevador-home.mp4" type="video/mp4" />
               </video>
 
-              <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/15 to-transparent" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/10" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
 
-              <div className="relative z-10 flex min-h-[430px] items-end p-5 md:min-h-[620px] md:items-center md:p-10">
-                <div className="w-full max-w-md rounded-[1.75rem] border border-white/15 bg-black/55 p-5 shadow-2xl backdrop-blur-md md:p-7">
-                  <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300 md:text-sm">
+              <div className="relative z-10 hidden min-h-[620px] items-center p-10 md:flex">
+                <div className="w-full max-w-md rounded-[1.75rem] border border-white/15 bg-black/55 p-7 shadow-2xl backdrop-blur-md">
+                  <p className="text-sm font-black uppercase tracking-[0.3em] text-cyan-300">
                     Elevador Panorâmico
                   </p>
 
-                  <h3 className="mt-3 text-3xl font-black leading-tight md:text-4xl">
+                  <h3 className="mt-3 text-4xl font-black leading-tight">
                     Uma experiência impressionante em Urubici
                   </h3>
 
@@ -521,25 +521,72 @@ export default function IngressosPage() {
                     <p>📸 Cenário inesquecível</p>
                   </div>
 
-                  <div className="mt-5 rounded-xl border border-orange-300/30 bg-orange-500/15 p-3 text-xs font-semibold leading-relaxed text-orange-50 md:text-sm">
+                  <div className="mt-5 rounded-xl border border-orange-300/30 bg-orange-500/15 p-3 text-sm font-semibold leading-relaxed text-orange-50">
                     ⚠️ O ingresso do Elevador Panorâmico é vendido
                     separadamente do ingresso de entrada do Parque Mundo Novo.
                   </div>
 
-                  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="mt-5 flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => router.push("/ingressos/elevador")}
-                      className="rounded-full bg-cyan-400 px-6 py-3 text-center text-sm font-black text-cyan-950 shadow-xl transition hover:-translate-y-1 hover:bg-cyan-300 active:scale-95 md:text-base"
+                      className="rounded-full bg-cyan-400 px-6 py-3 text-center font-black text-cyan-950 shadow-xl transition hover:-translate-y-1 hover:bg-cyan-300 active:scale-95"
                     >
                       🎟️ Comprar ingresso do Elevador
                     </button>
 
-                    <p className="text-center text-2xl font-black sm:text-left">
+                    <p className="whitespace-nowrap text-2xl font-black">
                       R$ 75,00
                     </p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="border-t border-cyan-200/20 bg-gradient-to-b from-[#07150f] to-[#0d2018] p-5 md:hidden">
+              <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl">
+                <p className="text-xs font-black uppercase tracking-[0.3em] text-cyan-300">
+                  Elevador Panorâmico
+                </p>
+
+                <h3 className="mt-3 text-3xl font-black leading-tight text-white">
+                  Uma experiência impressionante em Urubici
+                </h3>
+
+                <div className="mt-5 grid grid-cols-2 gap-3 text-sm font-bold text-white/90">
+                  <div className="rounded-xl bg-white/10 p-3">
+                    📏 100 metros
+                  </div>
+
+                  <div className="rounded-xl bg-white/10 p-3">
+                    🌄 Vista panorâmica
+                  </div>
+
+                  <div className="rounded-xl bg-white/10 p-3">
+                    💧 Cascata do Avencal
+                  </div>
+
+                  <div className="rounded-xl bg-white/10 p-3">
+                    📸 Cenário inesquecível
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-orange-300/30 bg-orange-500/15 p-4 text-sm font-semibold leading-relaxed text-orange-50">
+                  ⚠️ O ingresso do Elevador Panorâmico é vendido separadamente
+                  do ingresso de entrada do Parque Mundo Novo.
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/ingressos/elevador")}
+                  className="mt-5 w-full rounded-full bg-cyan-400 px-6 py-4 text-center font-black text-cyan-950 shadow-xl transition active:scale-95"
+                >
+                  🎟️ Comprar ingresso do Elevador
+                </button>
+
+                <p className="mt-4 text-center text-3xl font-black text-white">
+                  R$ 75,00
+                </p>
               </div>
             </div>
           </div>
@@ -561,7 +608,9 @@ export default function IngressosPage() {
             <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.06] p-6 shadow-xl">
               <p className="text-4xl">🌄</p>
 
-              <h3 className="mt-4 text-xl font-black">Paisagem privilegiada</h3>
+              <h3 className="mt-4 text-xl font-black">
+                Paisagem privilegiada
+              </h3>
 
               <p className="mt-3 text-sm leading-relaxed text-emerald-50/75">
                 Uma nova perspectiva da Cascata do Avencal e das montanhas da
@@ -722,9 +771,9 @@ export default function IngressosPage() {
                   <button
                     type="button"
                     onClick={() => router.push(item.rota)}
-                    className={`mt-6 rounded-xl px-5 py-4 font-black text-white shadow-lg transition active:scale-95 ${item.tipoSelo === "dourado"
+                    className={`mt-6 rounded-xl px-5 py-4 font-black shadow-lg transition active:scale-95 ${item.tipoSelo === "dourado"
                         ? "bg-yellow-500 text-yellow-950 hover:bg-yellow-400"
-                        : "bg-emerald-600 hover:bg-emerald-500"
+                        : "bg-emerald-600 text-white hover:bg-emerald-500"
                       }`}
                   >
                     {item.botao}
