@@ -9,6 +9,12 @@ export default function IngressosPage() {
   const [imagemAtual, setImagemAtual] = useState(0);
   const [mostrarLocalizacao, setMostrarLocalizacao] = useState(false);
 
+  // Estados para o Modal de Reenvio de Ingresso
+  const [modalReenviarAberto, setModalReenviarAberto] = useState(false);
+  const [pedidoId, setPedidoId] = useState("");
+  const [carregandoReenvio, setCarregandoReenvio] = useState(false);
+  const [mensagemReenvio, setMensagemReenvio] = useState<{ tipo: "sucesso" | "erro"; texto: string } | null>(null);
+
   const linkMaps =
     "https://maps.google.com/maps?vet=10CAAQoqAOahcKEwiA3azy-YeVAxUAAAAAHQAAAAAQBg..i&pvq=CgwvZy8xcHYyZl9kaGIiFwoRcGFycXVlIG11bmRvIG5vdm8QAhgD&lqi=ChlwYXJxdWUgbXVuZG8gbm92byB1cnViaWNpY2mSAQpmYWlyZ3JvdW5k&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=br&sa=X&ftid=0x952046a2f62d7365:0x34bd4695f0794ad2";
 
@@ -248,7 +254,7 @@ export default function IngressosPage() {
     {
       pergunta: "O que torna o Elevador Panorâmico especial?",
       resposta:
-        "Ele é o primeiro Elevador Panorâmico da América Latina com 100 metros de altura e proporciona uma vista privilegiada da Cascata do Avencal e da paisagem da Serra Catarinense.",
+        "Ele é o primeiro Elevador Panorâmico da América Latina com 100 metros de altura e proporciona uma vista privilegiada da Cascata do Avencal e da paisagem da Serra Catarinense de um ponto de vista inesquecível.",
     },
     {
       pergunta: "Camping está incluso?",
@@ -286,6 +292,46 @@ export default function IngressosPage() {
         "Não. Tirolesa, tirolesa infantil, salto de pêndulo, restaurante, bistrô e cafeteria são serviços terceirizados e devem ser contratados diretamente no local.",
     },
   ];
+
+  // Função para chamar a API de reenvio
+  async function lidarComReenvio(e: React.FormEvent) {
+    e.preventDefault();
+    setCarregandoReenvio(true);
+    setMensagemReenvio(null);
+
+    if (!pedidoId.trim()) {
+      setMensagemReenvio({ tipo: "erro", texto: "Por favor, informe o ID do pedido." });
+      setCarregandoReenvio(false);
+      return;
+    }
+
+    try {
+      const resposta = await fetch(`/api/ingresso/${pedidoId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId }),
+      });
+
+      const dados = await resposta.json();
+
+      if (resposta.ok && dados.ok) {
+        setMensagemReenvio({ tipo: "sucesso", texto: "Sucesso! O ingresso foi reenviado para o e-mail cadastrado." });
+        setPedidoId("");
+      } else {
+        setMensagemReenvio({
+          tipo: "erro",
+          texto: dados.error || "Ocorreu um erro ao reenviar. Confirme o ID do pedido.",
+        });
+      }
+    } catch (err) {
+      setMensagemReenvio({
+        tipo: "erro",
+        texto: "Erro de conexão. Verifique sua internet e tente novamente.",
+      });
+    } finally {
+      setCarregandoReenvio(false);
+    }
+  }
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#06150f] via-[#0b2418] to-[#f3f7ef] text-white">
@@ -392,12 +438,13 @@ export default function IngressosPage() {
                   📍 {mostrarLocalizacao ? "Ocultar localização" : "Como chegar"}
                 </button>
 
+                {/* Agora esse botão abre o Modal de Reenvio localmente */}
                 <button
                   type="button"
-                  onClick={() => router.push("/ingressos/reenviar")}
+                  onClick={() => setModalReenviarAberto(true)}
                   className="rounded-full bg-yellow-500 px-8 py-4 text-center font-black text-yellow-950 shadow-2xl transition hover:-translate-y-1 hover:bg-yellow-400"
                 >
-                  🔍 Reenviar Ingresso (CPF)
+                  🔍 Reenviar Ingresso
                 </button>
 
               </div>
@@ -447,6 +494,76 @@ export default function IngressosPage() {
         </div>
       </section>
 
+      {/* MODAL DE REENVIAR INGRESSO */}
+      {modalReenviarAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-emerald-500/30 bg-emerald-950 p-6 shadow-2xl text-white">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <h3 className="text-xl font-black">Reenviar meu Ingresso</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setModalReenviarAberto(false);
+                  setMensagemReenvio(null);
+                  setPedidoId("");
+                }}
+                className="rounded-lg bg-white/10 p-2 text-sm font-bold hover:bg-white/20"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={lidarComReenvio} className="mt-6 space-y-4">
+              <div>
+                <label htmlFor="pedidoId" className="block text-sm font-bold text-emerald-200">
+                  Código ou ID do Pedido
+                </label>
+                <input
+                  type="text"
+                  id="pedidoId"
+                  value={pedidoId}
+                  onChange={(e) => setPedidoId(e.target.value)}
+                  placeholder="Ex: 67394abc..."
+                  className="mt-2 w-full rounded-xl bg-white/10 p-4 font-semibold text-white placeholder-white/40 border border-white/20 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              </div>
+
+              {mensagemReenvio && (
+                <div
+                  className={`rounded-xl p-4 text-sm font-bold ${mensagemReenvio.tipo === "sucesso"
+                    ? "bg-emerald-500/25 text-emerald-200 border border-emerald-500"
+                    : "bg-red-500/25 text-red-200 border border-red-500"
+                    }`}
+                >
+                  {mensagemReenvio.texto}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalReenviarAberto(false);
+                    setMensagemReenvio(null);
+                    setPedidoId("");
+                  }}
+                  className="w-1/2 rounded-xl bg-white/10 py-4 font-bold transition hover:bg-white/15"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={carregandoReenvio}
+                  className="w-1/2 rounded-xl bg-emerald-500 py-4 font-black text-emerald-950 shadow-lg transition hover:bg-emerald-400 disabled:opacity-55"
+                >
+                  {carregandoReenvio ? "Enviando..." : "Enviar por E-mail"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <section className="relative z-20 -mt-20 px-4">
         <div className="mx-auto grid max-w-7xl gap-4 rounded-[2rem] border border-emerald-300/20 bg-emerald-950/75 p-4 shadow-2xl backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-4">
           {confianca.map((item) => (
@@ -491,7 +608,7 @@ export default function IngressosPage() {
 
             <p className="mx-auto mt-6 max-w-3xl text-lg leading-relaxed text-emerald-50/80 md:text-xl">
               Viva uma experiência única no Parque Mundo Novo e contemple a
-              Cascata do Avencal e as paisagens da Serra Catarinense de um ponto
+              Cascata do Avencal e as paisagens da Serra Catarinense de um point
               de vista inesquecível.
             </p>
           </div>
@@ -780,10 +897,7 @@ export default function IngressosPage() {
                   <button
                     type="button"
                     onClick={() => router.push(item.rota)}
-                    className={`mt-6 rounded-xl px-5 py-4 font-black shadow-lg transition active:scale-95 ${item.tipoSelo === "dourado"
-                      ? "bg-yellow-500 text-yellow-950 hover:bg-yellow-400"
-                      : "bg-emerald-600 text-white hover:bg-emerald-500"
-                      }`}
+                    className={`mt-6 rounded-xl px-5 py-4 font-black shadow-lg transition hover:-translate-y-1 hover:bg-emerald-400`}
                   >
                     {item.botao}
                   </button>
@@ -794,349 +908,178 @@ export default function IngressosPage() {
         </div>
       </section>
 
-      <section
-        id="planeje-sua-visita"
-        className="bg-[#f3f7ef] px-4 py-20 text-slate-900"
-      >
+      <section id="planeje-sua-visita" className="px-4 py-20 text-zinc-800">
         <div className="mx-auto max-w-7xl">
-          <div className="mx-auto mb-12 max-w-3xl text-center">
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
-              Planeje sua Visita
-            </p>
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-600">
+            Planeje sua Visita
+          </p>
 
-            <h2 className="mt-4 text-4xl font-black md:text-5xl">
-              Informações importantes antes de vir
-            </h2>
+          <h2 className="mt-4 text-4xl font-black md:text-5xl">
+            Informações Úteis
+          </h2>
 
-            <p className="mt-5 text-lg leading-relaxed text-slate-600">
-              Confira horários, regras do camping, validade dos ingressos,
-              serviços terceirizados, estacionamento e canais de atendimento.
-            </p>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {planejamento.map((item) => (
               <div
                 key={item.titulo}
-                className="rounded-[1.5rem] border border-emerald-100 bg-white p-6 shadow-xl"
+                className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl"
               >
                 <div className="text-4xl">{item.icone}</div>
 
-                <h3 className="mt-4 text-xl font-black text-slate-900">
+                <h3 className="mt-4 text-xl font-black text-zinc-900">
                   {item.titulo}
                 </h3>
 
-                <p className="mt-3 text-sm leading-relaxed text-slate-600">
+                <p className="mt-3 text-sm leading-relaxed text-zinc-600">
                   {item.texto}
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="mt-8 rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-xl">
-            <h3 className="text-2xl font-black text-amber-900">
-              ⚠️ Atenção aos pertences
-            </h3>
-
-            <p className="mt-3 leading-relaxed text-amber-900/85">
-              Por ser um local de circulação de visitantes de diversos lugares,
-              recomendamos atenção especial aos seus pertences. Antes de iniciar
-              sua visita, certifique-se de que o veículo esteja trancado e que
-              objetos de valor não estejam visíveis.
+          <div className="mt-12 rounded-[2rem] bg-emerald-50 p-5 font-semibold text-emerald-950">
+            <p>
+              Passados os 7 dias ou após a utilização do ingresso, não é
+              possível solicitar reembolso.
             </p>
-
-            <p className="mt-3 font-bold text-amber-950">
-              O Parque Mundo Novo não se responsabiliza por objetos esquecidos,
-              perdidos, furtados ou danificados no interior de veículos, no
-              estacionamento ou nas áreas de circulação do parque.
+            <p className="mt-2">
+              Entre em contato pelo{" "}
+              <a
+                href="https://wa.me/5549991299991?text=Olá!%20Gostaria%20de%20solicitar%20o%20reembolso%20de%20um%20ingresso."
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-600 hover:text-emerald-800 hover:underline font-bold transition"
+              >
+                WhatsApp (49) 99129-9991
+              </a>{" "}
+              informando o número do pedido. O reembolso é feito pelo mesmo meio de
+              pagamento utilizado na compra e pode levar alguns dias úteis,
+              conforme prazo do banco ou operadora.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
-        <div className="mx-auto max-w-7xl rounded-[2.5rem] border border-emerald-100 bg-white p-6 shadow-2xl md:p-10">
-          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
-                Compra e cancelamento
-              </p>
-
-              <h2 className="mt-4 text-4xl font-black">
-                Política do ingresso
-              </h2>
-
-              <p className="mt-4 text-slate-600">
-                Informações claras para o visitante comprar com segurança e
-                entender seus direitos antes da visita.
-              </p>
-            </div>
-
-            <div className="space-y-5 text-sm leading-relaxed text-slate-700 md:text-base">
-              <div>
-                <h3 className="font-black text-slate-900">
-                  Como funciona seu ingresso
-                </h3>
-
-                <p className="mt-2">
-                  Após a confirmação do pagamento, você recebe o ingresso
-                  digital por e-mail. Basta apresentar o ingresso impresso ou no
-                  celular na entrada do Parque Mundo Novo.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="font-black text-slate-900">Validade</h3>
-
-                <p className="mt-2">
-                  Seu ingresso é válido por 6 meses a partir da data da compra.
-                  Dentro desse período, você escolhe o melhor dia para sua
-                  visita, respeitando o horário de funcionamento do parque.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="font-black text-slate-900">
-                  Arrependimento e cancelamento
-                </h3>
-
-                <p className="mt-2">
-                  Você pode cancelar sua compra em até 7 dias corridos após a
-                  data do pagamento, conforme o Código de Defesa do Consumidor,
-                  desde que o ingresso ainda não tenha sido utilizado. Nesse
-                  caso, o valor pago será devolvido integralmente.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="font-black text-slate-900">
-                  Como solicitar o cancelamento
-                </h3>
-
-
-                <div className="rounded-2xl bg-emerald-50 p-5 font-semibold text-emerald-950">
-                  <p>
-                    Passados os 7 dias ou após a utilização do ingresso, não é possível solicitar reembolso.
-                  </p>
-                  <p className="mt-2">
-                    Entre em contato pelo{" "}
-                    <a
-                      href="https://wa.me/5549991299991?text=Olá!%20Gostaria%20de%20solicitar%20o%20reembolso%20de%20um%20ingresso."
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-emerald-600 hover:text-emerald-800 hover:underline font-bold transition"
-                    >
-                      WhatsApp (49) 99129-9991
-                    </a>{" "}
-                    informando o número do pedido. O reembolso é feito pelo mesmo meio de
-                    pagamento utilizado na compra e pode levar alguns dias úteis,
-                    conforme prazo do banco ou operadora.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#0b2418] px-4 py-20 text-white">
+      <section className="px-4 py-20 text-zinc-800">
         <div className="mx-auto max-w-7xl">
-          <div className="rounded-[2.5rem] border border-emerald-300/20 bg-emerald-950/70 p-8 shadow-2xl md:p-12">
-            <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
-                  Turismo Responsável
-                </p>
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-600">
+            Dúvidas Frequentes
+          </p>
 
-                <h2 className="mt-4 text-4xl font-black md:text-5xl">
-                  Preserve a natureza
-                </h2>
+          <h2 className="mt-4 text-4xl font-black md:text-5xl">FAQ</h2>
 
-                <p className="mt-5 text-lg leading-relaxed text-emerald-50/80">
-                  A natureza é o maior patrimônio do Parque Mundo Novo. Cada
-                  visitante tem um papel importante na conservação deste lugar.
-                </p>
-              </div>
-
-              <div className="space-y-3 text-emerald-50/85">
-                <p>🌱 Respeite a fauna e a flora.</p>
-                <p>
-                  🚯 Utilize as lixeiras ou leve seu lixo até um local adequado.
-                </p>
-                <p>🚶 Permaneça nas trilhas e áreas sinalizadas.</p>
-                <p>💧 Preserve rios, cachoeiras e nascentes.</p>
-                <p>🐦 Não alimente nem capture animais silvestres.</p>
-                <p>🔥 Não faça fogo em locais não autorizados.</p>
-              </div>
-            </div>
-
-            <div className="mt-10 rounded-[2rem] bg-white/10 p-6 text-center shadow-xl">
-              <p className="text-2xl font-black leading-relaxed text-emerald-50 md:text-3xl">
-                “Da natureza, leve apenas fotografias, lembranças e momentos
-                inesquecíveis. Deixe apenas suas pegadas e o respeito por este
-                lugar tão especial.”
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#f3f7ef] px-4 py-20 text-slate-900">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr]">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
-              Antes da visita
-            </p>
-
-            <h2 className="mt-4 text-4xl font-black">
-              Informações importantes
-            </h2>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {informacoes.map((info) => (
-              <div
-                key={info}
-                className="rounded-[1.5rem] border border-emerald-100 bg-white p-5 text-sm font-semibold leading-relaxed text-slate-700 shadow-xl"
-              >
-                ✓ {info}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-[#f3f7ef] px-4 pb-20 text-slate-900">
-        <div className="mx-auto max-w-5xl">
-          <div className="mb-10 text-center">
-            <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-700">
-              FAQ
-            </p>
-
-            <h2 className="mt-4 text-4xl font-black">Dúvidas frequentes</h2>
-          </div>
-
-          <div className="space-y-4">
+          <div className="mt-10 grid gap-6 sm:grid-cols-2">
             {perguntas.map((item) => (
-              <details
+              <div
                 key={item.pergunta}
-                className="group rounded-[1.5rem] border border-emerald-100 bg-white p-5 shadow-xl"
+                className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl"
               >
-                <summary className="cursor-pointer list-none text-lg font-black">
-                  <span className="flex items-center justify-between gap-4">
-                    {item.pergunta}
+                <h3 className="text-lg font-black text-zinc-900">
+                  {item.pergunta}
+                </h3>
 
-                    <span className="text-emerald-600 transition group-open:rotate-45">
-                      +
-                    </span>
-                  </span>
-                </summary>
-
-                <p className="mt-4 leading-relaxed text-slate-600">
+                <p className="mt-3 text-sm leading-relaxed text-zinc-600">
                   {item.resposta}
                 </p>
-              </details>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-emerald-100 bg-white px-4 py-12 text-slate-900">
-        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
-          <div className="md:col-span-2">
+      <footer className="border-t border-emerald-950/15 bg-zinc-50 px-4 py-16 text-zinc-600">
+        <div className="mx-auto grid max-w-7xl gap-8 sm:grid-cols-2 md:grid-cols-3">
+          <div>
             <div className="flex items-center gap-3">
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
-                className="h-14 w-14 rounded-2xl bg-white object-contain p-2 shadow"
+                className="h-12 w-12 rounded-xl bg-white object-contain p-1 shadow"
               />
 
               <div>
-                <h3 className="text-xl font-black">Parque Mundo Novo</h3>
-
-                <p className="text-sm text-slate-500">
-                  Site oficial de ingressos
+                <p className="text-base font-black text-zinc-900">
+                  Parque Mundo Novo
                 </p>
+
+                <p className="text-xs text-zinc-500">Site oficial de ingressos</p>
               </div>
             </div>
 
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-slate-600">
+            <p className="mt-6 text-sm leading-relaxed text-zinc-500">
               Parque ecológico localizado em Urubici, na Serra Catarinense.
             </p>
 
-            <p className="mt-3 text-sm font-bold text-amber-600">
+            <p className="mt-4 text-xs font-bold text-yellow-600">
               {avaliacaoGoogle}
             </p>
           </div>
 
           <div>
-            <h3 className="mb-4 text-lg font-black">Contato</h3>
+            <p className="text-lg font-black text-zinc-900">Contato</p>
 
-            <p className="text-sm text-slate-600">
-              📍 SC-110 KM 34 - Urubici/SC
-            </p>
+            <div className="mt-4 space-y-3 text-sm">
+              <p className="flex items-center gap-2">
+                📍 SC-110 KM 34 - Urubici/SC
+              </p>
 
-            <p className="mt-2 text-sm text-slate-600">
-              📱 (49) 99129-9991
-            </p>
+              {/* RODAPÉ DO WHATSAPP CORRIGIDO E CLICÁVEL AQUI */}
+              <p className="flex items-center gap-2">
+                <a
+                  href="https://wa.me/5549991299991?text=Olá!%20Gostaria%20de%20tirar%20uma%20dúvida%20sobre%20o%20Parque%20Mundo%20Novo"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-zinc-600 hover:text-emerald-600 transition font-semibold"
+                >
+                  💬 (49) 99129-9991 (WhatsApp)
+                </a>
+              </p>
 
-            <p className="mt-2 break-words text-sm text-slate-600">
-              📧 ingressosparquemundonovo@gmail.com
-            </p>
+              <p className="flex items-center gap-2">
+                📧 ingressosparquemundonovo@gmail.com
+              </p>
 
-            <p className="mt-2 text-sm text-slate-600">
-              🕒 Todos os dias das 08h às 17h30
-            </p>
-
-            <a
-              href={linkMaps}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-block rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-lg transition hover:bg-emerald-500"
-            >
-              📍 Como chegar
-            </a>
+              <p className="flex items-center gap-2">
+                🕒 Todos os dias das 08h às 17h30
+              </p>
+            </div>
           </div>
 
           <div>
-            <h3 className="mb-4 text-lg font-black">Links</h3>
+            <p className="text-lg font-black text-zinc-900">Links</p>
 
-            <a
-              href="https://www.instagram.com/parquemundonovo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-sm text-slate-600 hover:text-emerald-700"
-            >
-              📸 Instagram
-            </a>
+            <div className="mt-4 space-y-3 text-sm">
+              <a
+                href="https://instagram.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block transition hover:text-zinc-900"
+              >
+                📸 Instagram
+              </a>
 
-            <a
-              href="https://www.facebook.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 block text-sm text-slate-600 hover:text-emerald-700"
-            >
-              📘 Facebook
-            </a>
+              <a
+                href="https://facebook.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block transition hover:text-zinc-900"
+              >
+                📘 Facebook
+              </a>
 
-            <a
-              href="/politica-privacidade"
-              className="mt-2 block text-sm text-slate-600 hover:text-emerald-700"
-            >
-              Política de Privacidade
-            </a>
+              <a href="/privacidade" className="block transition hover:text-zinc-900">
+                Política de Privacidade
+              </a>
 
-            <a
-              href="/termos-de-uso"
-              className="mt-2 block text-sm text-slate-600 hover:text-emerald-700"
-            >
-              Termos de Uso
-            </a>
+              <a href="/termos" className="block transition hover:text-zinc-900">
+                Termos de Uso
+              </a>
+            </div>
           </div>
         </div>
 
-        <div className="mx-auto mt-10 max-w-7xl border-t border-emerald-100 pt-6 text-center text-xs text-slate-400">
-          © 2026 Parque Mundo Novo - Todos os direitos reservados
+        <div className="mx-auto mt-12 max-w-7xl border-t border-zinc-200 pt-8 text-center text-xs text-zinc-400">
+          © {new Date().getFullYear()} Parque Mundo Novo - Todos os direitos reservados
         </div>
       </footer>
     </main>
