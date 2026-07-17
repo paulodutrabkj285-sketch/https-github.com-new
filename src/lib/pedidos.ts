@@ -89,6 +89,15 @@ function gerarExpiracaoPix() {
   return agora.toISOString();
 }
 
+// Limpa formatação de CPF
+function limparCpf(valor: string) {
+  return String(valor || "").replace(/\D/g, "");
+}
+
+/* ==========================================
+   MÉTODOS DE CRIAÇÃO E ATUALIZAÇÃO
+   ========================================== */
+
 export async function criarPedido(dados: PedidoInput) {
   const codigoIngresso = dados.codigoIngresso || gerarCodigoIngresso();
 
@@ -113,6 +122,10 @@ export async function atualizarPedido(
     updatedAt: new Date().toISOString(),
   });
 }
+
+/* ==========================================
+   MÉTODOS DE CONSULTA (GERAIS & ÁREA DO CLIENTE)
+   ========================================== */
 
 export async function buscarPedidoPorId(pedidoId: string) {
   const ref = doc(db, "pedidos", pedidoId);
@@ -149,6 +162,56 @@ export async function buscarPedidoPorTxid(txid: string) {
   } as Pedido;
 }
 
+/**
+ * OPÇÃO A: Busca todos os pedidos de um cliente pelo CPF (Útil para a Área do Cliente)
+ */
+export async function buscarPedidosPorCpf(cpf: string) {
+  const cpfLimpo = limparCpf(cpf);
+  if (!cpfLimpo) return [];
+
+  const q = query(
+    collection(db, "pedidos"),
+    where("cpf", "==", cpfLimpo),
+    orderBy("createdAt", "desc")
+  );
+
+  const snap = await getDocs(q);
+
+  return snap.docs.map((docItem) => ({
+    id: docItem.id,
+    ...docItem.data(),
+  })) as Pedido[];
+}
+
+/**
+ * OPÇÃO A (Extra): Busca um pedido específico pelo código de ingresso PMN
+ */
+export async function buscarPedidoPorCodigo(codigo: string) {
+  const codigoLimpo = String(codigo || "").trim().toUpperCase();
+  if (!codigoLimpo) return null;
+
+  const q = query(
+    collection(db, "pedidos"),
+    where("codigoIngresso", "==", codigoLimpo),
+    limit(1)
+  );
+
+  const snap = await getDocs(q);
+
+  if (snap.empty) return null;
+
+  const docItem = snap.docs[0];
+  return {
+    id: docItem.id,
+    ...docItem.data(),
+  } as Pedido;
+}
+
+/* ==========================================
+   MÉTODOS DE LISTAGEM (ADMIN & PORTARIA)
+   ========================================== */
+
+// Lista TODOS os pedidos (usado no painel administrativo geral)
 export async function listarPedidos() {
   const q = query(collection(db, "pedidos"), orderBy("createdAt", "desc"));
   const snap = await getDocs(q);
@@ -158,6 +221,29 @@ export async function listarPedidos() {
     ...docItem.data(),
   })) as Pedido[];
 }
+
+/**
+ * OPÇÃO B: Lista apenas pedidos pagos e ativos (Otimizado para a Portaria Offline)
+ * Evita descarregar milhares de pedidos pendentes ou cancelados no telemóvel da portaria.
+ */
+export async function listarPedidosAtivosPortaria() {
+  const q = query(
+    collection(db, "pedidos"),
+    where("statusPagamento", "==", "pago"),
+    orderBy("createdAt", "desc")
+  );
+
+  const snap = await getDocs(q);
+
+  return snap.docs.map((docItem) => ({
+    id: docItem.id,
+    ...docItem.data(),
+  })) as Pedido[];
+}
+
+/* ==========================================
+   OPÇÃO C: CÁLCULO E RESUMO FINANCEIRO
+   ========================================== */
 
 export function calcularResumoFinanceiro(pedidos: Pedido[]) {
   const totalPedidos = pedidos.length;

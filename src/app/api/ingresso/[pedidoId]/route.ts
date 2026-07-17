@@ -34,13 +34,22 @@ export async function GET(
 
         const codigoIngresso = pedido.codigoIngresso || pedido.id;
 
+        // Formata a data de visita de AAAA-MM-DD para DD/MM/AAAA para o PDF
+        let dataFormatada = pedido.dataVisita || "";
+        if (pedido.dataVisita && pedido.dataVisita.includes("-")) {
+            const partes = pedido.dataVisita.split("-");
+            if (partes.length === 3) {
+                dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+            }
+        }
+
         const pdfBuffer = await gerarPdfIngresso({
             nome: pedido.nome,
             produto: pedido.produto,
             quantidade: pedido.quantidade,
             codigoIngresso,
             pedidoId: pedido.id,
-            dataVisita: pedido.dataVisita,
+            dataVisita: dataFormatada,
         });
 
         return new NextResponse(new Uint8Array(pdfBuffer), {

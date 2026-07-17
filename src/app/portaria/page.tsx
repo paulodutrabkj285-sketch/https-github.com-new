@@ -1,6 +1,13 @@
 "use client";
 
-import { atualizarPedido, listarPedidos, Pedido } from "@/lib/pedidos";
+import { atualizarPedido, listarPedidosAtivosPortaria, Pedido } from "@/lib/pedidos";
+import {
+    listarPedidosLocalmente,
+    obterPendentes,
+    registrarValidacaoOffline,
+    salvarPedidosLocalmente,
+    sincronizarPendentes,
+} from "@/lib/portariaDb";
 import { Html5Qrcode } from "html5-qrcode";
 import { useEffect, useRef, useState } from "react";
 
@@ -14,6 +21,12 @@ export default function PortariaPage() {
     const [funcionario, setFuncionario] = useState("");
     const [splash, setSplash] = useState(true);
 
+    // Estados Offline/Sincronização
+    const [isOnline, setIsOnline] = useState(true);
+    const [pendentesCount, setPendentesCount] = useState(0);
+    const [ultimaSinc, setUltimaSinc] = useState<string | null>(null);
+    const [sincronizando, setSincronizando] = useState(false);
+
     const [entradasHoje, setEntradasHoje] = useState(0);
     const [entradasMes, setEntradasMes] = useState(0);
     const [totalUtilizados, setTotalUtilizados] = useState(0);
@@ -21,19 +34,90 @@ export default function PortariaPage() {
     const leitorRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
-        atualizarContadores();
+        // Monitoramento da conexão de internet
+        if (typeof window !== "undefined") {
+            setIsOnline(navigator.onLine);
+            window.addEventListener("online", handleOnline);
+            window.addEventListener("offline", handleOffline);
+        }
+
+        inicializarDados();
 
         const timer = setTimeout(() => {
             setSplash(false);
         }, 1800);
 
-        return () => clearTimeout(timer);
+        return () => {
+            if (typeof window !== "undefined") {
+                window.removeEventListener("online", handleOnline);
+                window.removeEventListener("offline", handleOffline);
+            }
+            clearTimeout(timer);
+        };
     }, []);
 
-    function vibrar(tipo: "sucesso" | "erro") {
-        if (typeof navigator === "undefined") return;
-        if (!navigator.vibrate) return;
+    // Força atualização dos contadores de fila
+    useEffect(() => {
+        obterPendentes().then((itens) => setPendentesCount(itens.length));
+    }, [pedido]);
 
+    function handleOnline() {
+        setIsOnline(true);
+        realizarSincronizacaoAutomatica();
+    }
+
+    function handleOffline() {
+        setIsOnline(false);
+    }
+
+    async function inicializarDados() {
+        try {
+            const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+            if (online) {
+                // Carrega da nuvem apenas os pedidos pagos e salva no cache local
+                const pedidosNuvem = await listarPedidosAtivosPortaria();
+                await salvarPedidosLocalmente(pedidosNuvem);
+                const agora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                setUltimaSinc(agora);
+
+                // Tenta limpar filas pendentes antigas acumuladas
+                await sincronizarPendentes();
+            }
+            await atualizarContadores();
+        } catch (error) {
+            console.error("Erro ao inicializar cache local:", error);
+        }
+    }
+
+    async function realizarSincronizacaoAutomatica() {
+        try {
+            setSincronizando(true);
+            const enviados = await sincronizarPendentes();
+
+            // Busca apenas pedidos ativos e pagos para otimizar
+            const pedidosNuvem = await listarPedidosAtivosPortaria();
+            await salvarPedidosLocalmente(pedidosNuvem);
+
+            const agora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            setUltimaSinc(agora);
+
+            const pendentes = await obterPendentes();
+            setPendentesCount(pendentes.length);
+
+            if (enviados > 0) {
+                setMensagem(`Sincronizado: ${enviados} entrada(s) enviada(s)`);
+                vibrar("sucesso");
+            }
+            await atualizarContadores();
+        } catch (error) {
+            console.error("Sincronização falhou:", error);
+        } finally {
+            setSincronizando(false);
+        }
+    }
+
+    function vibrar(tipo: "sucesso" | "erro") {
+        if (typeof navigator === "undefined" || !navigator.vibrate) return;
         if (tipo === "sucesso") {
             navigator.vibrate(120);
         } else {
@@ -51,7 +135,6 @@ export default function PortariaPage() {
 
     function formatarDataHora(valor?: string) {
         if (!valor) return "";
-
         return new Date(valor).toLocaleString("pt-BR", {
             day: "2-digit",
             month: "2-digit",
@@ -63,22 +146,15 @@ export default function PortariaPage() {
 
     function formatarData(valor?: string) {
         if (!valor) return "Não informada";
-
         const partes = valor.split("-");
         if (partes.length === 3) {
             return `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
-
         return valor;
     }
 
     function verificarValidadeData(dataVisita?: string) {
-        if (!dataVisita) {
-            return {
-                valido: true,
-                mensagem: "",
-            };
-        }
+        if (!dataVisita) return { valido: true, mensagem: "" };
 
         const hoje = new Date();
         hoje.setHours(0, 0, 0, 0);
@@ -93,28 +169,32 @@ export default function PortariaPage() {
         fimPermitido.setDate(fimPermitido.getDate() + 30);
 
         if (hoje < inicioPermitido) {
-            return {
-                valido: false,
-                mensagem: "INGRESSO AINDA NÃO VÁLIDO",
-            };
+            return { valido: false, mensagem: "INGRESSO AINDA NÃO VÁLIDO" };
         }
-
         if (hoje > fimPermitido) {
-            return {
-                valido: false,
-                mensagem: "INGRESSO EXPIRADO",
-            };
+            return { valido: false, mensagem: "INGRESSO EXPIRADO" };
         }
 
-        return {
-            valido: true,
-            mensagem: "",
-        };
+        return { valido: true, text: "" };
+    }
+
+    async function obterListaDePedidosAtiva(): Promise<Pedido[]> {
+        if (isOnline) {
+            try {
+                const pedidos = await listarPedidosAtivosPortaria();
+                await salvarPedidosLocalmente(pedidos); // atualiza cache em background
+                return pedidos;
+            } catch {
+                return await listarPedidosLocalmente(); // fallback para o local
+            }
+        } else {
+            return await listarPedidosLocalmente();
+        }
     }
 
     async function atualizarContadores() {
         try {
-            const pedidos = await listarPedidos();
+            const pedidos = await obterListaDePedidosAtiva();
 
             const hoje = new Date();
             const dia = hoje.getDate();
@@ -158,19 +238,14 @@ export default function PortariaPage() {
 
     function extrairQr(texto: string) {
         const valor = limpar(texto);
-
         try {
             const dados = JSON.parse(valor);
-
             return {
                 codigo: limpar(dados?.codigo || dados?.codigoIngresso || ""),
                 pedidoId: limpar(dados?.pedidoId || ""),
             };
         } catch {
-            return {
-                codigo: valor,
-                pedidoId: "",
-            };
+            return { codigo: valor, pedidoId: "" };
         }
     }
 
@@ -197,9 +272,8 @@ export default function PortariaPage() {
         }
 
         const validade = verificarValidadeData(encontrado.dataVisita);
-
         if (!validade.valido) {
-            setMensagem(validade.mensagem);
+            setMensagem(validade.mensagem || "INGRESSO FORA DO PERÍODO");
             vibrar("erro");
             return;
         }
@@ -214,7 +288,7 @@ export default function PortariaPage() {
             setPedido(null);
 
             const dadosQr = extrairQr(textoQr);
-            const pedidos = await listarPedidos();
+            const pedidos = await obterListaDePedidosAtiva();
 
             const encontrado = pedidos.find((item) => {
                 return (
@@ -249,14 +323,13 @@ export default function PortariaPage() {
             setPedido(null);
 
             const cpfLimpo = limparCpf(cpfBusca);
-
             if (!cpfLimpo) {
                 setMensagem("DIGITE O CPF");
                 vibrar("erro");
                 return;
             }
 
-            const pedidos = await listarPedidos();
+            const pedidos = await obterListaDePedidosAtiva();
 
             const encontrados = pedidos.filter((item) => {
                 const cpfPedido = limparCpf(item.cpf || "");
@@ -338,9 +411,8 @@ export default function PortariaPage() {
         if (!pedido) return;
 
         const validade = verificarValidadeData(pedido.dataVisita);
-
         if (!validade.valido) {
-            setMensagem(validade.mensagem);
+            setMensagem(validade.mensagem || "INGRESSO INVÁLIDO");
             vibrar("erro");
             return;
         }
@@ -357,23 +429,36 @@ export default function PortariaPage() {
             const agora = new Date().toISOString();
             const nomeFuncionario = funcionario.trim();
 
-            await atualizarPedido(pedido.id, {
+            const dadosUtilizacao = {
                 statusOperacional: "utilizado",
                 validadoPor: nomeFuncionario,
                 validadoEm: agora,
                 utilizadoEm: agora,
-            });
+            };
+
+            if (isOnline) {
+                // Fluxo Online Padrão
+                await atualizarPedido(pedido.id, dadosUtilizacao);
+
+                // Sincroniza cache local em background
+                const pedidosNuvem = await listarPedidosAtivosPortaria();
+                await salvarPedidosLocalmente(pedidosNuvem);
+            } else {
+                // Fluxo Offline
+                await registrarValidacaoOffline(pedido.id, dadosUtilizacao);
+            }
 
             setPedido({
                 ...pedido,
-                statusOperacional: "utilizado",
-                validadoPor: nomeFuncionario,
-                validadoEm: agora,
-                utilizadoEm: agora,
+                ...dadosUtilizacao,
             } as Pedido);
 
             setMensagem("ENTRADA CONFIRMADA");
             vibrar("sucesso");
+
+            const pendentes = await obterPendentes();
+            setPendentesCount(pendentes.length);
+
             await atualizarContadores();
         } catch (error) {
             console.error(error);
@@ -394,7 +479,6 @@ export default function PortariaPage() {
 
     const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
     const validadoPor = pedidoAny?.validadoPor || "";
-
     const validadeAtual = verificarValidadeData(pedido?.dataVisita);
 
     const valido =
@@ -416,31 +500,24 @@ export default function PortariaPage() {
         return (
             <main
                 className="flex min-h-screen items-center justify-center bg-cover bg-center px-6 text-white"
-                style={{
-                    backgroundImage: "url('/fotos/fundo-geral.jpg')",
-                }}
+                style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
             >
                 <div className="absolute inset-0 bg-black/70" />
-
                 <div className="relative z-10 flex flex-col items-center text-center">
                     <img
                         src="/logo-final.png"
                         alt="Parque Mundo Novo"
                         className="h-36 w-36 rounded-3xl bg-white/10 object-contain p-3 shadow-2xl"
                     />
-
                     <h1 className="mt-6 text-3xl font-black drop-shadow-lg">
                         Parque Mundo Novo
                     </h1>
-
                     <p className="mt-2 text-lg font-semibold text-white/90">
                         Portaria Digital
                     </p>
-
                     <div className="mt-8 h-2 w-44 overflow-hidden rounded-full bg-white/20">
                         <div className="h-full w-1/2 animate-pulse rounded-full bg-green-400" />
                     </div>
-
                     <p className="mt-4 text-sm text-white/70">Carregando sistema...</p>
                 </div>
             </main>
@@ -450,40 +527,76 @@ export default function PortariaPage() {
     return (
         <main
             className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-5 text-white"
-            style={{
-                backgroundImage: "url('/fotos/fundo-geral.jpg')",
-            }}
+            style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
         >
             <div className="absolute inset-0 bg-black/65" />
 
             <div className="relative z-10 mx-auto max-w-md">
-                <header className="mb-5 text-center">
+                <header className="mb-4 text-center">
                     <img
                         src="/logo-final.png"
                         alt="Parque Mundo Novo"
-                        className="mx-auto h-24 w-24 rounded-3xl bg-white/10 object-contain p-2 shadow-xl"
+                        className="mx-auto h-20 w-20 rounded-3xl bg-white/10 object-contain p-2 shadow-xl"
                     />
-
-                    <h1 className="mt-3 text-3xl font-black drop-shadow-lg">
+                    <h1 className="mt-2 text-2xl font-black drop-shadow-lg">
                         Portaria Digital
                     </h1>
-
-                    <p className="mt-1 text-sm font-semibold text-white/90">
-                        Parque Mundo Novo
-                    </p>
                 </header>
 
-                <div className="mb-5 grid grid-cols-3 gap-2">
+                {/* --- PAINEL DE STATUS OFFLINE / SINCRONIZAÇÃO --- */}
+                <section className="mb-4 rounded-2xl bg-slate-900/90 border border-white/10 p-4 shadow-lg text-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className={`h-3.5 w-3.5 rounded-full ${isOnline ? "bg-green-500 animate-pulse" : "bg-red-500"
+                                    }`}
+                            />
+                            <span className="font-bold uppercase tracking-wider">
+                                {isOnline ? "Online (Firestore)" : "Dispositivo Offline"}
+                            </span>
+                        </div>
+                        {isOnline && (
+                            <button
+                                onClick={realizarSincronizacaoAutomatica}
+                                disabled={sincronizando}
+                                className="rounded-xl bg-green-700 hover:bg-green-600 px-3 py-1.5 text-xs font-black text-white shadow transition disabled:opacity-50"
+                            >
+                                {sincronizando ? "SINCRONIZANDO..." : "SINCRONIZAR"}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 text-white/80">
+                        <p>
+                            Sincronizado: <span className="font-bold text-white">{ultimaSinc || "Nunca"}</span>
+                        </p>
+                        <p className="text-right">
+                            Fila Pendente:{" "}
+                            <span
+                                className={`font-black ${pendentesCount > 0 ? "text-yellow-400" : "text-white"
+                                    }`}
+                            >
+                                {pendentesCount}
+                            </span>
+                        </p>
+                    </div>
+
+                    {!isOnline && (
+                        <p className="mt-2 text-xs text-red-300 font-semibold bg-red-950/40 p-2 rounded-lg text-center">
+                            Aviso: Use apenas UM aparelho na portaria enquanto offline.
+                        </p>
+                    )}
+                </section>
+
+                <div className="mb-4 grid grid-cols-3 gap-2">
                     <div className="rounded-2xl bg-green-700/95 p-3 text-center shadow-lg">
                         <p className="text-xs font-bold">👥 Hoje</p>
                         <p className="text-2xl font-black">{entradasHoje}</p>
                     </div>
-
                     <div className="rounded-2xl bg-blue-700/95 p-3 text-center shadow-lg">
                         <p className="text-xs font-bold">📅 Mês</p>
                         <p className="text-2xl font-black">{entradasMes}</p>
                     </div>
-
                     <div className="rounded-2xl bg-purple-700/95 p-3 text-center shadow-lg">
                         <p className="text-xs font-bold">🏆 Total</p>
                         <p className="text-2xl font-black">{totalUtilizados}</p>
@@ -535,7 +648,6 @@ export default function PortariaPage() {
                             <p>Status: {pedido.statusOperacional || "ativo"}</p>
 
                             {validadoPor && <p>Funcionário: {validadoPor}</p>}
-
                             {usado && usadoEm && <p>Entrada: {formatarDataHora(usadoEm)}</p>}
                         </div>
                     )}
@@ -581,7 +693,6 @@ export default function PortariaPage() {
                                     vibrar("erro");
                                     return;
                                 }
-
                                 buscarIngresso(codigoManual.trim());
                             }}
                             disabled={carregando}

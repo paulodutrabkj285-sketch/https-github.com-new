@@ -391,6 +391,15 @@ export default function IngressosPage() {
                 >
                   📍 {mostrarLocalizacao ? "Ocultar localização" : "Como chegar"}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/ingressos/reenviar")}
+                  className="rounded-full bg-yellow-500 px-8 py-4 text-center font-black text-yellow-950 shadow-2xl transition hover:-translate-y-1 hover:bg-yellow-400"
+                >
+                  🔍 Reenviar Ingresso (CPF)
+                </button>
+
               </div>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -732,10 +741,10 @@ export default function IngressosPage() {
               <div
                 key={item.titulo}
                 className={`group relative min-h-[440px] overflow-hidden rounded-3xl border shadow-2xl ${item.tipoSelo === "verde"
-                    ? "border-emerald-300/60"
-                    : item.tipoSelo === "dourado"
-                      ? "border-yellow-300/70"
-                      : "border-white/20"
+                  ? "border-emerald-300/60"
+                  : item.tipoSelo === "dourado"
+                    ? "border-yellow-300/70"
+                    : "border-white/20"
                   }`}
               >
                 <img
@@ -749,8 +758,8 @@ export default function IngressosPage() {
                 {item.selo && (
                   <div
                     className={`absolute left-4 top-4 z-10 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.15em] shadow-lg ${item.tipoSelo === "dourado"
-                        ? "bg-yellow-400 text-yellow-950"
-                        : "bg-emerald-400 text-emerald-950"
+                      ? "bg-yellow-400 text-yellow-950"
+                      : "bg-emerald-400 text-emerald-950"
                       }`}
                   >
                     {item.selo}
@@ -772,8 +781,8 @@ export default function IngressosPage() {
                     type="button"
                     onClick={() => router.push(item.rota)}
                     className={`mt-6 rounded-xl px-5 py-4 font-black shadow-lg transition active:scale-95 ${item.tipoSelo === "dourado"
-                        ? "bg-yellow-500 text-yellow-950 hover:bg-yellow-400"
-                        : "bg-emerald-600 text-white hover:bg-emerald-500"
+                      ? "bg-yellow-500 text-yellow-950 hover:bg-yellow-400"
+                      : "bg-emerald-600 text-white hover:bg-emerald-500"
                       }`}
                   >
                     {item.botao}
