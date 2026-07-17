@@ -913,17 +913,26 @@ export default function IngressosPage() {
                   Como solicitar o cancelamento
                 </h3>
 
-                <p className="mt-2">
-                  Entre em contato pelo WhatsApp (49) 99129-9991 informando o
-                  número do pedido. O reembolso é feito pelo mesmo meio de
-                  pagamento utilizado na compra e pode levar alguns dias úteis,
-                  conforme prazo do banco ou operadora.
-                </p>
-              </div>
 
-              <div className="rounded-2xl bg-emerald-50 p-5 font-semibold text-emerald-950">
-                Passados os 7 dias ou após a utilização do ingresso, não é
-                possível solicitar reembolso.
+                <div className="rounded-2xl bg-emerald-50 p-5 font-semibold text-emerald-950">
+                  <p>
+                    Passados os 7 dias ou após a utilização do ingresso, não é possível solicitar reembolso.
+                  </p>
+                  <p className="mt-2">
+                    Entre em contato pelo{" "}
+                    <a
+                      href="https://wa.me/5549991299991?text=Olá!%20Gostaria%20de%20solicitar%20o%20reembolso%20de%20um%20ingresso."
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 hover:text-emerald-800 hover:underline font-bold transition"
+                    >
+                      WhatsApp (49) 99129-9991
+                    </a>{" "}
+                    informando o número do pedido. O reembolso é feito pelo mesmo meio de
+                    pagamento utilizado na compra e pode levar alguns dias úteis,
+                    conforme prazo do banco ou operadora.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
