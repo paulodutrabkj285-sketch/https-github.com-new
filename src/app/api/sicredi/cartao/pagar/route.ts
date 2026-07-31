@@ -200,7 +200,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const valorPedido = Number(pedido.valorTotal || 0);
+    const valorPedido = Number(pedido.valorTotal || 0);// TESTE DE R$ 1,00
+    const valorCobranca =
+      process.env.SICREDI_IPG_VALOR_TESTE === "true"
+        ? 1
+        : valorPedido;
+
+
 
     if (
       !Number.isFinite(valorPedido) ||
@@ -299,7 +305,7 @@ export async function POST(req: NextRequest) {
         mesValidade,
         anoValidade,
         cvv,
-        valor: valorPedido,
+        valor: valorCobranca,
         pedidoId,
         nomeEstabelecimento:
           "PARQUE MUNDO NOVO",
