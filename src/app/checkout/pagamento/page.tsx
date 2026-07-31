@@ -2,7 +2,9 @@
 
 import { buscarPedidoPorId } from "@/lib/pedidos";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+
+type FormaPagamento = "pix" | "cartao";
 
 export default function PagamentoPage() {
   const [pedidoId, setPedidoId] = useState("");
@@ -11,11 +13,21 @@ export default function PagamentoPage() {
   const [quantidade, setQuantidade] = useState("1");
   const [valorTotal, setValorTotal] = useState("0");
   const [pixCopiaCola, setPixCopiaCola] = useState("");
+
   const [carregando, setCarregando] = useState(true);
   const [verificando, setVerificando] = useState(false);
+  const [processandoCartao, setProcessandoCartao] = useState(false);
+
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
-  const [formaPagamento, setFormaPagamento] = useState<"pix" | "cartao">("pix");
+  const [formaPagamento, setFormaPagamento] =
+    useState<FormaPagamento>("pix");
+
+  const [nomeCartao, setNomeCartao] = useState("");
+  const [numeroCartao, setNumeroCartao] = useState("");
+  const [validadeCartao, setValidadeCartao] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [parcelas, setParcelas] = useState("1");
 
   const mensagemPixExpirado =
     "PIX expirado. Gere um novo pedido para realizar o pagamento.";
@@ -29,7 +41,8 @@ export default function PagamentoPage() {
         const prod = params.get("produto") || "";
         const tp = params.get("tipo") || "";
         const qtd = params.get("quantidade") || "1";
-        const valor = params.get("valorTotal") || params.get("valor") || "0";
+        const valor =
+          params.get("valorTotal") || params.get("valor") || "0";
         const cpfUrl = params.get("cpf") || "";
 
         setPedidoId(id);
@@ -51,7 +64,9 @@ export default function PagamentoPage() {
         const pedido: any = await buscarPedidoPorId(id);
 
         if (pedido?.statusPagamento === "pago") {
-          window.location.href = `/checkout/sucesso?pedidoId=${id}&status=Pagamento confirmado`;
+          window.location.href =
+            `/checkout/sucesso?pedidoId=${id}` +
+            "&status=Pagamento confirmado";
           return;
         }
 
@@ -63,7 +78,10 @@ export default function PagamentoPage() {
         if (pedido?.expiracaoPix) {
           const expiracao = new Date(pedido.expiracaoPix).getTime();
 
-          if (Date.now() > expiracao && pedido.statusPagamento !== "pago") {
+          if (
+            Date.now() > expiracao &&
+            pedido.statusPagamento !== "pago"
+          ) {
             setErro(mensagemPixExpirado);
             return;
           }
@@ -71,11 +89,17 @@ export default function PagamentoPage() {
 
         const resposta = await fetch("/api/sicredi/criar-pix", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
             pedidoId: id,
-            nome: params.get("nome") || "Cliente Parque Mundo Novo",
-            email: params.get("email") || "cliente@email.com",
+            nome:
+              params.get("nome") ||
+              "Cliente Parque Mundo Novo",
+            email:
+              params.get("email") ||
+              "cliente@email.com",
             cpf: cpfUrl,
             produto: prod || tp || "Ingresso",
             valorTotal: valor,
@@ -116,7 +140,9 @@ export default function PagamentoPage() {
         if (!pedido) return;
 
         if (pedido.statusPagamento === "pago") {
-          window.location.href = `/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento confirmado`;
+          window.location.href =
+            `/checkout/sucesso?pedidoId=${pedidoId}` +
+            "&status=Pagamento confirmado";
           return;
         }
 
@@ -135,13 +161,18 @@ export default function PagamentoPage() {
         if (pedido.expiracaoPix) {
           const expiracao = new Date(pedido.expiracaoPix).getTime();
 
-          if (Date.now() > expiracao && pedido.statusPagamento !== "pago") {
+          if (
+            Date.now() > expiracao &&
+            pedido.statusPagamento !== "pago"
+          ) {
             setErro(mensagemPixExpirado);
-            return;
           }
         }
       } catch (error) {
-        console.error("Erro ao verificar status do pedido:", error);
+        console.error(
+          "Erro ao verificar status do pedido:",
+          error
+        );
       }
     }, 5000);
 
@@ -151,8 +182,22 @@ export default function PagamentoPage() {
   const valorNumero = Number(valorTotal || 0);
   const pixExpirado = erro === mensagemPixExpirado;
 
+  const parcelasDisponiveis = useMemo(
+    () => [
+      {
+        valor: "1",
+        texto: `1x de ${valorNumero.toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        })}`,
+      },
+    ],
+    [valorNumero]
+  );
+
   async function copiarPix() {
     if (!pixCopiaCola || pixExpirado) return;
+
     await navigator.clipboard.writeText(pixCopiaCola);
     alert("PIX copia e cola copiado!");
   }
@@ -165,26 +210,40 @@ export default function PagamentoPage() {
       setErro("");
       setMensagem("Consultando pagamento no Sicredi...");
 
-      const resposta = await fetch("/api/sicredi/verificar-pagamento", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pedidoId }),
-      });
+      const resposta = await fetch(
+        "/api/sicredi/verificar-pagamento",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ pedidoId }),
+        }
+      );
 
       const data = await resposta.json();
 
       if (!resposta.ok || !data.ok) {
         setMensagem("");
-        setErro(data?.mensagem || data?.error || "Pagamento ainda não confirmado.");
+        setErro(
+          data?.mensagem ||
+          data?.error ||
+          "Pagamento ainda não confirmado."
+        );
         return;
       }
 
       if (data.pago) {
-        window.location.href = `/checkout/sucesso?pedidoId=${pedidoId}&status=Pagamento confirmado`;
+        window.location.href =
+          `/checkout/sucesso?pedidoId=${pedidoId}` +
+          "&status=Pagamento confirmado";
         return;
       }
 
-      setMensagem(data?.mensagem || "Pagamento ainda não confirmado pelo Sicredi.");
+      setMensagem(
+        data?.mensagem ||
+        "Pagamento ainda não confirmado pelo Sicredi."
+      );
     } catch (error) {
       console.error("Erro ao verificar pagamento:", error);
       setMensagem("");
@@ -194,10 +253,125 @@ export default function PagamentoPage() {
     }
   }
 
+  function formatarNumeroCartao(valor: string) {
+    return valor
+      .replace(/\D/g, "")
+      .slice(0, 19)
+      .replace(/(.{4})/g, "$1 ")
+      .trim();
+  }
+
+  function formatarValidade(valor: string) {
+    const numeros = valor.replace(/\D/g, "").slice(0, 4);
+
+    if (numeros.length <= 2) return numeros;
+
+    return `${numeros.slice(0, 2)}/${numeros.slice(2)}`;
+  }
+
+  async function pagarComCartao() {
+    setErro("");
+    setMensagem("");
+
+    if (!pedidoId) {
+      setErro("Pedido não informado.");
+      return;
+    }
+
+    if (!nomeCartao.trim()) {
+      setErro("Informe o nome impresso no cartão.");
+      return;
+    }
+
+    const numeroLimpo = numeroCartao.replace(/\D/g, "");
+    const validadeLimpa = validadeCartao.replace(/\D/g, "");
+    const cvvLimpo = cvv.replace(/\D/g, "");
+
+    if (numeroLimpo.length < 13) {
+      setErro("Informe um número de cartão válido.");
+      return;
+    }
+
+    if (validadeLimpa.length !== 4) {
+      setErro("Informe a validade no formato MM/AA.");
+      return;
+    }
+
+    if (cvvLimpo.length !== 3 && cvvLimpo.length !== 4) {
+      setErro("Informe um CVV válido.");
+      return;
+    }
+
+    const mesValidade = validadeLimpa.slice(0, 2);
+    const anoValidade = validadeLimpa.slice(2, 4);
+
+    try {
+      setProcessandoCartao(true);
+      setMensagem("Enviando o pagamento com segurança...");
+
+      const resposta = await fetch(
+        "/api/sicredi/cartao/pagar",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            pedidoId,
+            numeroCartao: numeroLimpo,
+            mesValidade,
+            anoValidade,
+            cvv: cvvLimpo,
+            parcelas: Number(parcelas),
+          }),
+        }
+      );
+
+      const data = await resposta.json();
+
+      if (!resposta.ok || !data.ok) {
+        setMensagem("");
+
+        if (data?.codigo === "CARTAO_DESATIVADO") {
+          setErro(
+            "O pagamento com cartão ainda está bloqueado para testes. O Pix continua disponível."
+          );
+          return;
+        }
+
+        setErro(
+          data?.mensagem ||
+          "Não foi possível processar o cartão."
+        );
+        return;
+      }
+
+      if (data.aprovado || data.jaPago) {
+        window.location.href =
+          `/checkout/sucesso?pedidoId=${pedidoId}` +
+          "&status=Pagamento confirmado";
+        return;
+      }
+
+      setMensagem("");
+      setErro(data?.mensagem || "Pagamento não aprovado.");
+    } catch (error) {
+      console.error("Erro ao processar o cartão:", error);
+      setMensagem("");
+      setErro(
+        "Não foi possível conectar ao serviço de pagamento."
+      );
+    } finally {
+      setProcessandoCartao(false);
+    }
+  }
+
   return (
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
-      style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
+      style={{
+        backgroundImage: "url('/fotos/fundo-geral.jpg')",
+      }}
     >
       <div className="absolute inset-0 bg-black/50" />
 
@@ -218,8 +392,7 @@ export default function PagamentoPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg text-white/90">
-                Pague via Pix Sicredi ou acompanhe a implantação do pagamento
-                com cartão.
+                Pague via Pix Sicredi ou cartão de crédito.
               </p>
             </div>
           </div>
@@ -230,7 +403,11 @@ export default function PagamentoPage() {
             <div className="mb-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setFormaPagamento("pix")}
+                onClick={() => {
+                  setFormaPagamento("pix");
+                  setErro("");
+                  setMensagem("");
+                }}
                 className={`rounded-2xl p-4 text-lg font-bold transition ${formaPagamento === "pix"
                     ? "bg-green-600 text-white shadow-lg"
                     : "bg-gray-200 text-gray-700"
@@ -241,7 +418,11 @@ export default function PagamentoPage() {
 
               <button
                 type="button"
-                onClick={() => setFormaPagamento("cartao")}
+                onClick={() => {
+                  setFormaPagamento("cartao");
+                  setErro("");
+                  setMensagem("");
+                }}
                 className={`rounded-2xl p-4 text-lg font-bold transition ${formaPagamento === "cartao"
                     ? "bg-blue-600 text-white shadow-lg"
                     : "bg-gray-200 text-gray-700"
@@ -253,13 +434,14 @@ export default function PagamentoPage() {
 
             {formaPagamento === "cartao" ? (
               <div className="rounded-2xl border border-blue-300 bg-blue-50 p-6">
-                <h2 className="mb-4 text-3xl font-bold text-blue-700">
+                <h2 className="mb-2 text-3xl font-bold text-blue-700">
                   Cartão de Crédito
                 </h2>
 
-                <p className="mb-4 text-gray-700">
-                  A opção de cartão está em implantação junto ao Sicredi.
-                  Estamos aguardando a homologação do gateway e do antifraude.
+                <p className="mb-5 text-gray-700">
+                  Os dados são usados somente para processar o
+                  pagamento e não são armazenados pelo Parque
+                  Mundo Novo.
                 </p>
 
                 <div className="grid gap-4 rounded-2xl border bg-white p-5">
@@ -268,9 +450,15 @@ export default function PagamentoPage() {
                       Nome impresso no cartão
                     </label>
                     <input
-                      disabled
-                      placeholder="Disponível em breve"
-                      className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                      value={nomeCartao}
+                      onChange={(event) =>
+                        setNomeCartao(
+                          event.target.value.toUpperCase().slice(0, 60)
+                        )
+                      }
+                      autoComplete="cc-name"
+                      placeholder="NOME COMO ESTÁ NO CARTÃO"
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -279,9 +467,16 @@ export default function PagamentoPage() {
                       Número do cartão
                     </label>
                     <input
-                      disabled
+                      value={numeroCartao}
+                      onChange={(event) =>
+                        setNumeroCartao(
+                          formatarNumeroCartao(event.target.value)
+                        )
+                      }
+                      inputMode="numeric"
+                      autoComplete="cc-number"
                       placeholder="0000 0000 0000 0000"
-                      className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                     />
                   </div>
 
@@ -291,9 +486,16 @@ export default function PagamentoPage() {
                         Validade
                       </label>
                       <input
-                        disabled
+                        value={validadeCartao}
+                        onChange={(event) =>
+                          setValidadeCartao(
+                            formatarValidade(event.target.value)
+                          )
+                        }
+                        inputMode="numeric"
+                        autoComplete="cc-exp"
                         placeholder="MM/AA"
-                        className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                       />
                     </div>
 
@@ -302,9 +504,19 @@ export default function PagamentoPage() {
                         CVV
                       </label>
                       <input
-                        disabled
+                        value={cvv}
+                        onChange={(event) =>
+                          setCvv(
+                            event.target.value
+                              .replace(/\D/g, "")
+                              .slice(0, 4)
+                          )
+                        }
+                        type="password"
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
                         placeholder="123"
-                        className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                       />
                     </div>
                   </div>
@@ -314,37 +526,52 @@ export default function PagamentoPage() {
                       Parcelas
                     </label>
                     <select
-                      disabled
-                      className="w-full rounded-xl border border-gray-300 bg-gray-100 px-4 py-3"
+                      value={parcelas}
+                      onChange={(event) =>
+                        setParcelas(event.target.value)
+                      }
+                      className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                     >
-                      <option>1x de {valorNumero.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}</option>
+                      {parcelasDisponiveis.map((opcao) => (
+                        <option
+                          key={opcao.valor}
+                          value={opcao.valor}
+                        >
+                          {opcao.texto}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
-                <div className="mt-5 rounded-2xl border border-blue-200 bg-white p-4 text-sm text-gray-700">
+                <div className="mt-5 rounded-2xl border border-blue-200 bg-white p-4 text-sm leading-relaxed text-gray-700">
                   <p>
-                    <strong>Status:</strong> Em homologação
+                    <strong>Gateway:</strong> Sicredi IPG /
+                    Fiserv
                   </p>
                   <p>
-                    <strong>Gateway:</strong> Aguardando definição Sicredi
+                    <strong>Moeda:</strong> Real brasileiro
                   </p>
                   <p>
-                    <strong>Antifraude:</strong> Aguardando definição
-                  </p>
-                  <p>
-                    <strong>Integração:</strong> Preparada no checkout
+                    <strong>Parcelamento inicial:</strong> 1x
                   </p>
                 </div>
 
                 <button
-                  disabled
-                  className="mt-5 w-full rounded-2xl bg-gray-400 px-5 py-4 text-lg font-bold text-white"
+                  type="button"
+                  onClick={pagarComCartao}
+                  disabled={processandoCartao}
+                  className="mt-5 w-full rounded-2xl bg-blue-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Cartão disponível em breve
+                  {processandoCartao
+                    ? "Processando pagamento..."
+                    : `Pagar ${valorNumero.toLocaleString(
+                      "pt-BR",
+                      {
+                        style: "currency",
+                        currency: "BRL",
+                      }
+                    )}`}
                 </button>
               </div>
             ) : (
@@ -359,9 +586,12 @@ export default function PagamentoPage() {
                   </div>
                 ) : pixExpirado ? (
                   <div className="rounded-2xl border border-red-300 bg-red-100 p-5 text-red-800">
-                    <h3 className="text-2xl font-bold">PIX expirado</h3>
+                    <h3 className="text-2xl font-bold">
+                      PIX expirado
+                    </h3>
                     <p className="mt-2">
-                      Gere um novo pedido para realizar o pagamento.
+                      Gere um novo pedido para realizar o
+                      pagamento.
                     </p>
                   </div>
                 ) : erro ? (
@@ -371,7 +601,8 @@ export default function PagamentoPage() {
                 ) : (
                   <>
                     <p className="mb-4 text-gray-600">
-                      Escaneie o QRCode abaixo ou copie o código PIX.
+                      Escaneie o QRCode abaixo ou copie o código
+                      PIX.
                     </p>
 
                     <div className="mb-6 flex justify-center">
@@ -405,12 +636,25 @@ export default function PagamentoPage() {
                     </button>
 
                     <div className="mt-6 rounded-2xl border border-green-300 bg-green-100 p-4 text-sm leading-relaxed text-green-900">
-                      <strong>Pagamento seguro:</strong> cobrança Pix gerada
-                      pelo Sicredi para o Parque Mundo Novo.
+                      <strong>Pagamento seguro:</strong>{" "}
+                      cobrança Pix gerada pelo Sicredi para o
+                      Parque Mundo Novo.
                     </div>
                   </>
                 )}
               </>
+            )}
+
+            {formaPagamento === "cartao" && erro && (
+              <div className="mt-5 rounded-2xl border border-red-300 bg-red-100 p-4 text-red-800">
+                {erro}
+              </div>
+            )}
+
+            {formaPagamento === "cartao" && mensagem && (
+              <div className="mt-5 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-yellow-900">
+                {mensagem}
+              </div>
             )}
           </div>
 
@@ -427,7 +671,8 @@ export default function PagamentoPage() {
               )}
 
               <p>
-                <strong>Produto:</strong> {produto || tipo || "Ingresso"}
+                <strong>Produto:</strong>{" "}
+                {produto || tipo || "Ingresso"}
               </p>
 
               <p>
@@ -436,7 +681,9 @@ export default function PagamentoPage() {
 
               <p>
                 <strong>Forma:</strong>{" "}
-                {formaPagamento === "pix" ? "Pix" : "Cartão"}
+                {formaPagamento === "pix"
+                  ? "Pix"
+                  : "Cartão"}
               </p>
             </div>
 
@@ -451,17 +698,20 @@ export default function PagamentoPage() {
 
             {formaPagamento === "cartao" ? (
               <div className="mb-4 rounded-2xl border border-blue-300 bg-blue-100 p-4 text-sm leading-relaxed text-blue-900">
-                Pagamento com cartão em fase de homologação com Sicredi.
+                O pagamento com cartão está sendo preparado e
+                permanece bloqueado para cobranças até a conclusão
+                dos testes.
               </div>
             ) : pixExpirado ? (
               <div className="mb-4 rounded-2xl border border-red-300 bg-red-100 p-4 text-sm leading-relaxed text-red-900">
-                Este Pix expirou. Volte para a página de ingressos e crie um
-                novo pedido.
+                Este Pix expirou. Volte para a página de ingressos
+                e crie um novo pedido.
               </div>
             ) : (
               <div className="mb-4 rounded-2xl border border-blue-300 bg-blue-100 p-4 text-sm leading-relaxed text-blue-900">
-                Após o pagamento, esta tela verifica automaticamente e libera o
-                ingresso quando o Sicredi confirmar.
+                Após o pagamento, esta tela verifica
+                automaticamente e libera o ingresso quando o
+                Sicredi confirmar.
               </div>
             )}
 
@@ -483,22 +733,28 @@ export default function PagamentoPage() {
             {formaPagamento === "cartao" && (
               <button
                 type="button"
-                disabled
-                className="block w-full rounded-2xl bg-gray-400 px-5 py-4 text-center text-lg font-bold text-white shadow-lg disabled:cursor-not-allowed"
+                onClick={pagarComCartao}
+                disabled={processandoCartao}
+                className="block w-full rounded-2xl bg-blue-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Cartão em implantação
+                {processandoCartao
+                  ? "Processando..."
+                  : "Pagar com cartão"}
               </button>
             )}
 
-            {mensagem && !pixExpirado && formaPagamento === "pix" && (
-              <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
-                {mensagem}
-              </div>
-            )}
+            {mensagem &&
+              !pixExpirado &&
+              formaPagamento === "pix" && (
+                <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
+                  {mensagem}
+                </div>
+              )}
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso só será liberado se o pagamento for confirmado e o
-              valor pago for igual ao valor do pedido.
+              O ingresso só será liberado se o pagamento for
+              confirmado e o valor pago for igual ao valor do
+              pedido.
             </p>
           </aside>
         </section>
