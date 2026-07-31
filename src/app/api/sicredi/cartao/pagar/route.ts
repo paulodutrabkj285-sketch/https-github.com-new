@@ -12,7 +12,7 @@ import {
   atualizarPedido,
   buscarPedidoPorId,
 } from "@/lib/pedidos";
-import { finalizarPagamento } from "@/lib/finalizar-pagamento";
+import { finalizarPagamento } from "../../../../../lib/finalizar-pagamento";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
