@@ -40,10 +40,6 @@ export const metadata: Metadata = {
   creator: "Parque Mundo Novo",
   publisher: "Parque Mundo Novo",
 
-  alternates: {
-    canonical: "https://www.parquemundonovooficial.com.br",
-  },
-
   icons: {
     icon: [
       {
