@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
     const modoSimulacao =
       process.env.SICREDI_IPG_MODO_SIMULACAO === "true";
 
+    const valorTesteAtivo =
+      process.env.SICREDI_IPG_VALOR_TESTE === "true";
+
     if (!cartaoAtivo) {
       return respostaErro(
         "Pagamento com cartão está desativado para segurança.",
@@ -72,8 +75,8 @@ export async function POST(req: NextRequest) {
     }
 
     /*
-     * O modo de simulação é permitido somente no ambiente local.
-     * Isso impede que uma compra falsa seja aprovada em produção.
+     * A simulação pode ser usada somente no computador local.
+     * Nunca deve aprovar pedidos falsos no site publicado.
      */
     if (
       modoSimulacao &&
@@ -104,11 +107,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const pedidoId = String(body.pedidoId || "").trim();
-    const numeroCartao = somenteDigitos(body.numeroCartao);
-    const mesValidade = somenteDigitos(body.mesValidade);
-    const anoValidade = somenteDigitos(body.anoValidade);
+    const pedidoId = String(
+      body.pedidoId || ""
+    ).trim();
+
+    const numeroCartao = somenteDigitos(
+      body.numeroCartao
+    );
+
+    const mesValidade = somenteDigitos(
+      body.mesValidade
+    );
+
+    const anoValidade = somenteDigitos(
+      body.anoValidade
+    );
+
     const cvv = somenteDigitos(body.cvv);
+
+    /*
+     * O Parque trabalhará somente com crédito à vista.
+     */
     const parcelas = Number(body.parcelas || 1);
 
     if (!pedidoId) {
@@ -122,12 +141,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    /*
+     * Proteção do backend:
+     * mesmo que alguém altere a requisição no navegador,
+     * somente uma parcela será aceita.
+     */
     if (
       !Number.isInteger(parcelas) ||
       parcelas !== 1
     ) {
       return respostaErro(
-        "No momento, o pagamento com cartão aceita somente 1 parcela.",
+        "O pagamento com cartão está disponível somente no crédito à vista.",
         400,
         {
           codigo: "PARCELAMENTO_NAO_PERMITIDO",
@@ -174,7 +198,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const pedido: any = await buscarPedidoPorId(pedidoId);
+    const pedido: any =
+      await buscarPedidoPorId(pedidoId);
 
     if (!pedido) {
       return respostaErro(
@@ -187,6 +212,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    /*
+     * Impede uma segunda cobrança no mesmo pedido.
+     */
     if (pedido.statusPagamento === "pago") {
       return NextResponse.json({
         ok: true,
@@ -200,13 +228,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const valorPedido = Number(pedido.valorTotal || 0);// TESTE DE R$ 1,00
-    const valorCobranca =
-      process.env.SICREDI_IPG_VALOR_TESTE === "true"
-        ? 1
-        : valorPedido;
-
-
+    const valorPedido = Number(
+      pedido.valorTotal || 0
+    );
 
     if (
       !Number.isFinite(valorPedido) ||
@@ -222,15 +246,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    /*
+     * Esta variável foi usada para o teste real de R$ 1,00.
+     *
+     * Para cobrar o valor oficial, ela deve estar como false.
+     */
+    const valorCobranca =
+      valorTesteAtivo
+        ? 1
+        : valorPedido;
+
     const ultimosDigitos =
       obterUltimosDigitos(numeroCartao);
 
     /*
      * SIMULAÇÃO LOCAL
      *
-     * Nenhum dado do cartão é enviado ao Sicredi/Fiserv.
-     * A função central finaliza o pagamento, libera o ingresso
-     * e tenta enviar o e-mail com o PDF.
+     * Não envia cartão, CVV ou cobrança ao Sicredi.
+     * Apenas testa o fluxo de ingresso, QR Code, PDF e e-mail.
      */
     if (modoSimulacao) {
       const transactionId =
@@ -243,20 +276,31 @@ export async function POST(req: NextRequest) {
           valorPago: valorPedido,
           cartaoTransacaoId: transactionId,
           cartaoAutorizacao: "SIMULADO",
-          cartaoStatus: "aprovado_simulacao",
-          cartaoUltimosDigitos: ultimosDigitos,
-          cartaoParcelas: parcelas,
+          cartaoStatus:
+            "aprovado_simulacao",
+          cartaoUltimosDigitos:
+            ultimosDigitos,
+          cartaoParcelas: 1,
         });
 
       await atualizarPedido(pedidoId, {
-        cartaoGateway: "sicredi-ipg-simulacao",
+        formaPagamento: "cartao",
+        parcelas: 1,
 
-        sicrediCartaoApprovalCode: "SIMULADO",
-        sicrediCartaoProcessorCode: "00",
+        cartaoGateway:
+          "sicredi-ipg-simulacao",
+
+        sicrediCartaoApprovalCode:
+          "SIMULADO",
+
+        sicrediCartaoProcessorCode:
+          "00",
+
         sicrediCartaoProcessorMessage:
           "Pagamento aprovado em simulação local.",
 
         pagamentoSimulado: true,
+
         pagamentoSimuladoEm:
           new Date().toISOString(),
       });
@@ -291,12 +335,14 @@ export async function POST(req: NextRequest) {
     /*
      * TRANSAÇÃO REAL
      *
-     * Este bloco será executado somente quando:
+     * Para funcionar:
      *
      * SICREDI_IPG_CARTAO_ATIVO=true
      * SICREDI_IPG_MODO_SIMULACAO=false
+     * SICREDI_IPG_VALOR_TESTE=false
      */
-    const configuracao = obterConfiguracaoIpg();
+    const configuracao =
+      obterConfiguracaoIpg();
 
     const xmlVenda = criarXmlVendaCartao(
       configuracao,
@@ -305,16 +351,19 @@ export async function POST(req: NextRequest) {
         mesValidade,
         anoValidade,
         cvv,
+
         valor: valorCobranca,
+
         pedidoId,
+
         nomeEstabelecimento:
           "PARQUE MUNDO NOVO",
       }
     );
 
     /*
-     * Nunca registrar xmlVenda no console.
-     * Ele contém número do cartão e CVV.
+     * Nunca mostrar xmlVenda no console.
+     * O XML contém o número do cartão e o CVV.
      */
     const respostaIpg =
       await enviarSoapIpg(xmlVenda);
@@ -346,35 +395,46 @@ export async function POST(req: NextRequest) {
           cartaoUltimosDigitos:
             ultimosDigitos,
 
-          cartaoParcelas:
-            parcelas,
+          cartaoParcelas: 1,
         });
 
-      /*
-       * Guarda os dados específicos da resposta IPG.
-       * A lib finalizar-pagamento cuida do estado geral,
-       * ingresso, QR Code e e-mail.
-       */
       await atualizarPedido(pedidoId, {
-        cartaoGateway: "sicredi-ipg",
+        formaPagamento: "cartao",
+        parcelas: 1,
+
+        cartaoGateway:
+          "sicredi-ipg",
+
+        cartaoStatus: "aprovado",
+
+        cartaoTransacaoId:
+          identificadorTransacao,
+
+        cartaoUltimosDigitos:
+          ultimosDigitos,
 
         sicrediCartaoApprovalCode:
           respostaIpg.approvalCode || "",
 
         sicrediCartaoProcessorCode:
-          respostaIpg.processorResponseCode || "",
+          respostaIpg.processorResponseCode ||
+          "",
 
         sicrediCartaoProcessorMessage:
-          respostaIpg.processorResponseMessage || "",
+          respostaIpg.processorResponseMessage ||
+          "",
 
         sicrediCartaoReceiptNumber:
-          respostaIpg.processorReceiptNumber || "",
+          respostaIpg.processorReceiptNumber ||
+          "",
 
         sicrediCartaoTraceNumber:
-          respostaIpg.processorTraceNumber || "",
+          respostaIpg.processorTraceNumber ||
+          "",
 
         sicrediCartaoReferenceNumber:
-          respostaIpg.processorReferenceNumber || "",
+          respostaIpg.processorReferenceNumber ||
+          "",
 
         sicrediCartaoTransactionTime:
           respostaIpg.transactionTime || "",
@@ -414,7 +474,7 @@ export async function POST(req: NextRequest) {
     }
 
     /*
-     * PAGAMENTO NÃO APROVADO
+     * PAGAMENTO RECUSADO OU NÃO APROVADO
      */
     const mensagemRecusa =
       respostaIpg.processorResponseMessage ||
@@ -429,7 +489,7 @@ export async function POST(req: NextRequest) {
 
     await atualizarPedido(pedidoId, {
       formaPagamento: "cartao",
-      parcelas,
+      parcelas: 1,
 
       cartaoStatus: statusCartao,
       cartaoGateway: "sicredi-ipg",
@@ -441,19 +501,23 @@ export async function POST(req: NextRequest) {
         ultimosDigitos,
 
       sicrediCartaoProcessorCode:
-        respostaIpg.processorResponseCode || "",
+        respostaIpg.processorResponseCode ||
+        "",
 
       sicrediCartaoProcessorMessage:
         mensagemRecusa,
 
       sicrediCartaoReceiptNumber:
-        respostaIpg.processorReceiptNumber || "",
+        respostaIpg.processorReceiptNumber ||
+        "",
 
       sicrediCartaoTraceNumber:
-        respostaIpg.processorTraceNumber || "",
+        respostaIpg.processorTraceNumber ||
+        "",
 
       sicrediCartaoReferenceNumber:
-        respostaIpg.processorReferenceNumber || "",
+        respostaIpg.processorReferenceNumber ||
+        "",
 
       sicrediCartaoTransactionTime:
         respostaIpg.transactionTime || "",
@@ -511,7 +575,7 @@ export async function POST(req: NextRequest) {
       "Erro interno ao processar o cartão.";
 
     /*
-     * Não imprimir objeto completo do erro.
+     * Não imprimir o erro completo.
      * Algumas bibliotecas podem incluir dados da requisição.
      */
     console.error(

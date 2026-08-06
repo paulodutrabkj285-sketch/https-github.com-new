@@ -61,12 +61,29 @@ export function obterConfiguracaoIpg(): ConfiguracaoIpg {
 
   const ausentes: string[] = [];
 
-  if (!url) ausentes.push("SICREDI_IPG_URL");
-  if (!storeId) ausentes.push("SICREDI_IPG_STORE_ID");
-  if (!userId) ausentes.push("SICREDI_IPG_USER_ID");
-  if (!userPassword) ausentes.push("SICREDI_IPG_USER_PASSWORD");
-  if (!p12Base64) ausentes.push("SICREDI_IPG_P12_BASE64");
-  if (!p12Password) ausentes.push("SICREDI_IPG_P12_PASSWORD");
+  if (!url) {
+    ausentes.push("SICREDI_IPG_URL");
+  }
+
+  if (!storeId) {
+    ausentes.push("SICREDI_IPG_STORE_ID");
+  }
+
+  if (!userId) {
+    ausentes.push("SICREDI_IPG_USER_ID");
+  }
+
+  if (!userPassword) {
+    ausentes.push("SICREDI_IPG_USER_PASSWORD");
+  }
+
+  if (!p12Base64) {
+    ausentes.push("SICREDI_IPG_P12_BASE64");
+  }
+
+  if (!p12Password) {
+    ausentes.push("SICREDI_IPG_P12_PASSWORD");
+  }
 
   if (ausentes.length > 0) {
     throw new Error(
@@ -101,7 +118,9 @@ export function criarAgentIpg(
   const pfx = Buffer.from(base64Limpo, "base64");
 
   if (pfx.length === 0) {
-    throw new Error("Não foi possível decodificar o certificado P12.");
+    throw new Error(
+      "Não foi possível decodificar o certificado P12."
+    );
   }
 
   return new https.Agent({
@@ -121,17 +140,26 @@ export function somenteDigitos(valor: unknown): string {
   return String(valor ?? "").replace(/\D/g, "");
 }
 
-export function validarNumeroCartao(numeroCartao: string): boolean {
+export function validarNumeroCartao(
+  numeroCartao: string
+): boolean {
   const numero = somenteDigitos(numeroCartao);
 
-  if (numero.length < 13 || numero.length > 19) {
+  if (
+    numero.length < 13 ||
+    numero.length > 19
+  ) {
     return false;
   }
 
   let soma = 0;
   let dobrar = false;
 
-  for (let indice = numero.length - 1; indice >= 0; indice--) {
+  for (
+    let indice = numero.length - 1;
+    indice >= 0;
+    indice--
+  ) {
     let digito = Number(numero[indice]);
 
     if (dobrar) {
@@ -153,10 +181,18 @@ export function validarValidadeCartao(
   mesValidade: string,
   anoValidade: string
 ): boolean {
-  const mes = Number(somenteDigitos(mesValidade));
-  let ano = Number(somenteDigitos(anoValidade));
+  const mes = Number(
+    somenteDigitos(mesValidade)
+  );
 
-  if (mes < 1 || mes > 12) {
+  let ano = Number(
+    somenteDigitos(anoValidade)
+  );
+
+  if (
+    mes < 1 ||
+    mes > 12
+  ) {
     return false;
   }
 
@@ -172,23 +208,34 @@ export function validarValidadeCartao(
     return false;
   }
 
-  if (ano === anoAtual && mes < mesAtual) {
+  if (
+    ano === anoAtual &&
+    mes < mesAtual
+  ) {
     return false;
   }
 
   return ano <= anoAtual + 20;
 }
 
-export function validarCvv(cvv: string): boolean {
+export function validarCvv(
+  cvv: string
+): boolean {
   const numeros = somenteDigitos(cvv);
-  return numeros.length === 3 || numeros.length === 4;
+
+  return (
+    numeros.length === 3 ||
+    numeros.length === 4
+  );
 }
 
 /* =========================================================
    XML
    ========================================================= */
 
-function escaparXml(valor: unknown): string {
+function escaparXml(
+  valor: unknown
+): string {
   return String(valor ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -197,44 +244,81 @@ function escaparXml(valor: unknown): string {
     .replace(/'/g, "&apos;");
 }
 
-function formatarMes(mes: string): string {
-  return somenteDigitos(mes).padStart(2, "0").slice(-2);
+function formatarMes(
+  mes: string
+): string {
+  return somenteDigitos(mes)
+    .padStart(2, "0")
+    .slice(-2);
 }
 
-function formatarAno(ano: string): string {
-  const numeros = somenteDigitos(ano);
+function formatarAno(
+  ano: string
+): string {
+  const numeros =
+    somenteDigitos(ano);
 
   if (numeros.length === 4) {
     return numeros.slice(-2);
   }
 
-  return numeros.padStart(2, "0").slice(-2);
+  return numeros
+    .padStart(2, "0")
+    .slice(-2);
 }
 
-function formatarValor(valor: number): string {
-  if (!Number.isFinite(valor) || valor <= 0) {
-    throw new Error("Valor da transação inválido.");
+function formatarValor(
+  valor: number
+): string {
+  if (
+    !Number.isFinite(valor) ||
+    valor <= 0
+  ) {
+    throw new Error(
+      "Valor da transação inválido."
+    );
   }
 
   return valor.toFixed(2);
 }
 
+/* =========================================================
+   CRIAÇÃO DA VENDA À VISTA
+   ========================================================= */
+
 export function criarXmlVendaCartao(
   configuracao: ConfiguracaoIpg,
   dados: DadosVendaCartao
 ): string {
-  const numeroCartao = somenteDigitos(dados.numeroCartao);
-  const cvv = somenteDigitos(dados.cvv);
-  const mesValidade = formatarMes(dados.mesValidade);
-  const anoValidade = formatarAno(dados.anoValidade);
-  const valor = formatarValor(dados.valor);
+  const numeroCartao =
+    somenteDigitos(dados.numeroCartao);
+
+  const cvv =
+    somenteDigitos(dados.cvv);
+
+  const mesValidade =
+    formatarMes(dados.mesValidade);
+
+  const anoValidade =
+    formatarAno(dados.anoValidade);
+
+  const valor =
+    formatarValor(dados.valor);
 
   const nomeEstabelecimento = (
-    dados.nomeEstabelecimento || "PARQUE MUNDO NOVO"
+    dados.nomeEstabelecimento ||
+    "PARQUE MUNDO NOVO"
   )
     .trim()
     .slice(0, 25);
 
+  /*
+   * Venda de cartão de crédito à vista.
+   *
+   * Não envia:
+   * numberOfInstallments
+   * installmentsInterest
+   */
   return `<?xml version="1.0" encoding="UTF-8"?>
 <soap-env:Envelope xmlns:soap-env="http://schemas.xmlsoap.org/soap/envelope/">
   <soap-env:Header/>
@@ -244,29 +328,43 @@ export function criarXmlVendaCartao(
       xmlns:v1="http://ipg-online.com/ipgapi/schemas/v1">
       <v1:Transaction>
         <v1:CreditCardTxType>
-          <v1:StoreId>${escaparXml(configuracao.storeId)}</v1:StoreId>
+          <v1:StoreId>${escaparXml(
+    configuracao.storeId
+  )}</v1:StoreId>
           <v1:Type>sale</v1:Type>
         </v1:CreditCardTxType>
 
         <v1:CreditCardData>
-          <v1:CardNumber>${escaparXml(numeroCartao)}</v1:CardNumber>
-          <v1:ExpMonth>${escaparXml(mesValidade)}</v1:ExpMonth>
-          <v1:ExpYear>${escaparXml(anoValidade)}</v1:ExpYear>
-          <v1:CardCodeValue>${escaparXml(cvv)}</v1:CardCodeValue>
+          <v1:CardNumber>${escaparXml(
+    numeroCartao
+  )}</v1:CardNumber>
+          <v1:ExpMonth>${escaparXml(
+    mesValidade
+  )}</v1:ExpMonth>
+          <v1:ExpYear>${escaparXml(
+    anoValidade
+  )}</v1:ExpYear>
+          <v1:CardCodeValue>${escaparXml(
+    cvv
+  )}</v1:CardCodeValue>
         </v1:CreditCardData>
 
         <v1:cardFunction>credit</v1:cardFunction>
 
         <v1:Payment>
-          <v1:ChargeTotal>${escaparXml(valor)}</v1:ChargeTotal>
+          <v1:ChargeTotal>${escaparXml(
+    valor
+  )}</v1:ChargeTotal>
           <v1:Currency>986</v1:Currency>
         </v1:Payment>
 
         <v1:TransactionDetails>
-          <v1:OrderId>${escaparXml(dados.pedidoId)}</v1:OrderId>
+          <v1:OrderId>${escaparXml(
+    dados.pedidoId
+  )}</v1:OrderId>
           <v1:DynamicMerchantName>${escaparXml(
-            nomeEstabelecimento
-          )}</v1:DynamicMerchantName>
+    nomeEstabelecimento
+  )}</v1:DynamicMerchantName>
         </v1:TransactionDetails>
       </v1:Transaction>
     </ipgapi:IPGApiOrderRequest>
@@ -278,16 +376,24 @@ export function criarXmlVendaCartao(
    LEITURA DA RESPOSTA XML
    ========================================================= */
 
-function extrairTag(xml: string, tag: string): string {
+function extrairTag(
+  xml: string,
+  tag: string
+): string {
   const regex = new RegExp(
     `<(?:[\\w-]+:)?${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:[\\w-]+:)?${tag}>`,
     "i"
   );
 
-  return xml.match(regex)?.[1]?.trim() || "";
+  return (
+    xml.match(regex)?.[1]?.trim() ||
+    ""
+  );
 }
 
-function removerTagsXml(valor: string): string {
+function removerTagsXml(
+  valor: string
+): string {
   return String(valor || "")
     .replace(/<[^>]*>/g, " ")
     .replace(/&lt;/g, "<")
@@ -303,67 +409,119 @@ export function interpretarRespostaIpg(
   httpStatus: number,
   xmlResposta: string
 ): RespostaIpg {
-  const transactionResult = extrairTag(
-    xmlResposta,
-    "TransactionResult"
-  ).toUpperCase();
+  const transactionResult =
+    extrairTag(
+      xmlResposta,
+      "TransactionResult"
+    ).toUpperCase();
 
   const resposta: RespostaIpg = {
     httpStatus,
     transactionResult,
 
-    orderId: extrairTag(xmlResposta, "OrderId"),
-    approvalCode: extrairTag(xmlResposta, "ApprovalCode"),
+    orderId:
+      extrairTag(
+        xmlResposta,
+        "OrderId"
+      ),
 
-    processorResponseCode: extrairTag(
-      xmlResposta,
-      "ProcessorResponseCode"
-    ),
+    approvalCode:
+      extrairTag(
+        xmlResposta,
+        "ApprovalCode"
+      ),
 
-    processorResponseMessage: removerTagsXml(
-      extrairTag(xmlResposta, "ProcessorResponseMessage")
-    ),
+    processorResponseCode:
+      extrairTag(
+        xmlResposta,
+        "ProcessorResponseCode"
+      ),
 
-    processorApprovalCode: extrairTag(
-      xmlResposta,
-      "ProcessorApprovalCode"
-    ),
+    processorResponseMessage:
+      removerTagsXml(
+        extrairTag(
+          xmlResposta,
+          "ProcessorResponseMessage"
+        )
+      ),
 
-    processorReceiptNumber: extrairTag(
-      xmlResposta,
-      "ProcessorReceiptNumber"
-    ),
+    processorApprovalCode:
+      extrairTag(
+        xmlResposta,
+        "ProcessorApprovalCode"
+      ),
 
-    processorTraceNumber: extrairTag(
-      xmlResposta,
-      "ProcessorTraceNumber"
-    ),
+    processorReceiptNumber:
+      extrairTag(
+        xmlResposta,
+        "ProcessorReceiptNumber"
+      ),
 
-    processorReferenceNumber: extrairTag(
-      xmlResposta,
-      "ProcessorReferenceNumber"
-    ),
+    processorTraceNumber:
+      extrairTag(
+        xmlResposta,
+        "ProcessorTraceNumber"
+      ),
 
-    terminalId: extrairTag(xmlResposta, "TerminalID"),
-    transactionTime: extrairTag(xmlResposta, "TransactionTime"),
-    tDate: extrairTag(xmlResposta, "TDate"),
+    processorReferenceNumber:
+      extrairTag(
+        xmlResposta,
+        "ProcessorReferenceNumber"
+      ),
 
-    errorMessage: removerTagsXml(
-      extrairTag(xmlResposta, "ErrorMessage")
-    ),
+    terminalId:
+      extrairTag(
+        xmlResposta,
+        "TerminalID"
+      ),
 
-    faultCode: extrairTag(xmlResposta, "faultcode"),
+    transactionTime:
+      extrairTag(
+        xmlResposta,
+        "TransactionTime"
+      ),
 
-    faultString: removerTagsXml(
-      extrairTag(xmlResposta, "faultstring")
-    ),
+    tDate:
+      extrairTag(
+        xmlResposta,
+        "TDate"
+      ),
 
-    aprovado: transactionResult === "APPROVED",
+    errorMessage:
+      removerTagsXml(
+        extrairTag(
+          xmlResposta,
+          "ErrorMessage"
+        )
+      ),
+
+    faultCode:
+      extrairTag(
+        xmlResposta,
+        "faultcode"
+      ),
+
+    faultString:
+      removerTagsXml(
+        extrairTag(
+          xmlResposta,
+          "faultstring"
+        )
+      ),
+
+    aprovado:
+      transactionResult ===
+      "APPROVED",
+
     recusado:
-      transactionResult === "DECLINED" ||
-      transactionResult === "FAILED",
+      transactionResult ===
+      "DECLINED" ||
+      transactionResult ===
+      "FAILED",
 
-    fraude: transactionResult === "FRAUD",
+    fraude:
+      transactionResult ===
+      "FRAUD",
 
     xmlResposta,
   };
@@ -378,37 +536,59 @@ export function interpretarRespostaIpg(
 export async function enviarSoapIpg(
   xml: string
 ): Promise<RespostaIpg> {
-  const configuracao = obterConfiguracaoIpg();
+  const configuracao =
+    obterConfiguracaoIpg();
 
-  const httpsAgent = criarAgentIpg(
-    configuracao.p12Base64,
-    configuracao.p12Password
-  );
+  const httpsAgent =
+    criarAgentIpg(
+      configuracao.p12Base64,
+      configuracao.p12Password
+    );
 
-  const resposta = await axios.post(configuracao.url, xml, {
-    httpsAgent,
-    timeout: 30000,
+  const resposta =
+    await axios.post(
+      configuracao.url,
+      xml,
+      {
+        httpsAgent,
+        timeout: 30000,
 
-    auth: {
-      username: configuracao.userId,
-      password: configuracao.userPassword,
-    },
+        auth: {
+          username:
+            configuracao.userId,
 
-    headers: {
-      "Content-Type": "text/xml; charset=UTF-8",
-      Accept: "text/xml",
-      SOAPAction: "",
-      "Cache-Control": "no-cache",
-    },
+          password:
+            configuracao.userPassword,
+        },
 
-    responseType: "text",
-    validateStatus: () => true,
-  });
+        headers: {
+          "Content-Type":
+            "text/xml; charset=UTF-8",
+
+          Accept: "text/xml",
+
+          SOAPAction: "",
+
+          "Cache-Control":
+            "no-cache",
+        },
+
+        responseType: "text",
+
+        validateStatus:
+          () => true,
+      }
+    );
 
   const xmlResposta =
     typeof resposta.data === "string"
       ? resposta.data
-      : JSON.stringify(resposta.data);
+      : JSON.stringify(
+        resposta.data
+      );
 
-  return interpretarRespostaIpg(resposta.status, xmlResposta);
+  return interpretarRespostaIpg(
+    resposta.status,
+    xmlResposta
+  );
 }
