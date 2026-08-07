@@ -4,11 +4,11 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   updateDoc,
   where,
-  limit,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -48,7 +48,7 @@ export type PedidoInput = {
   lembrete7dEnviado?: boolean;
   lembrete7dEnviadoEm?: string;
 
-  // Preparação para cartão futuramente
+  // Cartão
   formaPagamento?: string;
   parcelas?: number;
   cartaoStatus?: string;
@@ -61,16 +61,19 @@ export type Pedido = PedidoInput & {
   createdAt?: string;
   updatedAt?: string;
   expiracaoPix?: string;
+
   sicrediTxid?: string;
   sicrediStatus?: string;
   sicrediPixCopiaCola?: string;
   sicrediLocation?: string;
+
   valorPago?: number;
 
   emailIngressoEnviado?: boolean;
   emailIngressoEnviadoEm?: string;
   emailIngressoErro?: string;
   emailIngressoErroEm?: string;
+
   emailIngressoReenviado?: boolean;
   emailIngressoReenviadoEm?: string;
 
@@ -80,31 +83,37 @@ export type Pedido = PedidoInput & {
 
 function gerarCodigoIngresso() {
   const numero = Math.floor(10000 + Math.random() * 90000);
+
   return `PMN-${numero}`;
 }
 
 function gerarExpiracaoPix() {
   const agora = new Date();
+
   agora.setHours(agora.getHours() + 1);
+
   return agora.toISOString();
 }
 
-// Limpa formatação de CPF
 function limparCpf(valor: string) {
   return String(valor || "").replace(/\D/g, "");
 }
 
 /* ==========================================
-   MÉTODOS DE CRIAÇÃO E ATUALIZAÇÃO
-   ========================================== */
+   CRIAÇÃO E ATUALIZAÇÃO
+========================================== */
 
 export async function criarPedido(dados: PedidoInput) {
-  const codigoIngresso = dados.codigoIngresso || gerarCodigoIngresso();
+  const codigoIngresso =
+    dados.codigoIngresso || gerarCodigoIngresso();
 
   const ref = await addDoc(collection(db, "pedidos"), {
     ...dados,
+
     codigoIngresso,
+
     expiracaoPix: gerarExpiracaoPix(),
+
     createdAt: new Date().toISOString(),
   });
 
@@ -113,22 +122,26 @@ export async function criarPedido(dados: PedidoInput) {
 
 export async function atualizarPedido(
   pedidoId: string,
-  dados: Partial<PedidoInput> & Record<string, unknown>
+  dados: Partial<Pedido> & Record<string, unknown>
 ) {
   const ref = doc(db, "pedidos", pedidoId);
 
   await updateDoc(ref, {
     ...dados,
+
     updatedAt: new Date().toISOString(),
   });
 }
 
 /* ==========================================
-   MÉTODOS DE CONSULTA (GERAIS & ÁREA DO CLIENTE)
-   ========================================== */
+   CONSULTAS
+========================================== */
 
-export async function buscarPedidoPorId(pedidoId: string) {
+export async function buscarPedidoPorId(
+  pedidoId: string
+): Promise<Pedido | null> {
   const ref = doc(db, "pedidos", pedidoId);
+
   const snap = await getDoc(ref);
 
   if (!snap.exists()) {
@@ -141,10 +154,28 @@ export async function buscarPedidoPorId(pedidoId: string) {
   } as Pedido;
 }
 
-export async function buscarPedidoPorTxid(txid: string) {
+/* ==========================================
+   BUSCAR PEDIDO POR TXID SICREDI
+========================================== */
+
+export async function buscarPedidoPorTxid(
+  txid: string
+): Promise<Pedido | null> {
+  const txidLimpo = String(txid || "").trim();
+
+  if (!txidLimpo) {
+    return null;
+  }
+
   const q = query(
     collection(db, "pedidos"),
-    where("sicrediTxid", "==", txid),
+
+    where(
+      "sicrediTxid",
+      "==",
+      txidLimpo
+    ),
+
     limit(1)
   );
 
@@ -162,122 +193,252 @@ export async function buscarPedidoPorTxid(txid: string) {
   } as Pedido;
 }
 
-/**
- * OPÇÃO A: Busca todos os pedidos de um cliente pelo CPF (Útil para a Área do Cliente)
- */
-export async function buscarPedidosPorCpf(cpf: string) {
+/* ==========================================
+   BUSCAR PEDIDOS POR CPF
+========================================== */
+
+export async function buscarPedidosPorCpf(
+  cpf: string
+) {
   const cpfLimpo = limparCpf(cpf);
-  if (!cpfLimpo) return [];
+
+  if (!cpfLimpo) {
+    return [];
+  }
 
   const q = query(
     collection(db, "pedidos"),
-    where("cpf", "==", cpfLimpo),
-    orderBy("createdAt", "desc")
+
+    where(
+      "cpf",
+      "==",
+      cpfLimpo
+    ),
+
+    orderBy(
+      "createdAt",
+      "desc"
+    )
   );
 
   const snap = await getDocs(q);
 
   return snap.docs.map((docItem) => ({
     id: docItem.id,
+
     ...docItem.data(),
   })) as Pedido[];
 }
 
-/**
- * OPÇÃO A (Extra): Busca um pedido específico pelo código de ingresso PMN
- */
-export async function buscarPedidoPorCodigo(codigo: string) {
-  const codigoLimpo = String(codigo || "").trim().toUpperCase();
-  if (!codigoLimpo) return null;
+/* ==========================================
+   BUSCAR PEDIDO PELO CÓDIGO PMN
+========================================== */
+
+export async function buscarPedidoPorCodigo(
+  codigo: string
+): Promise<Pedido | null> {
+  const codigoLimpo = String(
+    codigo || ""
+  )
+    .trim()
+    .toUpperCase();
+
+  if (!codigoLimpo) {
+    return null;
+  }
 
   const q = query(
     collection(db, "pedidos"),
-    where("codigoIngresso", "==", codigoLimpo),
+
+    where(
+      "codigoIngresso",
+      "==",
+      codigoLimpo
+    ),
+
     limit(1)
   );
 
   const snap = await getDocs(q);
 
-  if (snap.empty) return null;
+  if (snap.empty) {
+    return null;
+  }
 
   const docItem = snap.docs[0];
+
   return {
     id: docItem.id,
+
     ...docItem.data(),
   } as Pedido;
 }
 
 /* ==========================================
-   MÉTODOS DE LISTAGEM (ADMIN & PORTARIA)
-   ========================================== */
+   LISTAGEM GERAL
+========================================== */
 
-// Lista TODOS os pedidos (usado no painel administrativo geral)
 export async function listarPedidos() {
-  const q = query(collection(db, "pedidos"), orderBy("createdAt", "desc"));
-  const snap = await getDocs(q);
-
-  return snap.docs.map((docItem) => ({
-    id: docItem.id,
-    ...docItem.data(),
-  })) as Pedido[];
-}
-
-/**
- * OPÇÃO B: Lista apenas pedidos pagos e ativos (Otimizado para a Portaria Offline)
- * Evita descarregar milhares de pedidos pendentes ou cancelados no telemóvel da portaria.
- */
-export async function listarPedidosAtivosPortaria() {
   const q = query(
     collection(db, "pedidos"),
-    where("statusPagamento", "==", "pago"),
-    orderBy("createdAt", "desc")
+
+    orderBy(
+      "createdAt",
+      "desc"
+    )
   );
 
   const snap = await getDocs(q);
 
   return snap.docs.map((docItem) => ({
     id: docItem.id,
+
     ...docItem.data(),
   })) as Pedido[];
 }
 
 /* ==========================================
-   OPÇÃO C: CÁLCULO E RESUMO FINANCEIRO
-   ========================================== */
+   PORTARIA
+========================================== */
 
-export function calcularResumoFinanceiro(pedidos: Pedido[]) {
-  const totalPedidos = pedidos.length;
+/*
+ * Lista os pedidos pagos.
+ *
+ * IMPORTANTE:
+ *
+ * Antes utilizávamos:
+ *
+ * where("statusPagamento", "==", "pago")
+ * +
+ * orderBy("createdAt", "desc")
+ *
+ * Essa combinação pode exigir índice composto
+ * no Firestore.
+ *
+ * Se o índice não existir, a consulta falha.
+ *
+ * Quando isso acontecia:
+ *
+ * - Portaria mostrava "Sincronizado: Nunca"
+ * - QR Code não era encontrado
+ * - Código PMN não era encontrado
+ * - CPF não era encontrado
+ *
+ * Agora buscamos apenas pelos pedidos pagos
+ * e fazemos a ordenação no JavaScript.
+ */
 
-  const pedidosPagos = pedidos.filter(
-    (pedido) => pedido.statusPagamento === "pago"
+export async function listarPedidosAtivosPortaria() {
+  const q = query(
+    collection(db, "pedidos"),
+
+    where(
+      "statusPagamento",
+      "==",
+      "pago"
+    )
   );
 
-  const pedidosPendentes = pedidos.filter(
-    (pedido) => pedido.statusPagamento !== "pago"
-  );
+  const snap = await getDocs(q);
 
-  const faturamentoBruto = pedidosPagos.reduce(
-    (total, pedido) => total + Number(pedido.valorTotal || 0),
-    0
-  );
+  const pedidos = snap.docs.map(
+    (docItem) => ({
+      id: docItem.id,
+
+      ...docItem.data(),
+    })
+  ) as Pedido[];
+
+  /*
+   * Ordena do pedido mais recente
+   * para o mais antigo.
+   */
+  pedidos.sort((a, b) => {
+    const dataA = a.createdAt
+      ? new Date(a.createdAt).getTime()
+      : 0;
+
+    const dataB = b.createdAt
+      ? new Date(b.createdAt).getTime()
+      : 0;
+
+    return dataB - dataA;
+  });
+
+  return pedidos;
+}
+
+/* ==========================================
+   RESUMO FINANCEIRO
+========================================== */
+
+export function calcularResumoFinanceiro(
+  pedidos: Pedido[]
+) {
+  const totalPedidos =
+    pedidos.length;
+
+  const pedidosPagos =
+    pedidos.filter(
+      (pedido) =>
+        pedido.statusPagamento ===
+        "pago"
+    );
+
+  const pedidosPendentes =
+    pedidos.filter(
+      (pedido) =>
+        pedido.statusPagamento !==
+        "pago"
+    );
+
+  const faturamentoBruto =
+    pedidosPagos.reduce(
+      (total, pedido) =>
+        total +
+        Number(
+          pedido.valorTotal || 0
+        ),
+      0
+    );
 
   const taxaPercentual = 4.99;
-  const valorTaxas = faturamentoBruto * (taxaPercentual / 100);
-  const faturamentoLiquido = faturamentoBruto - valorTaxas;
 
-  const quantidadeIngressos = pedidosPagos.reduce(
-    (total, pedido) => total + Number(pedido.quantidade || 0),
-    0
-  );
+  const valorTaxas =
+    faturamentoBruto *
+    (taxaPercentual / 100);
+
+  const faturamentoLiquido =
+    faturamentoBruto -
+    valorTaxas;
+
+  const quantidadeIngressos =
+    pedidosPagos.reduce(
+      (total, pedido) =>
+        total +
+        Number(
+          pedido.quantidade || 0
+        ),
+      0
+    );
 
   return {
     totalPedidos,
-    totalPagos: pedidosPagos.length,
-    totalPendentes: pedidosPendentes.length,
+
+    totalPagos:
+      pedidosPagos.length,
+
+    totalPendentes:
+      pedidosPendentes.length,
+
     quantidadeIngressos,
+
     faturamentoBruto,
+
     taxaPercentual,
+
     valorTaxas,
+
     faturamentoLiquido,
   };
 }
