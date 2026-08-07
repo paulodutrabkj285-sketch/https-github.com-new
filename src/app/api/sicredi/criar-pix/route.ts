@@ -4,6 +4,7 @@ import axios from "axios";
 import { atualizarPedido, buscarPedidoPorId } from "@/lib/pedidos";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function somenteDigitos(valor: any) {
     return String(valor || "").replace(/\D/g, "");
@@ -33,15 +34,13 @@ async function obterToken() {
         throw new Error("Credenciais Sicredi não configuradas.");
     }
 
-    const agent = criarHttpsAgent();
-
     const response = await axios.post(
         `${baseUrl}/oauth/token`,
         new URLSearchParams({
             grant_type: "client_credentials",
         }).toString(),
         {
-            httpsAgent: agent,
+            httpsAgent: criarHttpsAgent(),
             headers: {
                 Authorization:
                     "Basic " +
@@ -93,94 +92,346 @@ function normalizarChavePix(chave: string) {
     return chaveLimpa.replace(/\s/g, "");
 }
 
+async function consultarCobranca(txid: string, token: string) {
+    const baseUrl = process.env.SICREDI_BASE_URL!;
+
+    const response = await axios.get(
+        `${baseUrl}/api/v2/cob/${txid}`,
+        {
+            httpsAgent: criarHttpsAgent(),
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
+
+    return response.data;
+}
+
+function cobrancaAindaValida(cobranca: any) {
+    const criacao = cobranca?.calendario?.criacao;
+    const expiracao = Number(
+        cobranca?.calendario?.expiracao || 3600
+    );
+
+    if (!criacao) return false;
+
+    const criadaEm = new Date(criacao).getTime();
+
+    if (!Number.isFinite(criadaEm)) {
+        return false;
+    }
+
+    const expiraEm = criadaEm + expiracao * 1000;
+
+    return Date.now() < expiraEm;
+}
+
 export async function POST(req: NextRequest) {
     try {
-        console.log("Persistência ativada");
+        console.log("CRIAR PIX: início");
 
         const body = await req.json();
 
-        console.log("BODY RECEBIDO:", JSON.stringify(body, null, 2));
+        const {
+            pedidoId,
+            nome,
+            cpf,
+            produto,
+            valorTotal,
+        } = body;
 
-        const { pedidoId, nome, cpf, produto, valorTotal, quantidade } = body;
-
-        if (!pedidoId || !produto || !valorTotal) {
+        if (!pedidoId) {
             return NextResponse.json(
                 {
                     ok: false,
-                    error: "Dados obrigatórios não enviados.",
+                    error: "Pedido não informado.",
                 },
                 { status: 400 }
             );
         }
 
-        const pedidoSalvo: any = await buscarPedidoPorId(pedidoId).catch(() => null);
+        const pedidoSalvo: any =
+            await buscarPedidoPorId(pedidoId);
 
-        const nomeFinal = String(nome || pedidoSalvo?.nome || "Cliente").trim();
-        const cpfFinal = somenteDigitos(cpf || pedidoSalvo?.cpf || "");
-        const valorFinal = Number(valorTotal || pedidoSalvo?.valorTotal || 0).toFixed(2);
+        if (!pedidoSalvo) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "Pedido não encontrado.",
+                },
+                { status: 404 }
+            );
+        }
 
-        console.log("CPF BODY:", cpf);
-        console.log("CPF PEDIDO:", pedidoSalvo?.cpf);
-        console.log("CPF FINAL:", cpfFinal);
-        console.log("CPF TAMANHO:", cpfFinal.length);
-        console.log("CPF VALIDO:", cpfValido(cpfFinal));
+        /*
+         * Se o pedido já estiver pago,
+         * nunca criar uma nova cobrança.
+         */
+        if (pedidoSalvo.statusPagamento === "pago") {
+            return NextResponse.json({
+                ok: true,
+                pago: true,
+                status: "CONCLUIDA",
+                mensagem: "Este pedido já está pago.",
+                txid: pedidoSalvo.sicrediTxid || "",
+                pixCopiaCola:
+                    pedidoSalvo.sicrediPixCopiaCola || "",
+                location:
+                    pedidoSalvo.sicrediLocation || "",
+            });
+        }
+
+        const nomeFinal = String(
+            nome ||
+            pedidoSalvo.nome ||
+            "Cliente"
+        ).trim();
+
+        const cpfFinal = somenteDigitos(
+            cpf ||
+            pedidoSalvo.cpf ||
+            ""
+        );
+
+        /*
+         * IMPORTANTE:
+         * usa preferencialmente o valor salvo
+         * no Firestore, não o valor enviado
+         * pelo navegador.
+         */
+        const valorNumerico = Number(
+            pedidoSalvo.valorTotal ??
+            valorTotal ??
+            0
+        );
+
+        if (
+            !Number.isFinite(valorNumerico) ||
+            valorNumerico <= 0
+        ) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "Valor do pedido inválido.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const valorFinal =
+            valorNumerico.toFixed(2);
 
         if (!cpfValido(cpfFinal)) {
             return NextResponse.json(
                 {
                     ok: false,
-                    error: "CPF inválido ou não encontrado no pedido.",
-                    cpfRecebido: cpf,
-                    cpfPedido: pedidoSalvo?.cpf || null,
-                    cpfFinal,
-                    tamanho: cpfFinal.length,
+                    error:
+                        "CPF inválido ou não encontrado no pedido.",
                 },
                 { status: 400 }
             );
         }
 
-        const baseUrl = process.env.SICREDI_BASE_URL;
-        const chavePix = normalizarChavePix(process.env.SICREDI_PIX_KEY || "");
+        const baseUrl =
+            process.env.SICREDI_BASE_URL;
+
+        const chavePix = normalizarChavePix(
+            process.env.SICREDI_PIX_KEY || ""
+        );
 
         if (!baseUrl || !chavePix) {
-            throw new Error("Variáveis Sicredi não configuradas.");
+            throw new Error(
+                "Variáveis Sicredi não configuradas."
+            );
         }
 
-        console.log("BASE URL SICREDI:", baseUrl);
-        console.log("CHAVE PIX USADA:", chavePix);
-        console.log("CHAVE PIX TAMANHO:", chavePix.length);
-
         const token = await obterToken();
-        const agent = criarHttpsAgent();
+
+        /*
+         * ====================================================
+         * REUTILIZAR PIX EXISTENTE
+         * ====================================================
+         *
+         * Esta é a correção principal.
+         *
+         * Se já existe TXID para esse pedido,
+         * consultamos a cobrança antes de criar outra.
+         */
+        const txidExistente = String(
+            pedidoSalvo.sicrediTxid || ""
+        ).trim();
+
+        if (txidExistente) {
+            try {
+                const cobrancaExistente =
+                    await consultarCobranca(
+                        txidExistente,
+                        token
+                    );
+
+                console.log(
+                    "PIX EXISTENTE CONSULTADO:",
+                    {
+                        pedidoId,
+                        txid: txidExistente,
+                        status:
+                            cobrancaExistente?.status ||
+                            "",
+                    }
+                );
+
+                const pixCopiaCola =
+                    cobrancaExistente?.pixCopiaECola ||
+                    pedidoSalvo.sicrediPixCopiaCola ||
+                    "";
+
+                const location =
+                    cobrancaExistente?.location ||
+                    pedidoSalvo.sicrediLocation ||
+                    "";
+
+                /*
+                 * Se o Sicredi já marcou como concluída,
+                 * não cria novo Pix.
+                 */
+                if (
+                    cobrancaExistente?.status ===
+                    "CONCLUIDA"
+                ) {
+                    return NextResponse.json({
+                        ok: true,
+                        pago: true,
+                        txid: txidExistente,
+                        status: "CONCLUIDA",
+                        pixCopiaCola,
+                        location,
+                        mensagem:
+                            "Pagamento já confirmado pelo Sicredi.",
+                    });
+                }
+
+                /*
+                 * Se a cobrança continua ATIVA
+                 * e ainda não expirou, devolvemos
+                 * EXATAMENTE o mesmo QR Code.
+                 */
+                if (
+                    cobrancaExistente?.status ===
+                    "ATIVA" &&
+                    cobrancaAindaValida(
+                        cobrancaExistente
+                    )
+                ) {
+                    console.log(
+                        "REUTILIZANDO PIX EXISTENTE:",
+                        {
+                            pedidoId,
+                            txid: txidExistente,
+                        }
+                    );
+
+                    return NextResponse.json({
+                        ok: true,
+                        reutilizado: true,
+                        txid: txidExistente,
+                        status: "ATIVA",
+                        pixCopiaCola,
+                        location,
+                    });
+                }
+
+                console.log(
+                    "PIX ANTERIOR EXPIRADO OU NÃO REUTILIZÁVEL:",
+                    {
+                        pedidoId,
+                        txid: txidExistente,
+                        status:
+                            cobrancaExistente?.status ||
+                            "",
+                    }
+                );
+            } catch (erroConsulta: any) {
+                /*
+                 * Se a cobrança não existir mais,
+                 * podemos criar uma nova.
+                 *
+                 * Porém deixamos isso registrado
+                 * para diagnóstico.
+                 */
+                console.error(
+                    "ERRO AO CONSULTAR PIX EXISTENTE:",
+                    {
+                        pedidoId,
+                        txid: txidExistente,
+                        status:
+                            erroConsulta?.response?.status ||
+                            null,
+                        erro:
+                            erroConsulta?.response?.data ||
+                            erroConsulta?.message,
+                    }
+                );
+            }
+        }
+
+        /*
+         * ====================================================
+         * CRIAR NOVA COBRANÇA
+         * ====================================================
+         *
+         * Só chega aqui quando:
+         * - não havia TXID;
+         * - ou cobrança anterior expirou;
+         * - ou cobrança anterior não existe mais.
+         */
 
         const payload = {
             calendario: {
                 expiracao: 3600,
             },
+
             devedor: {
                 cpf: cpfFinal,
                 nome: nomeFinal,
             },
+
             valor: {
                 original: valorFinal,
             },
+
             chave: chavePix,
-            solicitacaoPagador: produto,
+
+            solicitacaoPagador:
+                String(
+                    produto ||
+                    pedidoSalvo.produto ||
+                    "Ingresso Parque Mundo Novo"
+                ),
         };
 
-        console.log("PAYLOAD SICREDI:", JSON.stringify(payload, null, 2));
+        const response = await axios.post(
+            `${baseUrl}/api/v2/cob`,
+            payload,
+            {
+                httpsAgent: criarHttpsAgent(),
 
-        const response = await axios.post(`${baseUrl}/api/v2/cob`, payload, {
-            httpsAgent: agent,
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-        });
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type":
+                        "application/json",
+                },
+            }
+        );
 
         const data = response.data;
 
-        console.log("RESPOSTA SICREDI:", JSON.stringify(data, null, 2));
+        console.log("NOVO PIX CRIADO:", {
+            pedidoId,
+            txid: data?.txid || "",
+            status: data?.status || "",
+            valor: valorFinal,
+        });
 
         const pixCopiaCola =
             data?.pixCopiaECola ||
@@ -191,33 +442,53 @@ export async function POST(req: NextRequest) {
 
         await atualizarPedido(pedidoId, {
             statusPagamento: "pendente",
-            sicrediTxid: data?.txid || "",
-            sicrediStatus: data?.status || "ATIVA",
-            sicrediPixCopiaCola: pixCopiaCola,
-            sicrediLocation: data?.location || "",
+
+            sicrediTxid:
+                data?.txid || "",
+
+            sicrediStatus:
+                data?.status || "ATIVA",
+
+            sicrediPixCopiaCola:
+                pixCopiaCola,
+
+            sicrediLocation:
+                data?.location || "",
+
+            sicrediPixCriadoEm:
+                new Date().toISOString(),
         });
 
         return NextResponse.json({
             ok: true,
+            reutilizado: false,
             txid: data?.txid || "",
             status: data?.status || "",
             pixCopiaCola,
-            location: data?.location || "",
-            raw: data,
+            location:
+                data?.location || "",
         });
     } catch (error: any) {
         console.error(
-            "ERRO SICREDI FINAL:",
-            JSON.stringify(error?.response?.data || error?.message, null, 2)
+            "ERRO SICREDI CRIAR PIX:",
+            error?.response?.data ||
+            error?.message
         );
 
         return NextResponse.json(
             {
                 ok: false,
-                error: "Erro ao criar Pix Sicredi.",
-                details: error?.response?.data || error?.message,
+                error:
+                    "Erro ao criar Pix Sicredi.",
+                details:
+                    error?.response?.data ||
+                    error?.message,
             },
-            { status: error?.response?.status || 500 }
+            {
+                status:
+                    error?.response?.status ||
+                    500,
+            }
         );
     }
 }
