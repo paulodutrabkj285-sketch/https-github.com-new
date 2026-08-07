@@ -368,6 +368,38 @@ export async function POST(req: NextRequest) {
     const respostaIpg =
       await enviarSoapIpg(xmlVenda);
 
+    /*
+     * LOG SEGURO DA RESPOSTA DO IPG
+     *
+     * Não mostra número do cartão,
+     * CVV nem o XML completo.
+     */
+    console.log("RESPOSTA CARTAO IPG:", {
+      httpStatus:
+        respostaIpg.httpStatus,
+
+      transactionResult:
+        respostaIpg.transactionResult,
+
+      processorResponseCode:
+        respostaIpg.processorResponseCode,
+
+      processorResponseMessage:
+        respostaIpg.processorResponseMessage,
+
+      approvalCode:
+        respostaIpg.approvalCode,
+
+      errorMessage:
+        respostaIpg.errorMessage,
+
+      faultCode:
+        respostaIpg.faultCode,
+
+      faultString:
+        respostaIpg.faultString,
+    });
+
     const identificadorTransacao =
       respostaIpg.orderId ||
       respostaIpg.processorReferenceNumber ||
