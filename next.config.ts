@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const VENDAS_SUSPENSAS =
-  process.env.NODE_ENV === "production";
+  process.env.NEXT_PUBLIC_VENDAS_SUSPENSAS === "true";
 
 const nextConfig: NextConfig = {
   async redirects() {
