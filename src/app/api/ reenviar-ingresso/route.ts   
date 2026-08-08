@@ -1,0 +1,169 @@
+import { NextRequest, NextResponse } from "next/server";
+import { buscarPedidoPorId, atualizarPedido } from "@/lib/pedidos";
+import { enviarIngressoPorEmail } from "@/lib/email";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(req: NextRequest) {
+    let pedidoId = "";
+
+    try {
+        const body = await req.json();
+
+        pedidoId = String(body?.pedidoId || "").trim();
+
+        if (!pedidoId) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "pedidoId não informado.",
+                },
+                { status: 400 }
+            );
+        }
+
+        console.log("REENVIO: BUSCANDO PEDIDO", {
+            pedidoId,
+        });
+
+        const pedido: any = await buscarPedidoPorId(pedidoId);
+
+        if (!pedido) {
+            console.error("REENVIO: PEDIDO NÃO ENCONTRADO", {
+                pedidoId,
+            });
+
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "Pedido não encontrado.",
+                },
+                { status: 404 }
+            );
+        }
+
+        if (pedido.statusPagamento !== "pago") {
+            console.error("REENVIO: PEDIDO NÃO ESTÁ PAGO", {
+                pedidoId,
+                statusPagamento: pedido.statusPagamento,
+            });
+
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "O pedido ainda não está pago.",
+                },
+                { status: 400 }
+            );
+        }
+
+        if (!pedido.email) {
+            console.error("REENVIO: PEDIDO SEM E-MAIL", {
+                pedidoId,
+            });
+
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "O pedido não possui endereço de e-mail.",
+                },
+                { status: 400 }
+            );
+        }
+
+        const codigoIngresso =
+            pedido.codigoIngresso ||
+            pedido.qrCodeIngresso ||
+            `PMN-${pedidoId.slice(-5).toUpperCase()}`;
+
+        console.log("REENVIO: INICIANDO ENVIO", {
+            pedidoId,
+            email: pedido.email,
+            codigoIngresso,
+            produto: pedido.produto,
+        });
+
+        await enviarIngressoPorEmail({
+            para: pedido.email,
+            nome: pedido.nome || "Cliente",
+            produto: pedido.produto || "Ingresso Parque Mundo Novo",
+
+            quantidade: Number(
+                pedido.quantidade ||
+                pedido.quantidadePessoas ||
+                1
+            ),
+
+            codigoIngresso,
+
+            pedidoId,
+
+            dataVisita:
+                pedido.dataVisita ||
+                pedido.dataEntrada ||
+                "",
+        });
+
+        const agora = new Date().toISOString();
+
+        await atualizarPedido(pedidoId, {
+            emailIngressoEnviado: true,
+            emailIngressoEnviadoEm: agora,
+
+            emailIngressoErro: "",
+            emailIngressoErroEm: "",
+
+            atualizadoEm: agora,
+        });
+
+        console.log("REENVIO: E-MAIL ENVIADO COM SUCESSO", {
+            pedidoId,
+            email: pedido.email,
+            codigoIngresso,
+        });
+
+        return NextResponse.json({
+            ok: true,
+            mensagem: "Ingresso enviado por e-mail com sucesso.",
+            pedidoId,
+            email: pedido.email,
+            codigoIngresso,
+        });
+    } catch (error: any) {
+        const mensagemErro = String(
+            error?.message ||
+            error ||
+            "Erro desconhecido ao enviar o ingresso."
+        );
+
+        console.error("REENVIO: ERRO AO ENVIAR E-MAIL", {
+            pedidoId,
+            erro: mensagemErro,
+        });
+
+        if (pedidoId) {
+            try {
+                await atualizarPedido(pedidoId, {
+                    emailIngressoEnviado: false,
+                    emailIngressoErro: mensagemErro,
+                    emailIngressoErroEm: new Date().toISOString(),
+                });
+            } catch (erroFirestore) {
+                console.error(
+                    "REENVIO: ERRO AO REGISTRAR FALHA NO FIRESTORE",
+                    erroFirestore
+                );
+            }
+        }
+
+        return NextResponse.json(
+            {
+                ok: false,
+                pedidoId,
+                error: mensagemErro,
+            },
+            { status: 500 }
+        );
+    }
+}
