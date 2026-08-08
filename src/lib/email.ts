@@ -124,14 +124,18 @@ export async function enviarIngressoPorEmail({
   const config = criarTransporter();
 
   const nomeSeguro = escaparHtml(nome || "Cliente");
+
   const produtoSeguro = escaparHtml(
     produto || "Ingresso Parque Mundo Novo"
   );
+
   const codigoSeguro = escaparHtml(codigoIngresso);
   const pedidoSeguro = escaparHtml(pedidoId);
 
   const quantidadeValida = Number(quantidade || 1);
-  const dataVisitaFormatada = formatarData(dataVisita);
+
+  const dataVisitaFormatada =
+    formatarData(dataVisita);
 
   const pdfBuffer = await gerarPdfIngresso({
     nome,
@@ -148,16 +152,24 @@ export async function enviarIngressoPorEmail({
     );
   }
 
-  const assunto = `Seu ingresso Parque Mundo Novo - ${codigoIngresso}`;
+  const assunto =
+    `Seu ingresso Parque Mundo Novo - ${codigoIngresso}`;
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto; background: #f4f8f4; padding: 24px;">
+
       <div style="background: #064e3b; color: white; padding: 26px; border-radius: 18px; text-align: center;">
-        <h1 style="margin: 0; font-size: 28px;">Parque Mundo Novo</h1>
-        <p style="margin-top: 8px; font-size: 16px;">Ingresso confirmado</p>
+        <h1 style="margin: 0; font-size: 28px;">
+          Parque Mundo Novo
+        </h1>
+
+        <p style="margin-top: 8px; font-size: 16px;">
+          Ingresso confirmado
+        </p>
       </div>
 
       <div style="background: white; padding: 24px; border-radius: 18px; margin-top: 20px;">
+
         <h2 style="color: #166534; margin-top: 0;">
           Olá, ${nomeSeguro}!
         </h2>
@@ -167,15 +179,28 @@ export async function enviarIngressoPorEmail({
         </p>
 
         <div style="background: #dcfce7; border: 1px solid #86efac; color: #14532d; padding: 16px; border-radius: 14px; margin: 20px 0; text-align: center;">
-          <strong>Código do ingresso:</strong><br />
+          <strong>Código do ingresso:</strong>
+          <br />
+
           <span style="font-size: 30px; font-weight: bold;">
             ${codigoSeguro}
           </span>
         </div>
 
-        <p><strong>Produto:</strong> ${produtoSeguro}</p>
-        <p><strong>Quantidade:</strong> ${quantidadeValida}</p>
-        <p><strong>Pedido:</strong> ${pedidoSeguro}</p>
+        <p>
+          <strong>Produto:</strong>
+          ${produtoSeguro}
+        </p>
+
+        <p>
+          <strong>Quantidade:</strong>
+          ${quantidadeValida}
+        </p>
+
+        <p>
+          <strong>Pedido:</strong>
+          ${pedidoSeguro}
+        </p>
 
         ${dataVisitaFormatada
       ? `<p><strong>Data informada:</strong> ${escaparHtml(
@@ -185,224 +210,307 @@ export async function enviarIngressoPorEmail({
     }
 
         <p style="margin-top: 24px;">
-          Seu ingresso em PDF está anexado neste e-mail. Apresente o QR Code
-          impresso ou diretamente pelo celular na entrada do Parque Mundo Novo.
+          Seu ingresso em PDF está anexado neste e-mail.
+          Apresente o QR Code impresso ou diretamente pelo
+          celular na entrada do Parque Mundo Novo.
         </p>
 
         <div style="background:#eff6ff; border:1px solid #93c5fd; color:#1e3a8a; padding:18px; border-radius:14px; margin-top:20px;">
-          <h3 style="margin-top:0;">ℹ️ Informações importantes</h3>
+
+          <h3 style="margin-top:0;">
+            ℹ️ Informações importantes
+          </h3>
 
           <ul style="padding-left:20px; line-height:1.8; margin-bottom:0;">
-            <li>Apresente o QR Code na entrada do parque.</li>
-            <li>Documento oficial com foto poderá ser solicitado na portaria.</li>
+
             <li>
-              Caso tenha adquirido Meia Entrada, o documento comprobatório
-              deverá estar no mesmo nome do comprador informado neste ingresso.
+              Apresente o QR Code na entrada do parque.
             </li>
+
             <li>
-              O Elevador Panorâmico possui ingresso próprio e é vendido
-              separadamente.
+              Documento oficial com foto poderá ser solicitado na portaria.
             </li>
+
             <li>
-              O ingresso de entrada do parque não dá direito ao acesso ao
-              Elevador Panorâmico.
+              Caso tenha adquirido Meia Entrada,
+              o documento comprobatório deverá estar
+              no mesmo nome do comprador informado neste ingresso.
             </li>
+
+            <li>
+              O Elevador Panorâmico possui ingresso próprio
+              e é vendido separadamente.
+            </li>
+
+            <li>
+              O ingresso de entrada do parque não dá direito
+              ao acesso ao Elevador Panorâmico.
+            </li>
+
           </ul>
         </div>
 
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 24px;">
-          <h3 style="margin-top: 0;">📌 Informações principais</h3>
+
+          <h3 style="margin-top: 0;">
+            📌 Informações principais
+          </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+
             <li>
-              Funcionamento todos os dias, das
-              <strong> 08h00 às 17h30</strong>.
+              Funcionamento todos os dias,
+              das <strong>08h00 às 17h30</strong>.
             </li>
+
             <li>
-              O ingresso é válido por <strong>6 meses</strong> a partir da
-              data da compra.
+              O ingresso é válido por
+              <strong>6 meses</strong>
+              a partir da data da compra.
             </li>
+
             <li>
-              Cada ingresso possui código único e poderá ser utilizado apenas
-              uma vez.
+              Cada ingresso possui código único
+              e poderá ser utilizado apenas uma vez.
             </li>
+
             <li>
-              Após validado na portaria, o ingresso não poderá ser reutilizado.
+              Após validado na portaria,
+              o ingresso não poderá ser reutilizado.
             </li>
+
             <li>
-              O Elevador Panorâmico é uma atração opcional vendida
-              separadamente.
+              O Elevador Panorâmico é uma atração
+              opcional vendida separadamente.
             </li>
+
             <li>
-              O ingresso do parque não dá direito ao acesso ao Elevador
-              Panorâmico.
+              O ingresso do parque não dá direito
+              ao acesso ao Elevador Panorâmico.
             </li>
-            <li>A meia entrada é pessoal e intransferível.</li>
+
             <li>
-              O documento que comprova o benefício deve estar no mesmo nome do
-              comprador informado neste ingresso.
+              A meia entrada é pessoal e intransferível.
             </li>
+
             <li>
-              A apresentação do documento original é obrigatória na portaria.
+              O documento que comprova o benefício deve
+              estar no mesmo nome do comprador informado
+              neste ingresso.
             </li>
+
+            <li>
+              A apresentação do documento original
+              é obrigatória na portaria.
+            </li>
+
           </ul>
         </div>
 
         <div style="background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; padding: 18px; border-radius: 14px; margin-top: 20px;">
+
           <h3 style="margin-top: 0;">
             🎫 O que está incluso no ingresso do Parque
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+
             <li>Acesso às áreas abertas para visitação.</li>
             <li>Mirantes.</li>
             <li>Cachoeiras abertas ao público.</li>
             <li>Trilhas liberadas para visitação.</li>
             <li>Áreas de contemplação e lazer.</li>
             <li>Área Kids, quando disponível.</li>
+
           </ul>
         </div>
 
         <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d; padding: 18px; border-radius: 14px; margin-top: 20px;">
+
           <h3 style="margin-top: 0;">
             ⚠️ Atrações e serviços cobrados separadamente
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+
             <li>Elevador Panorâmico.</li>
             <li>Tirolesa.</li>
             <li>Tirolesa Infantil.</li>
             <li>Salto de Pêndulo.</li>
             <li>Alimentação e bebidas.</li>
             <li>Hospedagem.</li>
+
             <li>
-              Produtos e serviços adicionais oferecidos por parceiros dentro
-              do parque.
+              Produtos e serviços adicionais oferecidos
+              por parceiros dentro do parque.
             </li>
+
           </ul>
         </div>
 
         <div style="background: #f0fdf4; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">🏕️ Informações sobre o Camping</h3>
+
+          <h3 style="margin-top: 0;">
+            🏕️ Informações sobre o Camping
+          </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+
             <li>
-              O camping pertence ao Parque Mundo Novo e possui voucher próprio
-              com cobrança por diária.
+              O camping pertence ao Parque Mundo Novo
+              e possui voucher próprio com cobrança por diária.
             </li>
+
             <li>
-              1ª diária: <strong>R$ 100,00 por pessoa</strong>.
+              1ª diária:
+              <strong> R$ 100,00 por pessoa</strong>.
             </li>
+
             <li>
               A partir da 2ª diária:
               <strong> R$ 80,00 por pessoa/noite</strong>.
             </li>
+
             <li>
-              Crianças até <strong>10 anos completos</strong> não pagam, desde
-              que acompanhadas por responsável.
+              Crianças até
+              <strong>10 anos completos</strong>
+              não pagam, desde que acompanhadas por responsável.
             </li>
+
             <li>
-              Após a confirmação do pagamento, será emitido um voucher de
-              check-in com data, dados da reserva e QR Code.
+              Após a confirmação do pagamento,
+              será emitido um voucher de check-in
+              com data, dados da reserva e QR Code.
             </li>
+
             <li>
-              Caso deseje permanecer por mais dias, a extensão da hospedagem
-              deverá ser solicitada diretamente na recepção do parque, com
-              pagamento das diárias adicionais.
+              Caso deseje permanecer por mais dias,
+              a extensão da hospedagem deverá ser solicitada
+              diretamente na recepção do parque,
+              com pagamento das diárias adicionais.
             </li>
+
             <li>
-              O camping aceita motorhomes, conforme disponibilidade e
-              orientação da equipe local.
+              O camping aceita motorhomes,
+              conforme disponibilidade e orientação da equipe local.
             </li>
+
           </ul>
         </div>
 
         <div style="background: #fff7ed; border: 1px solid #fdba74; color: #7c2d12; padding: 18px; border-radius: 14px; margin-top: 20px;">
+
           <h3 style="margin-top: 0;">
             🔄 Política de compra e cancelamento
           </h3>
 
           <p style="line-height: 1.7;">
-            Conforme o artigo 49 do Código de Defesa do Consumidor, você pode
-            solicitar o cancelamento da compra em até
-            <strong> 7 dias corridos</strong> após a data do pagamento, desde
-            que o ingresso ainda não tenha sido utilizado.
+            Conforme o artigo 49 do Código de Defesa do Consumidor,
+            você pode solicitar o cancelamento da compra em até
+            <strong> 7 dias corridos</strong>
+            após a data do pagamento,
+            desde que o ingresso ainda não tenha sido utilizado.
           </p>
 
           <p style="line-height: 1.7; margin-bottom: 0;">
-            Nesse caso, o valor pago será devolvido integralmente pelo mesmo
-            meio de pagamento utilizado na compra. Após o prazo de 7 dias ou
-            após a utilização do ingresso, não será possível solicitar
-            reembolso.
+            Nesse caso, o valor pago será devolvido integralmente
+            pelo mesmo meio de pagamento utilizado na compra.
+            Após o prazo de 7 dias ou após a utilização do ingresso,
+            não será possível solicitar reembolso.
           </p>
+
         </div>
 
         <div style="background: #fffbeb; border: 1px solid #facc15; color: #713f12; padding: 18px; border-radius: 14px; margin-top: 20px;">
+
           <h3 style="margin-top: 0;">
             🚗 Estacionamento e cuidado com pertences
           </h3>
 
           <p style="line-height: 1.7;">
-            O Parque Mundo Novo possui estacionamento próprio para maior
-            comodidade dos visitantes.
+            O Parque Mundo Novo possui estacionamento próprio
+            para maior comodidade dos visitantes.
           </p>
 
           <ul style="padding-left: 20px; line-height: 1.7;">
+
             <li>Mantenha o veículo sempre trancado.</li>
-            <li>Não deixe objetos de valor à vista.</li>
+
             <li>
-              Confira portas, vidros e porta-malas antes de iniciar a visita.
+              Não deixe objetos de valor à vista.
             </li>
+
             <li>
-              Certifique-se de que o veículo esteja devidamente fechado.
+              Confira portas, vidros e porta-malas
+              antes de iniciar a visita.
             </li>
+
+            <li>
+              Certifique-se de que o veículo esteja
+              devidamente fechado.
+            </li>
+
           </ul>
 
           <p style="line-height: 1.7; font-weight: bold; margin-bottom: 0;">
-            O Parque Mundo Novo não se responsabiliza por objetos esquecidos,
-            perdidos, furtados ou danificados no interior dos veículos, no
-            estacionamento ou nas áreas de circulação do parque.
+            O Parque Mundo Novo não se responsabiliza
+            por objetos esquecidos, perdidos, furtados
+            ou danificados no interior dos veículos,
+            no estacionamento ou nas áreas de circulação do parque.
           </p>
+
         </div>
 
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; padding: 18px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">🎢 Serviços terceirizados</h3>
+
+          <h3 style="margin-top: 0;">
+            🎢 Serviços terceirizados
+          </h3>
 
           <p style="line-height: 1.7;">
-            Alguns serviços disponíveis dentro do Parque Mundo Novo são
-            operados por empresas parceiras e possuem administração própria.
+            Alguns serviços disponíveis dentro do Parque Mundo Novo
+            são operados por empresas parceiras
+            e possuem administração própria.
           </p>
 
           <ul style="padding-left: 20px; line-height: 1.7;">
+
             <li>Tirolesa.</li>
             <li>Tirolesa Infantil.</li>
             <li>Salto de Pêndulo.</li>
             <li>Restaurante.</li>
             <li>Bistrô.</li>
             <li>Café El Torrador.</li>
+
           </ul>
 
           <p style="line-height: 1.7;">
-            Esses serviços são contratados diretamente no local, com seus
-            respectivos operadores. O Parque Mundo Novo disponibiliza apenas o
-            espaço físico e não se responsabiliza pela operação, horários,
-            valores, manutenção, disponibilidade, cancelamentos ou alterações
+            Esses serviços são contratados diretamente no local,
+            com seus respectivos operadores.
+            O Parque Mundo Novo disponibiliza apenas o espaço físico
+            e não se responsabiliza pela operação,
+            horários, valores, manutenção,
+            disponibilidade, cancelamentos ou alterações
             desses serviços.
           </p>
 
           <p style="line-height: 1.7; margin-bottom: 0;">
-            Por segurança, atividades terceirizadas podem ser suspensas em caso
-            de chuva, ventos fortes, neblina intensa ou outras condições
-            climáticas adversas.
+            Por segurança, atividades terceirizadas
+            podem ser suspensas em caso de chuva,
+            ventos fortes, neblina intensa
+            ou outras condições climáticas adversas.
           </p>
+
         </div>
 
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
+
           <h3 style="margin-top: 0;">
             🍽️ Estrutura disponível no parque
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
+
             <li>Cachoeira Mundo Novo.</li>
             <li>Cascata do Avencal.</li>
             <li>Elevador Panorâmico.</li>
@@ -416,46 +524,87 @@ export async function enviarIngressoPorEmail({
             <li>Bistrô.</li>
             <li>Café El Torrador.</li>
             <li>Estacionamento próprio.</li>
+
           </ul>
         </div>
 
         <div style="background: #064e3b; color: white; padding: 20px; border-radius: 14px; margin-top: 20px;">
-          <h3 style="margin-top: 0;">🌿 Preserve a natureza</h3>
+
+          <h3 style="margin-top: 0;">
+            🌿 Preserve a natureza
+          </h3>
 
           <p style="line-height: 1.7;">
-            A natureza é o maior patrimônio do Parque Mundo Novo. Pedimos a
-            colaboração de todos para manter este ambiente limpo, seguro e
-            preservado.
+            A natureza é o maior patrimônio do Parque Mundo Novo.
+            Pedimos a colaboração de todos para manter
+            este ambiente limpo, seguro e preservado.
           </p>
 
           <ul style="padding-left: 20px; line-height: 1.7;">
+
             <li>Respeite a fauna e a flora.</li>
-            <li>Utilize as lixeiras ou leve seu lixo até um local adequado.</li>
-            <li>Permaneça nas trilhas e áreas sinalizadas.</li>
-            <li>Preserve rios, cachoeiras e nascentes.</li>
-            <li>Não alimente nem capture animais silvestres.</li>
-            <li>Não faça fogo em locais não autorizados.</li>
+
+            <li>
+              Utilize as lixeiras ou leve seu lixo
+              até um local adequado.
+            </li>
+
+            <li>
+              Permaneça nas trilhas e áreas sinalizadas.
+            </li>
+
+            <li>
+              Preserve rios, cachoeiras e nascentes.
+            </li>
+
+            <li>
+              Não alimente nem capture animais silvestres.
+            </li>
+
+            <li>
+              Não faça fogo em locais não autorizados.
+            </li>
+
           </ul>
 
           <p style="line-height: 1.7; font-weight: bold; margin-bottom: 0;">
-            Da natureza, leve apenas fotografias, lembranças e momentos
-            inesquecíveis. Deixe apenas suas pegadas e o respeito por este lugar
-            tão especial.
+            Da natureza, leve apenas fotografias,
+            lembranças e momentos inesquecíveis.
+            Deixe apenas suas pegadas e o respeito
+            por este lugar tão especial.
           </p>
+
         </div>
 
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
+
           <h3 style="margin-top: 0;">
             📍 Localização e atendimento
           </h3>
 
-          <p><strong>Parque Mundo Novo</strong></p>
-          <p><strong>Endereço:</strong> SC-110 KM 34 - Urubici/SC</p>
           <p>
-            <strong>Funcionamento:</strong> todos os dias, das 08h00 às 17h30
+            <strong>Parque Mundo Novo</strong>
           </p>
-          <p><strong>WhatsApp:</strong> ${telefoneParque}</p>
-          <p><strong>E-mail para ingressos:</strong> ${emailIngressos}</p>
+
+          <p>
+            <strong>Endereço:</strong>
+            SC-110 KM 34 - Urubici/SC
+          </p>
+
+          <p>
+            <strong>Funcionamento:</strong>
+            todos os dias, das 08h00 às 17h30
+          </p>
+
+          <p>
+            <strong>WhatsApp:</strong>
+            ${telefoneParque}
+          </p>
+
+          <p>
+            <strong>E-mail para ingressos:</strong>
+            ${emailIngressos}
+          </p>
 
           <a
             href="${linkMaps}"
@@ -464,37 +613,51 @@ export async function enviarIngressoPorEmail({
           >
             📍 Como chegar pelo Google Maps
           </a>
+
         </div>
 
         <p style="font-size: 13px; color: #666; margin-top: 24px;">
-          Apresente o PDF com QR Code na entrada do Parque Mundo Novo. Este
-          ingresso só poderá ser utilizado uma vez.
+          Apresente o PDF com QR Code na entrada do Parque Mundo Novo.
+          Este ingresso só poderá ser utilizado uma vez.
         </p>
+
       </div>
     </div>
   `;
 
-  const resultadoEnvio = await config.transporter.sendMail({
-    from: `"Parque Mundo Novo" <${config.user}>`,
-    to: emailDestino,
-    subject: assunto,
-    html,
-    attachments: [
-      {
-        filename: `Ingresso-${codigoIngresso}.pdf`,
-        content: pdfBuffer,
-        contentType: "application/pdf",
-      },
-    ],
-  });
+  const resultadoEnvio =
+    await config.transporter.sendMail({
+      from: `"Parque Mundo Novo" <${config.user}>`,
 
-  const aceitos = Array.isArray(resultadoEnvio.accepted)
-    ? resultadoEnvio.accepted.map(String)
-    : [];
+      // IMPORTANTE:
+      // O ingresso vai para o e-mail cadastrado pelo cliente.
+      to: emailDestino,
 
-  const rejeitados = Array.isArray(resultadoEnvio.rejected)
-    ? resultadoEnvio.rejected.map(String)
-    : [];
+      subject: assunto,
+
+      html,
+
+      attachments: [
+        {
+          filename:
+            `Ingresso-${codigoIngresso}.pdf`,
+
+          content: pdfBuffer,
+
+          contentType: "application/pdf",
+        },
+      ],
+    });
+
+  const aceitos =
+    Array.isArray(resultadoEnvio.accepted)
+      ? resultadoEnvio.accepted.map(String)
+      : [];
+
+  const rejeitados =
+    Array.isArray(resultadoEnvio.rejected)
+      ? resultadoEnvio.rejected.map(String)
+      : [];
 
   if (aceitos.length === 0) {
     throw new Error(
@@ -503,18 +666,24 @@ export async function enviarIngressoPorEmail({
     );
   }
 
-  console.log("E-MAIL DE INGRESSO ACEITO PELO SERVIDOR", {
-    para: emailDestino,
-    messageId: resultadoEnvio.messageId || null,
-    accepted: aceitos,
-    rejected: rejeitados,
-    response: resultadoEnvio.response || null,
-    pdfBytes: pdfBuffer.length,
-  });
+  console.log(
+    "E-MAIL DE INGRESSO ACEITO PELO SERVIDOR",
+    {
+      para: emailDestino,
+      messageId:
+        resultadoEnvio.messageId || null,
+      accepted: aceitos,
+      rejected: rejeitados,
+      response:
+        resultadoEnvio.response || null,
+      pdfBytes: pdfBuffer.length,
+    }
+  );
 
   return {
     enviado: true,
-    messageId: resultadoEnvio.messageId || null,
+    messageId:
+      resultadoEnvio.messageId || null,
     accepted: aceitos,
     rejected: rejeitados,
   };
@@ -527,44 +696,83 @@ export async function enviarLembreteCompraPendente({
   pedidoId,
   valorTotal,
 }: EnviarLembreteParams) {
-  const emailDestino = validarDestinatario(para);
-  const config = criarTransporter();
+  const emailDestino =
+    validarDestinatario(para);
 
-  const nomeSeguro = escaparHtml(nome || "Cliente");
-  const produtoSeguro = escaparHtml(
-    produto || "Ingresso Parque Mundo Novo"
-  );
-  const pedidoSeguro = escaparHtml(pedidoId);
+  const config =
+    criarTransporter();
 
-  const link = `https://www.parquemundonovooficial.com.br/checkout/pagamento?pedidoId=${encodeURIComponent(
-    pedidoId
-  )}`;
+  const nomeSeguro =
+    escaparHtml(nome || "Cliente");
 
-  const valorFormatado = Number(valorTotal || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  const produtoSeguro =
+    escaparHtml(
+      produto ||
+      "Ingresso Parque Mundo Novo"
+    );
+
+  const pedidoSeguro =
+    escaparHtml(pedidoId);
+
+  const link =
+    `https://www.parquemundonovooficial.com.br/checkout/pagamento?pedidoId=${encodeURIComponent(
+      pedidoId
+    )}`;
+
+  const valorFormatado =
+    Number(valorTotal || 0).toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background:#f4f8f4; padding:24px;">
+
       <div style="background:#064e3b; color:white; padding:24px; border-radius:18px; text-align:center;">
-        <h1 style="margin:0;">Parque Mundo Novo</h1>
-        <p style="margin-top:8px;">Você iniciou uma compra conosco</p>
+
+        <h1 style="margin:0;">
+          Parque Mundo Novo
+        </h1>
+
+        <p style="margin-top:8px;">
+          Você iniciou uma compra conosco
+        </p>
+
       </div>
 
       <div style="background:white; padding:24px; border-radius:18px; margin-top:20px;">
-        <h2 style="color:#166534;">Olá, ${nomeSeguro}!</h2>
+
+        <h2 style="color:#166534;">
+          Olá, ${nomeSeguro}!
+        </h2>
 
         <p>
-          Percebemos que você iniciou a compra do seu ingresso para o
-          <strong> Parque Mundo Novo, em Urubici</strong>, mas ainda não
-          finalizou o pagamento.
+          Percebemos que você iniciou a compra
+          do seu ingresso para o
+          <strong> Parque Mundo Novo, em Urubici</strong>,
+          mas ainda não finalizou o pagamento.
         </p>
 
         <div style="background:#ecfdf5; border:1px solid #86efac; color:#14532d; padding:16px; border-radius:14px; margin:20px 0;">
-          <p><strong>Produto:</strong> ${produtoSeguro}</p>
-          <p><strong>Valor:</strong> ${valorFormatado}</p>
-          <p><strong>Pedido:</strong> ${pedidoSeguro}</p>
+
+          <p>
+            <strong>Produto:</strong>
+            ${produtoSeguro}
+          </p>
+
+          <p>
+            <strong>Valor:</strong>
+            ${valorFormatado}
+          </p>
+
+          <p>
+            <strong>Pedido:</strong>
+            ${pedidoSeguro}
+          </p>
+
         </div>
 
         <a
@@ -576,60 +784,97 @@ export async function enviarLembreteCompraPendente({
         </a>
 
         <div style="background:#f0fdf4; border:1px solid #86efac; color:#14532d; padding:16px; border-radius:14px; margin-top:22px;">
-          <h3 style="margin-top:0;">Informações rápidas</h3>
+
+          <h3 style="margin-top:0;">
+            Informações rápidas
+          </h3>
 
           <ul style="padding-left:20px; line-height:1.7; margin-bottom:0;">
+
             <li>
-              Funcionamento todos os dias, das
-              <strong> 08h às 17h30</strong>.
+              Funcionamento todos os dias,
+              das <strong>08h às 17h30</strong>.
             </li>
-            <li>Ingresso digital com QR Code.</li>
-            <li>Validade de 6 meses após a compra.</li>
-            <li>Dúvidas: WhatsApp ${telefoneParque}.</li>
-            <li>E-mail: ${emailIngressos}.</li>
+
+            <li>
+              Ingresso digital com QR Code.
+            </li>
+
+            <li>
+              Validade de 6 meses após a compra.
+            </li>
+
+            <li>
+              Dúvidas: WhatsApp ${telefoneParque}.
+            </li>
+
+            <li>
+              E-mail: ${emailIngressos}.
+            </li>
+
           </ul>
+
         </div>
 
         <p style="margin-top:24px; font-size:13px; color:#666;">
-          Parque Mundo Novo - Funcionamento todos os dias das 08h às 17h30.
+          Parque Mundo Novo -
+          Funcionamento todos os dias
+          das 08h às 17h30.
         </p>
+
       </div>
     </div>
   `;
 
-  const resultadoEnvio = await config.transporter.sendMail({
-    from: `"Parque Mundo Novo" <${config.user}>`,
-    to: emailDestino,
-    subject: "Continue sua compra - Parque Mundo Novo",
-    html,
-  });
+  const resultadoEnvio =
+    await config.transporter.sendMail({
+      from:
+        `"Parque Mundo Novo" <${config.user}>`,
 
-  const aceitos = Array.isArray(resultadoEnvio.accepted)
-    ? resultadoEnvio.accepted.map(String)
-    : [];
+      // O lembrete também vai para o e-mail do cliente.
+      to: emailDestino,
 
-  const rejeitados = Array.isArray(resultadoEnvio.rejected)
-    ? resultadoEnvio.rejected.map(String)
-    : [];
+      subject:
+        "Continue sua compra - Parque Mundo Novo",
+
+      html,
+    });
+
+  const aceitos =
+    Array.isArray(resultadoEnvio.accepted)
+      ? resultadoEnvio.accepted.map(String)
+      : [];
+
+  const rejeitados =
+    Array.isArray(resultadoEnvio.rejected)
+      ? resultadoEnvio.rejected.map(String)
+      : [];
 
   if (aceitos.length === 0) {
     throw new Error(
-      `O servidor de e-mail não aceitou o destinatário ${emailDestino}. Rejeitados: ${rejeitados.join(", ") || "não informado"
+      `O servidor de e-mail não aceitou o destinatário ${emailDestino}. Rejeitados: ${rejeitados.join(", ") ||
+      "não informado"
       }.`
     );
   }
 
-  console.log("LEMBRETE DE COMPRA ACEITO PELO SERVIDOR", {
-    para: emailDestino,
-    messageId: resultadoEnvio.messageId || null,
-    accepted: aceitos,
-    rejected: rejeitados,
-    response: resultadoEnvio.response || null,
-  });
+  console.log(
+    "LEMBRETE DE COMPRA ACEITO PELO SERVIDOR",
+    {
+      para: emailDestino,
+      messageId:
+        resultadoEnvio.messageId || null,
+      accepted: aceitos,
+      rejected: rejeitados,
+      response:
+        resultadoEnvio.response || null,
+    }
+  );
 
   return {
     enviado: true,
-    messageId: resultadoEnvio.messageId || null,
+    messageId:
+      resultadoEnvio.messageId || null,
     accepted: aceitos,
     rejected: rejeitados,
   };
