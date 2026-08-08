@@ -17,32 +17,56 @@ import {
 import { Html5Qrcode } from "html5-qrcode";
 import { useEffect, useRef, useState } from "react";
 
+/* ======================================
+   FUNCIONÁRIOS AUTORIZADOS
+====================================== */
+
+const FUNCIONARIOS = [
+    "HANDERSON",
+    "DANIELA",
+    "JULIA",
+    "JEAN",
+    "JHAMES",
+    "JOSEVITOR",
+    "SILVANA",
+    "VICTOR",
+    "WELLINGTON",
+    "PEDRO",
+    "FRANCISCO",
+];
+
 export default function PortariaPage() {
-    const [pedido, setPedido] = useState<Pedido | null>(null);
+    const [pedido, setPedido] =
+        useState<Pedido | null>(null);
 
     const [mensagem, setMensagem] = useState(
         "Aguardando leitura do ingresso"
     );
 
-    const [carregando, setCarregando] = useState(false);
+    const [carregando, setCarregando] =
+        useState(false);
 
-    const [cameraAtiva, setCameraAtiva] = useState(false);
+    const [cameraAtiva, setCameraAtiva] =
+        useState(false);
 
-    const [codigoManual, setCodigoManual] = useState("");
+    const [codigoManual, setCodigoManual] =
+        useState("");
 
-    const [cpfBusca, setCpfBusca] = useState("");
+    const [funcionario, setFuncionario] =
+        useState("");
 
-    const [funcionario, setFuncionario] = useState("");
-
-    const [splash, setSplash] = useState(true);
+    const [splash, setSplash] =
+        useState(true);
 
     /* ======================================
        OFFLINE / SINCRONIZAÇÃO
     ====================================== */
 
-    const [isOnline, setIsOnline] = useState(true);
+    const [isOnline, setIsOnline] =
+        useState(true);
 
-    const [pendentesCount, setPendentesCount] = useState(0);
+    const [pendentesCount, setPendentesCount] =
+        useState(0);
 
     const [ultimaSinc, setUltimaSinc] =
         useState<string | null>(null);
@@ -156,10 +180,6 @@ export default function PortariaPage() {
                         pedidosNuvem.length
                     );
 
-                    /*
-                     * O cache local NÃO pode impedir
-                     * o funcionamento online.
-                     */
                     try {
                         await salvarPedidosLocalmente(
                             pedidosNuvem
@@ -186,10 +206,6 @@ export default function PortariaPage() {
 
                     setUltimaSinc(agora);
 
-                    /*
-                     * Sincroniza entradas feitas
-                     * quando o aparelho estava offline.
-                     */
                     try {
                         await sincronizarPendentes();
                     } catch (erroPendentes) {
@@ -336,13 +352,6 @@ export default function PortariaPage() {
         return String(valor || "").trim();
     }
 
-    function limparCpf(valor: string) {
-        return String(valor || "").replace(
-            /\D/g,
-            ""
-        );
-    }
-
     function formatarDataHora(
         valor?: string
     ) {
@@ -418,10 +427,7 @@ export default function PortariaPage() {
             fimPermitido.getDate() + 30
         );
 
-        if (
-            hoje <
-            inicioPermitido
-        ) {
+        if (hoje < inicioPermitido) {
             return {
                 valido: false,
                 mensagem:
@@ -429,10 +435,7 @@ export default function PortariaPage() {
             };
         }
 
-        if (
-            hoje >
-            fimPermitido
-        ) {
+        if (hoje > fimPermitido) {
             return {
                 valido: false,
                 mensagem:
@@ -448,12 +451,6 @@ export default function PortariaPage() {
 
     /* ======================================
        LISTA ATIVA DE PEDIDOS
-  
-       IMPORTANTE:
-       - online: Firestore primeiro
-       - cache local é apenas backup
-       - erro no IndexedDB não derruba
-         a busca online
     ====================================== */
 
     async function obterListaDePedidosAtiva(): Promise<
@@ -469,11 +466,6 @@ export default function PortariaPage() {
                     pedidos.length
                 );
 
-                /*
-                 * Não deixa erro do cache
-                 * derrubar a lista que já veio
-                 * corretamente do Firestore.
-                 */
                 try {
                     await salvarPedidosLocalmente(
                         pedidos
@@ -842,96 +834,6 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       BUSCAR CPF
-    ====================================== */
-
-    async function buscarPorCpf() {
-        try {
-            setCarregando(true);
-
-            setPedido(null);
-
-            const cpfLimpo =
-                limparCpf(cpfBusca);
-
-            if (!cpfLimpo) {
-                setMensagem(
-                    "DIGITE O CPF"
-                );
-
-                vibrar("erro");
-
-                return;
-            }
-
-            const pedidos =
-                await obterListaDePedidosAtiva();
-
-            const encontrados =
-                pedidos.filter(
-                    (item) => {
-                        const cpfPedido =
-                            limparCpf(
-                                item.cpf ||
-                                ""
-                            );
-
-                        return (
-                            cpfPedido ===
-                            cpfLimpo
-                        );
-                    }
-                );
-
-            if (
-                encontrados.length === 0
-            ) {
-                setMensagem(
-                    "CPF NÃO ENCONTRADO"
-                );
-
-                vibrar("erro");
-
-                return;
-            }
-
-            const encontrado =
-                encontrados.find(
-                    (item) =>
-                        item.statusPagamento ===
-                        "pago" &&
-                        item.statusOperacional !==
-                        "utilizado" &&
-                        item.statusOperacional !==
-                        "bloqueado" &&
-                        verificarValidadeData(
-                            item.dataVisita
-                        ).valido
-                ) ||
-                encontrados[0];
-
-            validarPedidoEncontrado(
-                encontrado,
-                encontrado.codigoIngresso ||
-                ""
-            );
-        } catch (error) {
-            console.error(
-                "PORTARIA: erro ao buscar CPF:",
-                error
-            );
-
-            setMensagem(
-                "ERRO AO BUSCAR CPF"
-            );
-
-            vibrar("erro");
-        } finally {
-            setCarregando(false);
-        }
-    }
-
-    /* ======================================
        CÂMERA
     ====================================== */
 
@@ -1048,11 +950,9 @@ export default function PortariaPage() {
             return;
         }
 
-        if (
-            !funcionario.trim()
-        ) {
+        if (!funcionario) {
             setMensagem(
-                "INFORME O NOME DO FUNCIONÁRIO"
+                "SELECIONE O FUNCIONÁRIO"
             );
 
             vibrar("erro");
@@ -1067,7 +967,7 @@ export default function PortariaPage() {
                 new Date().toISOString();
 
             const nomeFuncionario =
-                funcionario.trim();
+                funcionario;
 
             const dadosUtilizacao = {
                 statusOperacional:
@@ -1328,7 +1228,9 @@ export default function PortariaPage() {
 
                     {!isOnline && (
                         <p className="mt-2 rounded-lg bg-red-950/40 p-2 text-center text-xs font-semibold text-red-300">
-                            Aviso: Use apenas UM aparelho na portaria enquanto offline.
+                            Aviso: Use apenas UM
+                            aparelho na portaria
+                            enquanto offline.
                         </p>
                     )}
                 </section>
@@ -1367,6 +1269,46 @@ export default function PortariaPage() {
                     </div>
                 </div>
 
+                {/* FUNCIONÁRIO */}
+
+                <section className="mb-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
+                    <p className="mb-2 text-sm font-black uppercase tracking-wide text-slate-600">
+                        Funcionário responsável
+                    </p>
+
+                    <select
+                        value={funcionario}
+                        onChange={(e) =>
+                            setFuncionario(
+                                e.target.value
+                            )
+                        }
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-lg font-black text-slate-900 outline-none focus:border-green-700"
+                    >
+                        <option value="">
+                            SELECIONE O FUNCIONÁRIO
+                        </option>
+
+                        {FUNCIONARIOS.map(
+                            (nome) => (
+                                <option
+                                    key={nome}
+                                    value={nome}
+                                >
+                                    {nome}
+                                </option>
+                            )
+                        )}
+                    </select>
+
+                    {funcionario && (
+                        <p className="mt-3 rounded-xl bg-green-100 p-2 text-center text-sm font-black text-green-800">
+                            ✅ Atendimento:{" "}
+                            {funcionario}
+                        </p>
+                    )}
+                </section>
+
                 {/* RESULTADO */}
 
                 <section
@@ -1392,7 +1334,8 @@ export default function PortariaPage() {
 
                     {valido && (
                         <p className="mt-3 rounded-2xl bg-white/20 p-3 text-lg font-bold">
-                            Liberado para confirmação da entrada.
+                            Liberado para
+                            confirmação da entrada.
                         </p>
                     )}
 
@@ -1412,10 +1355,6 @@ export default function PortariaPage() {
                             <p>
                                 Cliente:{" "}
                                 {pedido.nome}
-                            </p>
-
-                            <p>
-                                CPF: {pedido.cpf}
                             </p>
 
                             <p>
@@ -1511,7 +1450,7 @@ export default function PortariaPage() {
                         </div>
                     )}
 
-                    {/* PMN */}
+                    {/* CÓDIGO PMN */}
 
                     <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                         <input
@@ -1557,59 +1496,18 @@ export default function PortariaPage() {
                         </button>
                     </div>
 
-                    {/* CPF */}
-
-                    <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-                        <input
-                            type="text"
-                            value={cpfBusca}
-                            onChange={(e) =>
-                                setCpfBusca(
-                                    e.target.value
-                                )
-                            }
-                            placeholder="Digite o CPF"
-                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold outline-none focus:border-green-700"
-                        />
-
-                        <button
-                            onClick={
-                                buscarPorCpf
-                            }
-                            disabled={
-                                carregando
-                            }
-                            className="rounded-2xl bg-purple-600 px-5 py-4 font-black text-white disabled:opacity-60"
-                        >
-                            CPF
-                        </button>
-                    </div>
-
-                    {/* FUNCIONÁRIO */}
-
-                    <div className="mt-4">
-                        <input
-                            type="text"
-                            value={
-                                funcionario
-                            }
-                            onChange={(e) =>
-                                setFuncionario(
-                                    e.target.value
-                                )
-                            }
-                            placeholder="Nome do funcionário"
-                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold outline-none focus:border-green-700"
-                        />
-                    </div>
-
                     <button
                         onClick={() => {
                             setPedido(null);
 
                             setCodigoManual("");
 
-                            setCpfBusca("");
+                            /*
+                             * NÃO limpa o funcionário.
+                             * O atendente continua
+                             * selecionado para o
+                             * próximo ingresso.
+                             */
 
                             setMensagem(
                                 "Aguardando leitura do ingresso"
@@ -1617,7 +1515,7 @@ export default function PortariaPage() {
                         }}
                         className="mt-4 w-full rounded-2xl border border-slate-300 px-5 py-4 font-bold text-slate-700"
                     >
-                        LIMPAR
+                        LIMPAR INGRESSO
                     </button>
                 </section>
 
