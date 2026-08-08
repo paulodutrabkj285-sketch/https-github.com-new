@@ -88,10 +88,8 @@ export async function finalizarPagamento({
         pedido.codigoIngresso || gerarCodigoIngresso(pedido.id || pedidoId);
 
     /*
-     * Proteção contra processamento duplicado.
-     *
-     * Webhooks e respostas de gateway podem ser entregues mais de uma vez.
-     * Se o pedido já estiver pago, não devemos alterar novamente a transação.
+     * Se já estiver pago, não processa a transação novamente.
+     * Porém tenta enviar o e-mail caso ainda não tenha sido enviado.
      */
     if (pedido.statusPagamento === "pago") {
         let emailEnviado = Boolean(pedido.emailIngressoEnviado);
@@ -108,6 +106,7 @@ export async function finalizarPagamento({
             pedidoId,
             formaPagamento,
             codigoIngresso,
+            emailEnviado,
         });
 
         return {
@@ -121,10 +120,7 @@ export async function finalizarPagamento({
     }
 
     /*
-     * Conferência de valor.
-     *
-     * Ela ocorre somente quando valorPago foi informado.
-     * Isso permite usar a mesma função para Pix e cartão.
+     * Confere o valor pago, quando ele for informado.
      */
     if (valorPago !== undefined) {
         const valorPedidoCentavos = converterParaCentavos(pedido.valorTotal);
@@ -134,9 +130,7 @@ export async function finalizarPagamento({
             await atualizarPedido(pedidoId, {
                 statusPagamento: "valor_divergente",
                 statusOperacional: "bloqueado",
-
                 formaPagamento,
-
                 valorPago: Number(valorPago),
 
                 sicrediStatus:
@@ -183,12 +177,9 @@ export async function finalizarPagamento({
     const dadosPagamento: Record<string, unknown> = {
         statusPagamento: "pago",
         statusOperacional: "ativo",
-
         formaPagamento,
-
         codigoIngresso,
         qrCodeIngresso: codigoIngresso,
-
         pagamentoConfirmadoEm: dataConfirmacao,
         atualizadoEm: dataConfirmacao,
     };
@@ -284,8 +275,6 @@ async function tentarEnviarEmail({
         await atualizarPedido(pedidoId, {
             emailIngressoEnviado: true,
             emailIngressoEnviadoEm: new Date().toISOString(),
-
-            // Limpa eventual erro anterior.
             emailIngressoErro: "",
             emailIngressoErroEm: "",
         });
@@ -312,10 +301,6 @@ async function tentarEnviarEmail({
             emailIngressoErroEm: new Date().toISOString(),
         });
 
-        /*
-         * O pagamento continua aprovado mesmo se o e-mail falhar.
-         * O ingresso permanece disponível na página de sucesso.
-         */
         return false;
     }
 }
