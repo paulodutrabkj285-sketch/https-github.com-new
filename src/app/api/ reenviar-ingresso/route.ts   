@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buscarPedidoPorId, atualizarPedido } from "@/lib/pedidos";
-import { enviarIngressoPorEmail } from "@/lib/email";
+import {
+    buscarPedidoPorId,
+    atualizarPedido,
+} from "../../../lib/pedidos";
+import { enviarIngressoPorEmail } from "../../../lib/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +12,9 @@ export async function POST(req: NextRequest) {
     let pedidoId = "";
 
     try {
+        // =========================================================
+        // 1. RECEBE O ID DO PEDIDO
+        // =========================================================
         const body = await req.json();
 
         pedidoId = String(body?.pedidoId || "").trim();
@@ -27,6 +33,9 @@ export async function POST(req: NextRequest) {
             pedidoId,
         });
 
+        // =========================================================
+        // 2. BUSCA O PEDIDO NO FIRESTORE
+        // =========================================================
         const pedido: any = await buscarPedidoPorId(pedidoId);
 
         if (!pedido) {
@@ -43,105 +52,110 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (pedido.statusPagamento !== "pago") {
-            console.error("REENVIO: PEDIDO NÃO ESTÁ PAGO", {
-                pedidoId,
-                statusPagamento: pedido.statusPagamento,
-            });
-
-            return NextResponse.json(
-                {
-                    ok: false,
-                    error: "O pedido ainda não está pago.",
-                },
-                { status: 400 }
-            );
-        }
-
-        if (!pedido.email) {
-            console.error("REENVIO: PEDIDO SEM E-MAIL", {
-                pedidoId,
-            });
-
-            return NextResponse.json(
-                {
-                    ok: false,
-                    error: "O pedido não possui endereço de e-mail.",
-                },
-                { status: 400 }
-            );
-        }
-
-        const codigoIngresso =
-            pedido.codigoIngresso ||
-            pedido.qrCodeIngresso ||
-            `PMN-${pedidoId.slice(-5).toUpperCase()}`;
-
-        console.log("REENVIO: INICIANDO ENVIO", {
+        console.log("REENVIO: PEDIDO ENCONTRADO", {
             pedidoId,
             email: pedido.email,
-            codigoIngresso,
-            produto: pedido.produto,
+            codigoIngresso: pedido.codigoIngresso,
+            statusPagamento: pedido.statusPagamento,
+        });
+
+        // =========================================================
+        // 3. CONFERE SE EXISTE E-MAIL
+        // =========================================================
+        const emailCliente = String(pedido.email || "").trim();
+
+        if (!emailCliente) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "Este pedido não possui e-mail cadastrado.",
+                },
+                { status: 400 }
+            );
+        }
+
+        // =========================================================
+        // 4. CONFERE SE O PEDIDO ESTÁ PAGO
+        // =========================================================
+        const statusPagamento = String(
+            pedido.statusPagamento || ""
+        ).toLowerCase();
+
+        if (
+            statusPagamento !== "pago" &&
+            statusPagamento !== "aprovado" &&
+            statusPagamento !== "approved"
+        ) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error: "O pedido ainda não está com pagamento confirmado.",
+                },
+                { status: 400 }
+            );
+        }
+
+        // =========================================================
+        // 5. ENVIA NOVAMENTE O INGRESSO
+        // =========================================================
+        console.log("REENVIO: ENVIANDO INGRESSO", {
+            pedidoId,
+            email: emailCliente,
         });
 
         await enviarIngressoPorEmail({
-            para: pedido.email,
-            nome: pedido.nome || "Cliente",
-            produto: pedido.produto || "Ingresso Parque Mundo Novo",
+            ...pedido,
+            id: pedido.id || pedidoId,
+        });
 
-            quantidade: Number(
-                pedido.quantidade ||
-                pedido.quantidadePessoas ||
-                1
-            ),
+        // =========================================================
+        // 6. REGISTRA SUCESSO NO FIRESTORE
+        // =========================================================
+        try {
+            await atualizarPedido(pedidoId, {
+                emailIngressoEnviado: true,
+                emailIngressoErro: "",
+                emailIngressoReenviadoEm: new Date().toISOString(),
+            });
+        } catch (erroFirestore) {
+            console.error(
+                "REENVIO: E-MAIL ENVIADO, MAS ERRO AO ATUALIZAR FIRESTORE",
+                erroFirestore
+            );
+        }
 
-            codigoIngresso,
-
+        console.log("REENVIO: INGRESSO ENVIADO COM SUCESSO", {
             pedidoId,
-
-            dataVisita:
-                pedido.dataVisita ||
-                pedido.dataEntrada ||
-                "",
+            email: emailCliente,
         });
 
-        const agora = new Date().toISOString();
-
-        await atualizarPedido(pedidoId, {
-            emailIngressoEnviado: true,
-            emailIngressoEnviadoEm: agora,
-
-            emailIngressoErro: "",
-            emailIngressoErroEm: "",
-
-            atualizadoEm: agora,
-        });
-
-        console.log("REENVIO: E-MAIL ENVIADO COM SUCESSO", {
-            pedidoId,
-            email: pedido.email,
-            codigoIngresso,
-        });
-
-        return NextResponse.json({
-            ok: true,
-            mensagem: "Ingresso enviado por e-mail com sucesso.",
-            pedidoId,
-            email: pedido.email,
-            codigoIngresso,
-        });
-    } catch (error: any) {
-        const mensagemErro = String(
-            error?.message ||
-            error ||
-            "Erro desconhecido ao enviar o ingresso."
+        // =========================================================
+        // 7. RESPOSTA DE SUCESSO
+        // =========================================================
+        return NextResponse.json(
+            {
+                ok: true,
+                pedidoId,
+                email: emailCliente,
+                mensagem: "Ingresso reenviado com sucesso.",
+            },
+            { status: 200 }
         );
+    } catch (error: any) {
+        // =========================================================
+        // 8. TRATAMENTO DE ERRO
+        // =========================================================
+        const mensagemErro =
+            error?.message ||
+            error?.response?.data?.message ||
+            String(error);
 
-        console.error("REENVIO: ERRO AO ENVIAR E-MAIL", {
+        console.error("REENVIO: ERRO AO ENVIAR INGRESSO", {
             pedidoId,
             erro: mensagemErro,
         });
 
+        // Tenta registrar a falha no Firestore
         if (pedidoId) {
             try {
                 await atualizarPedido(pedidoId, {
