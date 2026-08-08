@@ -10,22 +10,29 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
+
 import { db } from "./firebase";
 
 export type PedidoInput = {
   produto: string;
   tipo: string;
+
   nome: string;
   cpf: string;
   telefone: string;
   email: string;
+
   dataVisita?: string;
   dataEntrada?: string;
+
   noites?: number;
   quantidadePessoas?: number;
+
   quantidade: number;
+
   valorUnitario: number;
   valorTotal: number;
+
   statusPagamento: string;
   statusOperacional: string;
 
@@ -45,6 +52,7 @@ export type PedidoInput = {
   // Lembretes de compra pendente
   lembrete24hEnviado?: boolean;
   lembrete24hEnviadoEm?: string;
+
   lembrete7dEnviado?: boolean;
   lembrete7dEnviadoEm?: string;
 
@@ -58,9 +66,14 @@ export type PedidoInput = {
 
 export type Pedido = PedidoInput & {
   id: string;
+
   createdAt?: string;
   updatedAt?: string;
+
   expiracaoPix?: string;
+
+  // Controle de Pix expirado
+  pixExpiradoEm?: string;
 
   sicrediTxid?: string;
   sicrediStatus?: string;
@@ -81,68 +94,261 @@ export type Pedido = PedidoInput & {
   pixHorario?: string;
 };
 
+/* ==========================================
+   CÓDIGO DO INGRESSO
+========================================== */
+
 function gerarCodigoIngresso() {
-  const numero = Math.floor(10000 + Math.random() * 90000);
+  const numero =
+    Math.floor(
+      10000 +
+      Math.random() * 90000
+    );
 
   return `PMN-${numero}`;
 }
 
+/* ==========================================
+   EXPIRAÇÃO DO PIX
+========================================== */
+
 function gerarExpiracaoPix() {
   const agora = new Date();
 
-  agora.setHours(agora.getHours() + 1);
+  agora.setHours(
+    agora.getHours() + 1
+  );
 
   return agora.toISOString();
 }
 
-function limparCpf(valor: string) {
-  return String(valor || "").replace(/\D/g, "");
+/*
+ * Verifica se um pedido pendente já ultrapassou
+ * o horário limite do Pix.
+ */
+function pixEstaExpirado(
+  pedido: Pedido
+) {
+  if (
+    pedido.statusPagamento !==
+    "pendente"
+  ) {
+    return false;
+  }
+
+  if (!pedido.expiracaoPix) {
+    return false;
+  }
+
+  const expiracao =
+    new Date(
+      pedido.expiracaoPix
+    ).getTime();
+
+  if (
+    !Number.isFinite(
+      expiracao
+    )
+  ) {
+    return false;
+  }
+
+  return Date.now() > expiracao;
+}
+
+/*
+ * Atualiza automaticamente os pedidos
+ * cujo Pix venceu.
+ *
+ * IMPORTANTE:
+ * somente pedidos "pendente" são alterados.
+ *
+ * Um pedido pago nunca será marcado
+ * como expirado por esta função.
+ */
+async function atualizarPixExpirados(
+  pedidos: Pedido[]
+) {
+  const expirados =
+    pedidos.filter(
+      pixEstaExpirado
+    );
+
+  if (
+    expirados.length === 0
+  ) {
+    return pedidos;
+  }
+
+  const agora =
+    new Date().toISOString();
+
+  await Promise.all(
+    expirados.map(
+      async (pedido) => {
+        try {
+          const ref = doc(
+            db,
+            "pedidos",
+            pedido.id
+          );
+
+          await updateDoc(
+            ref,
+            {
+              statusPagamento:
+                "expirado",
+
+              statusOperacional:
+                "expirado",
+
+              pixExpiradoEm:
+                agora,
+
+              updatedAt:
+                agora,
+            }
+          );
+
+          /*
+           * Atualiza também o objeto em memória
+           * para o painel mostrar "expirado"
+           * imediatamente.
+           */
+          pedido.statusPagamento =
+            "expirado";
+
+          pedido.statusOperacional =
+            "expirado";
+
+          pedido.pixExpiradoEm =
+            agora;
+
+          pedido.updatedAt =
+            agora;
+
+          console.log(
+            "PIX EXPIRADO:",
+            {
+              pedidoId:
+                pedido.id,
+
+              expiracaoPix:
+                pedido.expiracaoPix,
+            }
+          );
+        } catch (error) {
+          /*
+           * Se um pedido individual falhar,
+           * não derruba toda a listagem.
+           */
+          console.error(
+            "ERRO AO MARCAR PIX COMO EXPIRADO:",
+            {
+              pedidoId:
+                pedido.id,
+
+              error,
+            }
+          );
+        }
+      }
+    )
+  );
+
+  return pedidos;
 }
 
 /* ==========================================
-   CRIAÇÃO E ATUALIZAÇÃO
+   CPF
 ========================================== */
 
-export async function criarPedido(dados: PedidoInput) {
+function limparCpf(
+  valor: string
+) {
+  return String(
+    valor || ""
+  ).replace(/\D/g, "");
+}
+
+/* ==========================================
+   CRIAÇÃO DO PEDIDO
+========================================== */
+
+export async function criarPedido(
+  dados: PedidoInput
+) {
   const codigoIngresso =
-    dados.codigoIngresso || gerarCodigoIngresso();
+    dados.codigoIngresso ||
+    gerarCodigoIngresso();
 
-  const ref = await addDoc(collection(db, "pedidos"), {
-    ...dados,
+  const ref =
+    await addDoc(
+      collection(
+        db,
+        "pedidos"
+      ),
+      {
+        ...dados,
 
-    codigoIngresso,
+        codigoIngresso,
 
-    expiracaoPix: gerarExpiracaoPix(),
+        expiracaoPix:
+          gerarExpiracaoPix(),
 
-    createdAt: new Date().toISOString(),
-  });
+        createdAt:
+          new Date().toISOString(),
+      }
+    );
 
   return ref.id;
 }
 
+/* ==========================================
+   ATUALIZAÇÃO DO PEDIDO
+========================================== */
+
 export async function atualizarPedido(
   pedidoId: string,
-  dados: Partial<Pedido> & Record<string, unknown>
+  dados:
+    Partial<Pedido> &
+    Record<
+      string,
+      unknown
+    >
 ) {
-  const ref = doc(db, "pedidos", pedidoId);
+  const ref = doc(
+    db,
+    "pedidos",
+    pedidoId
+  );
 
-  await updateDoc(ref, {
-    ...dados,
+  await updateDoc(
+    ref,
+    {
+      ...dados,
 
-    updatedAt: new Date().toISOString(),
-  });
+      updatedAt:
+        new Date().toISOString(),
+    }
+  );
 }
 
 /* ==========================================
-   CONSULTAS
+   BUSCAR POR ID
 ========================================== */
 
 export async function buscarPedidoPorId(
   pedidoId: string
 ): Promise<Pedido | null> {
-  const ref = doc(db, "pedidos", pedidoId);
+  const ref = doc(
+    db,
+    "pedidos",
+    pedidoId
+  );
 
-  const snap = await getDoc(ref);
+  const snap =
+    await getDoc(ref);
 
   if (!snap.exists()) {
     return null;
@@ -150,25 +356,32 @@ export async function buscarPedidoPorId(
 
   return {
     id: snap.id,
+
     ...snap.data(),
   } as Pedido;
 }
 
 /* ==========================================
-   BUSCAR PEDIDO POR TXID SICREDI
+   BUSCAR POR TXID SICREDI
 ========================================== */
 
 export async function buscarPedidoPorTxid(
   txid: string
 ): Promise<Pedido | null> {
-  const txidLimpo = String(txid || "").trim();
+  const txidLimpo =
+    String(
+      txid || ""
+    ).trim();
 
   if (!txidLimpo) {
     return null;
   }
 
   const q = query(
-    collection(db, "pedidos"),
+    collection(
+      db,
+      "pedidos"
+    ),
 
     where(
       "sicrediTxid",
@@ -179,16 +392,19 @@ export async function buscarPedidoPorTxid(
     limit(1)
   );
 
-  const snap = await getDocs(q);
+  const snap =
+    await getDocs(q);
 
   if (snap.empty) {
     return null;
   }
 
-  const docItem = snap.docs[0];
+  const docItem =
+    snap.docs[0];
 
   return {
     id: docItem.id,
+
     ...docItem.data(),
   } as Pedido;
 }
@@ -200,14 +416,18 @@ export async function buscarPedidoPorTxid(
 export async function buscarPedidosPorCpf(
   cpf: string
 ) {
-  const cpfLimpo = limparCpf(cpf);
+  const cpfLimpo =
+    limparCpf(cpf);
 
   if (!cpfLimpo) {
     return [];
   }
 
   const q = query(
-    collection(db, "pedidos"),
+    collection(
+      db,
+      "pedidos"
+    ),
 
     where(
       "cpf",
@@ -221,34 +441,50 @@ export async function buscarPedidosPorCpf(
     )
   );
 
-  const snap = await getDocs(q);
+  const snap =
+    await getDocs(q);
 
-  return snap.docs.map((docItem) => ({
-    id: docItem.id,
+  const pedidos =
+    snap.docs.map(
+      (docItem) => ({
+        id: docItem.id,
 
-    ...docItem.data(),
-  })) as Pedido[];
+        ...docItem.data(),
+      })
+    ) as Pedido[];
+
+  /*
+   * Também verifica se algum pedido
+   * desse CPF possui Pix expirado.
+   */
+  return await atualizarPixExpirados(
+    pedidos
+  );
 }
 
 /* ==========================================
-   BUSCAR PEDIDO PELO CÓDIGO PMN
+   BUSCAR PELO CÓDIGO PMN
 ========================================== */
 
 export async function buscarPedidoPorCodigo(
   codigo: string
 ): Promise<Pedido | null> {
-  const codigoLimpo = String(
-    codigo || ""
-  )
-    .trim()
-    .toUpperCase();
+  const codigoLimpo =
+    String(
+      codigo || ""
+    )
+      .trim()
+      .toUpperCase();
 
   if (!codigoLimpo) {
     return null;
   }
 
   const q = query(
-    collection(db, "pedidos"),
+    collection(
+      db,
+      "pedidos"
+    ),
 
     where(
       "codigoIngresso",
@@ -259,28 +495,44 @@ export async function buscarPedidoPorCodigo(
     limit(1)
   );
 
-  const snap = await getDocs(q);
+  const snap =
+    await getDocs(q);
 
   if (snap.empty) {
     return null;
   }
 
-  const docItem = snap.docs[0];
+  const docItem =
+    snap.docs[0];
 
-  return {
+  const pedido = {
     id: docItem.id,
 
     ...docItem.data(),
   } as Pedido;
+
+  /*
+   * Se for um pedido pendente
+   * cujo Pix venceu, atualiza.
+   */
+  const resultado =
+    await atualizarPixExpirados(
+      [pedido]
+    );
+
+  return resultado[0];
 }
 
 /* ==========================================
-   LISTAGEM GERAL
+   LISTAGEM GERAL / ADMIN
 ========================================== */
 
 export async function listarPedidos() {
   const q = query(
-    collection(db, "pedidos"),
+    collection(
+      db,
+      "pedidos"
+    ),
 
     orderBy(
       "createdAt",
@@ -288,13 +540,27 @@ export async function listarPedidos() {
     )
   );
 
-  const snap = await getDocs(q);
+  const snap =
+    await getDocs(q);
 
-  return snap.docs.map((docItem) => ({
-    id: docItem.id,
+  const pedidos =
+    snap.docs.map(
+      (docItem) => ({
+        id: docItem.id,
 
-    ...docItem.data(),
-  })) as Pedido[];
+        ...docItem.data(),
+      })
+    ) as Pedido[];
+
+  /*
+   * Toda vez que o Admin carregar
+   * a lista de pedidos, os Pix vencidos
+   * serão automaticamente marcados
+   * como "expirado".
+   */
+  return await atualizarPixExpirados(
+    pedidos
+  );
 }
 
 /* ==========================================
@@ -302,35 +568,24 @@ export async function listarPedidos() {
 ========================================== */
 
 /*
- * Lista os pedidos pagos.
+ * A portaria recebe SOMENTE pedidos pagos.
  *
- * IMPORTANTE:
+ * Pedidos:
  *
- * Antes utilizávamos:
+ * pendente
+ * expirado
+ * cancelado
+ * valor_divergente
  *
- * where("statusPagamento", "==", "pago")
- * +
- * orderBy("createdAt", "desc")
- *
- * Essa combinação pode exigir índice composto
- * no Firestore.
- *
- * Se o índice não existir, a consulta falha.
- *
- * Quando isso acontecia:
- *
- * - Portaria mostrava "Sincronizado: Nunca"
- * - QR Code não era encontrado
- * - Código PMN não era encontrado
- * - CPF não era encontrado
- *
- * Agora buscamos apenas pelos pedidos pagos
- * e fazemos a ordenação no JavaScript.
+ * nunca entram na lista da portaria.
  */
 
 export async function listarPedidosAtivosPortaria() {
   const q = query(
-    collection(db, "pedidos"),
+    collection(
+      db,
+      "pedidos"
+    ),
 
     where(
       "statusPagamento",
@@ -339,31 +594,47 @@ export async function listarPedidosAtivosPortaria() {
     )
   );
 
-  const snap = await getDocs(q);
+  const snap =
+    await getDocs(q);
 
-  const pedidos = snap.docs.map(
-    (docItem) => ({
-      id: docItem.id,
+  const pedidos =
+    snap.docs.map(
+      (docItem) => ({
+        id: docItem.id,
 
-      ...docItem.data(),
-    })
-  ) as Pedido[];
+        ...docItem.data(),
+      })
+    ) as Pedido[];
 
   /*
-   * Ordena do pedido mais recente
+   * Ordena do mais recente
    * para o mais antigo.
+   *
+   * Fazemos no JavaScript para
+   * não precisar de índice composto.
    */
-  pedidos.sort((a, b) => {
-    const dataA = a.createdAt
-      ? new Date(a.createdAt).getTime()
-      : 0;
+  pedidos.sort(
+    (a, b) => {
+      const dataA =
+        a.createdAt
+          ? new Date(
+            a.createdAt
+          ).getTime()
+          : 0;
 
-    const dataB = b.createdAt
-      ? new Date(b.createdAt).getTime()
-      : 0;
+      const dataB =
+        b.createdAt
+          ? new Date(
+            b.createdAt
+          ).getTime()
+          : 0;
 
-    return dataB - dataA;
-  });
+      return (
+        dataB -
+        dataA
+      );
+    }
+  );
 
   return pedidos;
 }
@@ -385,28 +656,46 @@ export function calcularResumoFinanceiro(
         "pago"
     );
 
+  /*
+   * Agora pendente significa
+   * realmente pagamento ainda
+   * dentro do prazo.
+   */
   const pedidosPendentes =
     pedidos.filter(
       (pedido) =>
-        pedido.statusPagamento !==
-        "pago"
+        pedido.statusPagamento ===
+        "pendente"
+    );
+
+  const pedidosExpirados =
+    pedidos.filter(
+      (pedido) =>
+        pedido.statusPagamento ===
+        "expirado"
     );
 
   const faturamentoBruto =
     pedidosPagos.reduce(
-      (total, pedido) =>
+      (
+        total,
+        pedido
+      ) =>
         total +
         Number(
-          pedido.valorTotal || 0
+          pedido.valorTotal ||
+          0
         ),
       0
     );
 
-  const taxaPercentual = 4.99;
+  const taxaPercentual =
+    4.99;
 
   const valorTaxas =
     faturamentoBruto *
-    (taxaPercentual / 100);
+    (taxaPercentual /
+      100);
 
   const faturamentoLiquido =
     faturamentoBruto -
@@ -414,10 +703,14 @@ export function calcularResumoFinanceiro(
 
   const quantidadeIngressos =
     pedidosPagos.reduce(
-      (total, pedido) =>
+      (
+        total,
+        pedido
+      ) =>
         total +
         Number(
-          pedido.quantidade || 0
+          pedido.quantidade ||
+          0
         ),
       0
     );
@@ -430,6 +723,9 @@ export function calcularResumoFinanceiro(
 
     totalPendentes:
       pedidosPendentes.length,
+
+    totalExpirados:
+      pedidosExpirados.length,
 
     quantidadeIngressos,
 
