@@ -1,6 +1,11 @@
 "use client";
 
-import { atualizarPedido, listarPedidosAtivosPortaria, Pedido } from "@/lib/pedidos";
+import {
+    atualizarPedido,
+    listarPedidosAtivosPortaria,
+    Pedido,
+} from "@/lib/pedidos";
+
 import {
     listarPedidosLocalmente,
     obterPendentes,
@@ -8,37 +13,76 @@ import {
     salvarPedidosLocalmente,
     sincronizarPendentes,
 } from "@/lib/portariaDb";
+
 import { Html5Qrcode } from "html5-qrcode";
 import { useEffect, useRef, useState } from "react";
 
 export default function PortariaPage() {
     const [pedido, setPedido] = useState<Pedido | null>(null);
-    const [mensagem, setMensagem] = useState("Aguardando leitura do ingresso");
+
+    const [mensagem, setMensagem] = useState(
+        "Aguardando leitura do ingresso"
+    );
+
     const [carregando, setCarregando] = useState(false);
+
     const [cameraAtiva, setCameraAtiva] = useState(false);
+
     const [codigoManual, setCodigoManual] = useState("");
+
     const [cpfBusca, setCpfBusca] = useState("");
+
     const [funcionario, setFuncionario] = useState("");
+
     const [splash, setSplash] = useState(true);
 
-    // Estados Offline/Sincronização
+    /* ======================================
+       OFFLINE / SINCRONIZAÇÃO
+    ====================================== */
+
     const [isOnline, setIsOnline] = useState(true);
+
     const [pendentesCount, setPendentesCount] = useState(0);
-    const [ultimaSinc, setUltimaSinc] = useState<string | null>(null);
-    const [sincronizando, setSincronizando] = useState(false);
 
-    const [entradasHoje, setEntradasHoje] = useState(0);
-    const [entradasMes, setEntradasMes] = useState(0);
-    const [totalUtilizados, setTotalUtilizados] = useState(0);
+    const [ultimaSinc, setUltimaSinc] =
+        useState<string | null>(null);
 
-    const leitorRef = useRef<Html5Qrcode | null>(null);
+    const [sincronizando, setSincronizando] =
+        useState(false);
+
+    /* ======================================
+       CONTADORES
+    ====================================== */
+
+    const [entradasHoje, setEntradasHoje] =
+        useState(0);
+
+    const [entradasMes, setEntradasMes] =
+        useState(0);
+
+    const [totalUtilizados, setTotalUtilizados] =
+        useState(0);
+
+    const leitorRef =
+        useRef<Html5Qrcode | null>(null);
+
+    /* ======================================
+       INICIALIZAÇÃO
+    ====================================== */
 
     useEffect(() => {
-        // Monitoramento da conexão de internet
         if (typeof window !== "undefined") {
             setIsOnline(navigator.onLine);
-            window.addEventListener("online", handleOnline);
-            window.addEventListener("offline", handleOffline);
+
+            window.addEventListener(
+                "online",
+                handleOnline
+            );
+
+            window.addEventListener(
+                "offline",
+                handleOffline
+            );
         }
 
         inicializarDados();
@@ -49,20 +93,41 @@ export default function PortariaPage() {
 
         return () => {
             if (typeof window !== "undefined") {
-                window.removeEventListener("online", handleOnline);
-                window.removeEventListener("offline", handleOffline);
+                window.removeEventListener(
+                    "online",
+                    handleOnline
+                );
+
+                window.removeEventListener(
+                    "offline",
+                    handleOffline
+                );
             }
+
             clearTimeout(timer);
         };
     }, []);
 
-    // Força atualização dos contadores de fila
     useEffect(() => {
-        obterPendentes().then((itens) => setPendentesCount(itens.length));
+        obterPendentes()
+            .then((itens) => {
+                setPendentesCount(itens.length);
+            })
+            .catch((error) => {
+                console.error(
+                    "PORTARIA: erro ao contar pendências:",
+                    error
+                );
+            });
     }, [pedido]);
+
+    /* ======================================
+       STATUS INTERNET
+    ====================================== */
 
     function handleOnline() {
         setIsOnline(true);
+
         realizarSincronizacaoAutomatica();
     }
 
@@ -70,72 +135,222 @@ export default function PortariaPage() {
         setIsOnline(false);
     }
 
+    /* ======================================
+       INICIALIZAR DADOS
+    ====================================== */
+
     async function inicializarDados() {
         try {
-            const online = typeof navigator !== "undefined" ? navigator.onLine : true;
-            if (online) {
-                // Carrega da nuvem apenas os pedidos pagos e salva no cache local
-                const pedidosNuvem = await listarPedidosAtivosPortaria();
-                await salvarPedidosLocalmente(pedidosNuvem);
-                const agora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-                setUltimaSinc(agora);
+            const online =
+                typeof navigator !== "undefined"
+                    ? navigator.onLine
+                    : true;
 
-                // Tenta limpar filas pendentes antigas acumuladas
-                await sincronizarPendentes();
+            if (online) {
+                try {
+                    const pedidosNuvem =
+                        await listarPedidosAtivosPortaria();
+
+                    console.log(
+                        "PORTARIA: pedidos carregados do Firestore:",
+                        pedidosNuvem.length
+                    );
+
+                    /*
+                     * O cache local NÃO pode impedir
+                     * o funcionamento online.
+                     */
+                    try {
+                        await salvarPedidosLocalmente(
+                            pedidosNuvem
+                        );
+
+                        console.log(
+                            "PORTARIA: cache local atualizado"
+                        );
+                    } catch (erroCache) {
+                        console.error(
+                            "PORTARIA: erro ao salvar cache local:",
+                            erroCache
+                        );
+                    }
+
+                    const agora =
+                        new Date().toLocaleTimeString(
+                            "pt-BR",
+                            {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                            }
+                        );
+
+                    setUltimaSinc(agora);
+
+                    /*
+                     * Sincroniza entradas feitas
+                     * quando o aparelho estava offline.
+                     */
+                    try {
+                        await sincronizarPendentes();
+                    } catch (erroPendentes) {
+                        console.error(
+                            "PORTARIA: erro ao sincronizar pendentes:",
+                            erroPendentes
+                        );
+                    }
+                } catch (erroFirestore) {
+                    console.error(
+                        "PORTARIA: erro ao carregar Firestore:",
+                        erroFirestore
+                    );
+                }
             }
+
             await atualizarContadores();
         } catch (error) {
-            console.error("Erro ao inicializar cache local:", error);
+            console.error(
+                "PORTARIA: erro geral ao inicializar:",
+                error
+            );
         }
     }
+
+    /* ======================================
+       SINCRONIZAÇÃO MANUAL/AUTOMÁTICA
+    ====================================== */
 
     async function realizarSincronizacaoAutomatica() {
         try {
             setSincronizando(true);
-            const enviados = await sincronizarPendentes();
 
-            // Busca apenas pedidos ativos e pagos para otimizar
-            const pedidosNuvem = await listarPedidosAtivosPortaria();
-            await salvarPedidosLocalmente(pedidosNuvem);
+            let enviados = 0;
 
-            const agora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            try {
+                enviados =
+                    await sincronizarPendentes();
+            } catch (erroPendentes) {
+                console.error(
+                    "PORTARIA: erro ao enviar pendências:",
+                    erroPendentes
+                );
+            }
+
+            const pedidosNuvem =
+                await listarPedidosAtivosPortaria();
+
+            console.log(
+                "PORTARIA: sincronização recebeu",
+                pedidosNuvem.length,
+                "pedido(s)"
+            );
+
+            try {
+                await salvarPedidosLocalmente(
+                    pedidosNuvem
+                );
+            } catch (erroCache) {
+                console.error(
+                    "PORTARIA: erro ao salvar cache durante sincronização:",
+                    erroCache
+                );
+            }
+
+            const agora =
+                new Date().toLocaleTimeString(
+                    "pt-BR",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    }
+                );
+
             setUltimaSinc(agora);
 
-            const pendentes = await obterPendentes();
-            setPendentesCount(pendentes.length);
+            try {
+                const pendentes =
+                    await obterPendentes();
+
+                setPendentesCount(
+                    pendentes.length
+                );
+            } catch (erroPendentes) {
+                console.error(
+                    "PORTARIA: erro ao atualizar fila:",
+                    erroPendentes
+                );
+            }
 
             if (enviados > 0) {
-                setMensagem(`Sincronizado: ${enviados} entrada(s) enviada(s)`);
+                setMensagem(
+                    `Sincronizado: ${enviados} entrada(s) enviada(s)`
+                );
+
                 vibrar("sucesso");
             }
+
             await atualizarContadores();
         } catch (error) {
-            console.error("Sincronização falhou:", error);
+            console.error(
+                "PORTARIA: sincronização falhou:",
+                error
+            );
+
+            setMensagem(
+                "ERRO AO SINCRONIZAR"
+            );
         } finally {
             setSincronizando(false);
         }
     }
 
-    function vibrar(tipo: "sucesso" | "erro") {
-        if (typeof navigator === "undefined" || !navigator.vibrate) return;
+    /* ======================================
+       VIBRAÇÃO
+    ====================================== */
+
+    function vibrar(
+        tipo: "sucesso" | "erro"
+    ) {
+        if (
+            typeof navigator === "undefined" ||
+            !navigator.vibrate
+        ) {
+            return;
+        }
+
         if (tipo === "sucesso") {
             navigator.vibrate(120);
         } else {
-            navigator.vibrate([180, 100, 180]);
+            navigator.vibrate([
+                180,
+                100,
+                180,
+            ]);
         }
     }
+
+    /* ======================================
+       AUXILIARES
+    ====================================== */
 
     function limpar(valor: string) {
         return String(valor || "").trim();
     }
 
     function limparCpf(valor: string) {
-        return String(valor || "").replace(/\D/g, "");
+        return String(valor || "").replace(
+            /\D/g,
+            ""
+        );
     }
 
-    function formatarDataHora(valor?: string) {
+    function formatarDataHora(
+        valor?: string
+    ) {
         if (!valor) return "";
-        return new Date(valor).toLocaleString("pt-BR", {
+
+        return new Date(
+            valor
+        ).toLocaleString("pt-BR", {
             day: "2-digit",
             month: "2-digit",
             year: "numeric",
@@ -145,307 +360,753 @@ export default function PortariaPage() {
     }
 
     function formatarData(valor?: string) {
-        if (!valor) return "Não informada";
-        const partes = valor.split("-");
+        if (!valor) {
+            return "Não informada";
+        }
+
+        const partes =
+            valor.split("-");
+
         if (partes.length === 3) {
             return `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
+
         return valor;
     }
 
-    function verificarValidadeData(dataVisita?: string) {
-        if (!dataVisita) return { valido: true, mensagem: "" };
+    /* ======================================
+       VALIDADE DO INGRESSO
+    ====================================== */
+
+    function verificarValidadeData(
+        dataVisita?: string
+    ) {
+        if (!dataVisita) {
+            return {
+                valido: true,
+                mensagem: "",
+            };
+        }
 
         const hoje = new Date();
+
         hoje.setHours(0, 0, 0, 0);
 
-        const dataIngresso = new Date(`${dataVisita}T00:00:00`);
-        dataIngresso.setHours(0, 0, 0, 0);
+        const dataIngresso =
+            new Date(
+                `${dataVisita}T00:00:00`
+            );
 
-        const inicioPermitido = new Date(dataIngresso);
-        inicioPermitido.setDate(inicioPermitido.getDate() - 1);
+        dataIngresso.setHours(
+            0,
+            0,
+            0,
+            0
+        );
 
-        const fimPermitido = new Date(dataIngresso);
-        fimPermitido.setDate(fimPermitido.getDate() + 30);
+        const inicioPermitido =
+            new Date(dataIngresso);
 
-        if (hoje < inicioPermitido) {
-            return { valido: false, mensagem: "INGRESSO AINDA NÃO VÁLIDO" };
+        inicioPermitido.setDate(
+            inicioPermitido.getDate() - 1
+        );
+
+        const fimPermitido =
+            new Date(dataIngresso);
+
+        fimPermitido.setDate(
+            fimPermitido.getDate() + 30
+        );
+
+        if (
+            hoje <
+            inicioPermitido
+        ) {
+            return {
+                valido: false,
+                mensagem:
+                    "INGRESSO AINDA NÃO VÁLIDO",
+            };
         }
-        if (hoje > fimPermitido) {
-            return { valido: false, mensagem: "INGRESSO EXPIRADO" };
+
+        if (
+            hoje >
+            fimPermitido
+        ) {
+            return {
+                valido: false,
+                mensagem:
+                    "INGRESSO EXPIRADO",
+            };
         }
 
-        return { valido: true, text: "" };
+        return {
+            valido: true,
+            mensagem: "",
+        };
     }
 
-    async function obterListaDePedidosAtiva(): Promise<Pedido[]> {
+    /* ======================================
+       LISTA ATIVA DE PEDIDOS
+  
+       IMPORTANTE:
+       - online: Firestore primeiro
+       - cache local é apenas backup
+       - erro no IndexedDB não derruba
+         a busca online
+    ====================================== */
+
+    async function obterListaDePedidosAtiva(): Promise<
+        Pedido[]
+    > {
         if (isOnline) {
             try {
-                const pedidos = await listarPedidosAtivosPortaria();
-                await salvarPedidosLocalmente(pedidos); // atualiza cache em background
+                const pedidos =
+                    await listarPedidosAtivosPortaria();
+
+                console.log(
+                    "PORTARIA: pedidos encontrados no Firestore:",
+                    pedidos.length
+                );
+
+                /*
+                 * Não deixa erro do cache
+                 * derrubar a lista que já veio
+                 * corretamente do Firestore.
+                 */
+                try {
+                    await salvarPedidosLocalmente(
+                        pedidos
+                    );
+
+                    console.log(
+                        "PORTARIA: cache atualizado com sucesso"
+                    );
+                } catch (erroCache) {
+                    console.error(
+                        "PORTARIA: erro ao salvar cache local:",
+                        erroCache
+                    );
+                }
+
                 return pedidos;
-            } catch {
-                return await listarPedidosLocalmente(); // fallback para o local
+            } catch (erroFirestore) {
+                console.error(
+                    "PORTARIA: erro ao consultar Firestore:",
+                    erroFirestore
+                );
+
+                try {
+                    const locais =
+                        await listarPedidosLocalmente();
+
+                    console.log(
+                        "PORTARIA: usando cache local:",
+                        locais.length
+                    );
+
+                    return locais;
+                } catch (erroLocal) {
+                    console.error(
+                        "PORTARIA: erro ao ler cache local:",
+                        erroLocal
+                    );
+
+                    return [];
+                }
             }
-        } else {
-            return await listarPedidosLocalmente();
+        }
+
+        try {
+            const locais =
+                await listarPedidosLocalmente();
+
+            console.log(
+                "PORTARIA OFFLINE: pedidos locais:",
+                locais.length
+            );
+
+            return locais;
+        } catch (erroLocal) {
+            console.error(
+                "PORTARIA: erro ao ler cache offline:",
+                erroLocal
+            );
+
+            return [];
         }
     }
+
+    /* ======================================
+       CONTADORES
+    ====================================== */
 
     async function atualizarContadores() {
         try {
-            const pedidos = await obterListaDePedidosAtiva();
+            const pedidos =
+                await obterListaDePedidosAtiva();
 
-            const hoje = new Date();
-            const dia = hoje.getDate();
-            const mes = hoje.getMonth();
-            const ano = hoje.getFullYear();
+            const hoje =
+                new Date();
+
+            const dia =
+                hoje.getDate();
+
+            const mes =
+                hoje.getMonth();
+
+            const ano =
+                hoje.getFullYear();
 
             let contadorHoje = 0;
+
             let contadorMes = 0;
+
             let contadorTotal = 0;
 
-            pedidos.forEach((item: any) => {
-                if (item.statusOperacional !== "utilizado") return;
+            pedidos.forEach(
+                (item: any) => {
+                    if (
+                        item.statusOperacional !==
+                        "utilizado"
+                    ) {
+                        return;
+                    }
 
-                contadorTotal++;
+                    contadorTotal++;
 
-                const dataEntrada = item.utilizadoEm || item.validadoEm;
-                if (!dataEntrada) return;
+                    const dataEntrada =
+                        item.utilizadoEm ||
+                        item.validadoEm;
 
-                const data = new Date(dataEntrada);
+                    if (!dataEntrada) {
+                        return;
+                    }
 
-                if (
-                    data.getDate() === dia &&
-                    data.getMonth() === mes &&
-                    data.getFullYear() === ano
-                ) {
-                    contadorHoje++;
+                    const data =
+                        new Date(
+                            dataEntrada
+                        );
+
+                    if (
+                        data.getDate() === dia &&
+                        data.getMonth() === mes &&
+                        data.getFullYear() === ano
+                    ) {
+                        contadorHoje++;
+                    }
+
+                    if (
+                        data.getMonth() === mes &&
+                        data.getFullYear() === ano
+                    ) {
+                        contadorMes++;
+                    }
                 }
+            );
 
-                if (data.getMonth() === mes && data.getFullYear() === ano) {
-                    contadorMes++;
-                }
-            });
+            setEntradasHoje(
+                contadorHoje
+            );
 
-            setEntradasHoje(contadorHoje);
-            setEntradasMes(contadorMes);
-            setTotalUtilizados(contadorTotal);
+            setEntradasMes(
+                contadorMes
+            );
+
+            setTotalUtilizados(
+                contadorTotal
+            );
         } catch (error) {
-            console.error("Erro ao atualizar contadores:", error);
+            console.error(
+                "PORTARIA: erro ao atualizar contadores:",
+                error
+            );
         }
     }
 
-    function extrairQr(texto: string) {
-        const valor = limpar(texto);
+    /* ======================================
+       EXTRAIR QR CODE
+    ====================================== */
+
+    function extrairQr(
+        texto: string
+    ) {
+        const valor =
+            limpar(texto);
+
         try {
-            const dados = JSON.parse(valor);
+            const dados =
+                JSON.parse(valor);
+
             return {
-                codigo: limpar(dados?.codigo || dados?.codigoIngresso || ""),
-                pedidoId: limpar(dados?.pedidoId || ""),
+                codigo: limpar(
+                    dados?.codigo ||
+                    dados?.codigoIngresso ||
+                    ""
+                ),
+
+                pedidoId: limpar(
+                    dados?.pedidoId ||
+                    ""
+                ),
             };
         } catch {
-            return { codigo: valor, pedidoId: "" };
+            return {
+                codigo: valor,
+                pedidoId: "",
+            };
         }
     }
 
-    function validarPedidoEncontrado(encontrado: Pedido, codigo?: string) {
+    /* ======================================
+       VALIDAR PEDIDO
+    ====================================== */
+
+    function validarPedidoEncontrado(
+        encontrado: Pedido,
+        codigo?: string
+    ) {
         setPedido(encontrado);
-        setCodigoManual(encontrado.codigoIngresso || codigo || "");
 
-        if (encontrado.statusPagamento !== "pago") {
-            setMensagem("INGRESSO NÃO PAGO");
+        setCodigoManual(
+            encontrado.codigoIngresso ||
+            codigo ||
+            ""
+        );
+
+        if (
+            encontrado.statusPagamento !==
+            "pago"
+        ) {
+            setMensagem(
+                "INGRESSO NÃO PAGO"
+            );
+
             vibrar("erro");
+
             return;
         }
 
-        if (encontrado.statusOperacional === "utilizado") {
-            setMensagem("INGRESSO JÁ UTILIZADO");
+        if (
+            encontrado.statusOperacional ===
+            "utilizado"
+        ) {
+            setMensagem(
+                "INGRESSO JÁ UTILIZADO"
+            );
+
             vibrar("erro");
+
             return;
         }
 
-        if (encontrado.statusOperacional === "bloqueado") {
-            setMensagem("INGRESSO BLOQUEADO");
+        if (
+            encontrado.statusOperacional ===
+            "bloqueado"
+        ) {
+            setMensagem(
+                "INGRESSO BLOQUEADO"
+            );
+
             vibrar("erro");
+
             return;
         }
 
-        const validade = verificarValidadeData(encontrado.dataVisita);
+        const validade =
+            verificarValidadeData(
+                encontrado.dataVisita
+            );
+
         if (!validade.valido) {
-            setMensagem(validade.mensagem || "INGRESSO FORA DO PERÍODO");
+            setMensagem(
+                validade.mensagem ||
+                "INGRESSO FORA DO PERÍODO"
+            );
+
             vibrar("erro");
+
             return;
         }
 
-        setMensagem("INGRESSO VÁLIDO");
+        setMensagem(
+            "INGRESSO VÁLIDO"
+        );
+
         vibrar("sucesso");
     }
 
-    async function buscarIngresso(textoQr: string) {
+    /* ======================================
+       BUSCAR QR / CÓDIGO PMN
+    ====================================== */
+
+    async function buscarIngresso(
+        textoQr: string
+    ) {
         try {
             setCarregando(true);
+
             setPedido(null);
 
-            const dadosQr = extrairQr(textoQr);
-            const pedidos = await obterListaDePedidosAtiva();
+            const dadosQr =
+                extrairQr(textoQr);
 
-            const encontrado = pedidos.find((item) => {
-                return (
-                    limpar(item.codigoIngresso || "") === dadosQr.codigo ||
-                    limpar(item.qrCodeIngresso || "") === dadosQr.codigo ||
-                    limpar(item.id || "") === dadosQr.codigo ||
-                    limpar(item.id || "") === dadosQr.pedidoId
+            console.log(
+                "PORTARIA: buscando ingresso:",
+                dadosQr
+            );
+
+            const pedidos =
+                await obterListaDePedidosAtiva();
+
+            console.log(
+                "PORTARIA: total disponível para busca:",
+                pedidos.length
+            );
+
+            const encontrado =
+                pedidos.find(
+                    (item) => {
+                        const codigoIngresso =
+                            limpar(
+                                item.codigoIngresso ||
+                                ""
+                            );
+
+                        const qrCode =
+                            limpar(
+                                item.qrCodeIngresso ||
+                                ""
+                            );
+
+                        const id =
+                            limpar(
+                                item.id ||
+                                ""
+                            );
+
+                        return (
+                            codigoIngresso ===
+                            dadosQr.codigo ||
+                            qrCode ===
+                            dadosQr.codigo ||
+                            id ===
+                            dadosQr.codigo ||
+                            id ===
+                            dadosQr.pedidoId
+                        );
+                    }
                 );
-            });
 
             await pararCamera();
 
             if (!encontrado) {
-                setMensagem("INGRESSO NÃO ENCONTRADO");
+                console.log(
+                    "PORTARIA: ingresso não encontrado:",
+                    dadosQr
+                );
+
+                setMensagem(
+                    "INGRESSO NÃO ENCONTRADO"
+                );
+
                 vibrar("erro");
+
                 return;
             }
 
-            validarPedidoEncontrado(encontrado, dadosQr.codigo);
+            console.log(
+                "PORTARIA: ingresso encontrado:",
+                encontrado.id,
+                encontrado.codigoIngresso
+            );
+
+            validarPedidoEncontrado(
+                encontrado,
+                dadosQr.codigo
+            );
         } catch (error) {
-            console.error(error);
-            setMensagem("ERRO AO VALIDAR INGRESSO");
+            console.error(
+                "PORTARIA: erro ao validar ingresso:",
+                error
+            );
+
+            setMensagem(
+                "ERRO AO VALIDAR INGRESSO"
+            );
+
             vibrar("erro");
         } finally {
             setCarregando(false);
         }
     }
 
+    /* ======================================
+       BUSCAR CPF
+    ====================================== */
+
     async function buscarPorCpf() {
         try {
             setCarregando(true);
+
             setPedido(null);
 
-            const cpfLimpo = limparCpf(cpfBusca);
+            const cpfLimpo =
+                limparCpf(cpfBusca);
+
             if (!cpfLimpo) {
-                setMensagem("DIGITE O CPF");
+                setMensagem(
+                    "DIGITE O CPF"
+                );
+
                 vibrar("erro");
+
                 return;
             }
 
-            const pedidos = await obterListaDePedidosAtiva();
+            const pedidos =
+                await obterListaDePedidosAtiva();
 
-            const encontrados = pedidos.filter((item) => {
-                const cpfPedido = limparCpf(item.cpf || "");
-                return cpfPedido === cpfLimpo;
-            });
+            const encontrados =
+                pedidos.filter(
+                    (item) => {
+                        const cpfPedido =
+                            limparCpf(
+                                item.cpf ||
+                                ""
+                            );
 
-            if (encontrados.length === 0) {
-                setMensagem("CPF NÃO ENCONTRADO");
+                        return (
+                            cpfPedido ===
+                            cpfLimpo
+                        );
+                    }
+                );
+
+            if (
+                encontrados.length === 0
+            ) {
+                setMensagem(
+                    "CPF NÃO ENCONTRADO"
+                );
+
                 vibrar("erro");
+
                 return;
             }
 
             const encontrado =
                 encontrados.find(
                     (item) =>
-                        item.statusPagamento === "pago" &&
-                        item.statusOperacional !== "utilizado" &&
-                        item.statusOperacional !== "bloqueado" &&
-                        verificarValidadeData(item.dataVisita).valido
-                ) || encontrados[0];
+                        item.statusPagamento ===
+                        "pago" &&
+                        item.statusOperacional !==
+                        "utilizado" &&
+                        item.statusOperacional !==
+                        "bloqueado" &&
+                        verificarValidadeData(
+                            item.dataVisita
+                        ).valido
+                ) ||
+                encontrados[0];
 
-            validarPedidoEncontrado(encontrado, encontrado.codigoIngresso || "");
+            validarPedidoEncontrado(
+                encontrado,
+                encontrado.codigoIngresso ||
+                ""
+            );
         } catch (error) {
-            console.error(error);
-            setMensagem("ERRO AO BUSCAR CPF");
+            console.error(
+                "PORTARIA: erro ao buscar CPF:",
+                error
+            );
+
+            setMensagem(
+                "ERRO AO BUSCAR CPF"
+            );
+
             vibrar("erro");
         } finally {
             setCarregando(false);
         }
     }
 
+    /* ======================================
+       CÂMERA
+    ====================================== */
+
     async function iniciarCamera() {
         setPedido(null);
-        setMensagem("Aponte a câmera para o QR Code");
+
+        setMensagem(
+            "Aponte a câmera para o QR Code"
+        );
+
         setCameraAtiva(true);
 
-        setTimeout(async () => {
-            try {
-                const leitor = new Html5Qrcode("leitor-portaria");
-                leitorRef.current = leitor;
+        setTimeout(
+            async () => {
+                try {
+                    const leitor =
+                        new Html5Qrcode(
+                            "leitor-portaria"
+                        );
 
-                await leitor.start(
-                    { facingMode: "environment" },
-                    {
-                        fps: 10,
-                        qrbox: { width: 280, height: 280 },
-                    },
-                    async (texto) => {
-                        if (texto) {
-                            await buscarIngresso(texto);
-                        }
-                    },
-                    () => { }
-                );
-            } catch (error) {
-                console.error(error);
-                setMensagem("NÃO FOI POSSÍVEL ACESSAR A CÂMERA");
-                setCameraAtiva(false);
-                vibrar("erro");
-            }
-        }, 300);
+                    leitorRef.current =
+                        leitor;
+
+                    await leitor.start(
+                        {
+                            facingMode:
+                                "environment",
+                        },
+
+                        {
+                            fps: 10,
+
+                            qrbox: {
+                                width: 280,
+                                height: 280,
+                            },
+                        },
+
+                        async (texto) => {
+                            if (texto) {
+                                await buscarIngresso(
+                                    texto
+                                );
+                            }
+                        },
+
+                        () => { }
+                    );
+                } catch (error) {
+                    console.error(
+                        "PORTARIA: erro câmera:",
+                        error
+                    );
+
+                    setMensagem(
+                        "NÃO FOI POSSÍVEL ACESSAR A CÂMERA"
+                    );
+
+                    setCameraAtiva(
+                        false
+                    );
+
+                    vibrar("erro");
+                }
+            },
+            300
+        );
     }
 
     async function pararCamera() {
         try {
-            if (leitorRef.current) {
+            if (
+                leitorRef.current
+            ) {
                 await leitorRef.current.stop();
+
                 await leitorRef.current.clear();
-                leitorRef.current = null;
+
+                leitorRef.current =
+                    null;
             }
         } catch (error) {
-            console.error(error);
+            console.error(
+                "PORTARIA: erro ao parar câmera:",
+                error
+            );
         } finally {
             setCameraAtiva(false);
         }
     }
 
-    async function confirmarEntrada() {
-        if (!pedido) return;
+    /* ======================================
+       CONFIRMAR ENTRADA
+    ====================================== */
 
-        const validade = verificarValidadeData(pedido.dataVisita);
-        if (!validade.valido) {
-            setMensagem(validade.mensagem || "INGRESSO INVÁLIDO");
-            vibrar("erro");
+    async function confirmarEntrada() {
+        if (!pedido) {
             return;
         }
 
-        if (!funcionario.trim()) {
-            setMensagem("INFORME O NOME DO FUNCIONÁRIO");
+        const validade =
+            verificarValidadeData(
+                pedido.dataVisita
+            );
+
+        if (!validade.valido) {
+            setMensagem(
+                validade.mensagem ||
+                "INGRESSO INVÁLIDO"
+            );
+
             vibrar("erro");
+
+            return;
+        }
+
+        if (
+            !funcionario.trim()
+        ) {
+            setMensagem(
+                "INFORME O NOME DO FUNCIONÁRIO"
+            );
+
+            vibrar("erro");
+
             return;
         }
 
         try {
             setCarregando(true);
 
-            const agora = new Date().toISOString();
-            const nomeFuncionario = funcionario.trim();
+            const agora =
+                new Date().toISOString();
+
+            const nomeFuncionario =
+                funcionario.trim();
 
             const dadosUtilizacao = {
-                statusOperacional: "utilizado",
-                validadoPor: nomeFuncionario,
-                validadoEm: agora,
-                utilizadoEm: agora,
+                statusOperacional:
+                    "utilizado",
+
+                validadoPor:
+                    nomeFuncionario,
+
+                validadoEm:
+                    agora,
+
+                utilizadoEm:
+                    agora,
             };
 
             if (isOnline) {
-                // Fluxo Online Padrão
-                await atualizarPedido(pedido.id, dadosUtilizacao);
+                await atualizarPedido(
+                    pedido.id,
+                    dadosUtilizacao
+                );
 
-                // Sincroniza cache local em background
-                const pedidosNuvem = await listarPedidosAtivosPortaria();
-                await salvarPedidosLocalmente(pedidosNuvem);
+                try {
+                    const pedidosNuvem =
+                        await listarPedidosAtivosPortaria();
+
+                    await salvarPedidosLocalmente(
+                        pedidosNuvem
+                    );
+                } catch (erroCache) {
+                    console.error(
+                        "PORTARIA: erro ao atualizar cache após entrada:",
+                        erroCache
+                    );
+                }
             } else {
-                // Fluxo Offline
-                await registrarValidacaoOffline(pedido.id, dadosUtilizacao);
+                await registrarValidacaoOffline(
+                    pedido.id,
+                    dadosUtilizacao
+                );
             }
 
             setPedido({
@@ -453,23 +1114,49 @@ export default function PortariaPage() {
                 ...dadosUtilizacao,
             } as Pedido);
 
-            setMensagem("ENTRADA CONFIRMADA");
+            setMensagem(
+                "ENTRADA CONFIRMADA"
+            );
+
             vibrar("sucesso");
 
-            const pendentes = await obterPendentes();
-            setPendentesCount(pendentes.length);
+            try {
+                const pendentes =
+                    await obterPendentes();
+
+                setPendentesCount(
+                    pendentes.length
+                );
+            } catch (error) {
+                console.error(
+                    "PORTARIA: erro fila:",
+                    error
+                );
+            }
 
             await atualizarContadores();
         } catch (error) {
-            console.error(error);
-            setMensagem("ERRO AO CONFIRMAR ENTRADA");
+            console.error(
+                "PORTARIA: erro ao confirmar entrada:",
+                error
+            );
+
+            setMensagem(
+                "ERRO AO CONFIRMAR ENTRADA"
+            );
+
             vibrar("erro");
         } finally {
             setCarregando(false);
         }
     }
 
-    const pedidoAny = pedido as
+    /* ======================================
+       ESTADO VISUAL
+    ====================================== */
+
+    const pedidoAny =
+        pedido as
         | (Pedido & {
             utilizadoEm?: string;
             validadoEm?: string;
@@ -477,57 +1164,94 @@ export default function PortariaPage() {
         })
         | null;
 
-    const usadoEm = pedidoAny?.utilizadoEm || pedidoAny?.validadoEm || "";
-    const validadoPor = pedidoAny?.validadoPor || "";
-    const validadeAtual = verificarValidadeData(pedido?.dataVisita);
+    const usadoEm =
+        pedidoAny?.utilizadoEm ||
+        pedidoAny?.validadoEm ||
+        "";
+
+    const validadoPor =
+        pedidoAny?.validadoPor ||
+        "";
+
+    const validadeAtual =
+        verificarValidadeData(
+            pedido?.dataVisita
+        );
 
     const valido =
-        pedido &&
-        pedido.statusPagamento === "pago" &&
-        pedido.statusOperacional !== "utilizado" &&
-        pedido.statusOperacional !== "bloqueado" &&
+        !!pedido &&
+        pedido.statusPagamento ===
+        "pago" &&
+        pedido.statusOperacional !==
+        "utilizado" &&
+        pedido.statusOperacional !==
+        "bloqueado" &&
         validadeAtual.valido;
 
-    const usado = pedido?.statusOperacional === "utilizado";
+    const usado =
+        pedido?.statusOperacional ===
+        "utilizado";
 
-    const painelClass = valido
-        ? "bg-green-600/95 border-green-300"
-        : usado || pedido
-            ? "bg-red-600/95 border-red-300"
-            : "bg-slate-950/85 border-white/30";
+    const painelClass =
+        valido
+            ? "bg-green-600/95 border-green-300"
+            : usado || pedido
+                ? "bg-red-600/95 border-red-300"
+                : "bg-slate-950/85 border-white/30";
+
+    /* ======================================
+       SPLASH
+    ====================================== */
 
     if (splash) {
         return (
             <main
                 className="flex min-h-screen items-center justify-center bg-cover bg-center px-6 text-white"
-                style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
+                style={{
+                    backgroundImage:
+                        "url('/fotos/fundo-geral.jpg')",
+                }}
             >
                 <div className="absolute inset-0 bg-black/70" />
+
                 <div className="relative z-10 flex flex-col items-center text-center">
                     <img
                         src="/logo-final.png"
                         alt="Parque Mundo Novo"
                         className="h-36 w-36 rounded-3xl bg-white/10 object-contain p-3 shadow-2xl"
                     />
+
                     <h1 className="mt-6 text-3xl font-black drop-shadow-lg">
                         Parque Mundo Novo
                     </h1>
+
                     <p className="mt-2 text-lg font-semibold text-white/90">
                         Portaria Digital
                     </p>
+
                     <div className="mt-8 h-2 w-44 overflow-hidden rounded-full bg-white/20">
                         <div className="h-full w-1/2 animate-pulse rounded-full bg-green-400" />
                     </div>
-                    <p className="mt-4 text-sm text-white/70">Carregando sistema...</p>
+
+                    <p className="mt-4 text-sm text-white/70">
+                        Carregando sistema...
+                    </p>
                 </div>
             </main>
         );
     }
 
+    /* ======================================
+       TELA PRINCIPAL
+    ====================================== */
+
     return (
         <main
             className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-5 text-white"
-            style={{ backgroundImage: "url('/fotos/fundo-geral.jpg')" }}
+            style={{
+                backgroundImage:
+                    "url('/fotos/fundo-geral.jpg')",
+            }}
         >
             <div className="absolute inset-0 bg-black/65" />
 
@@ -538,42 +1262,63 @@ export default function PortariaPage() {
                         alt="Parque Mundo Novo"
                         className="mx-auto h-20 w-20 rounded-3xl bg-white/10 object-contain p-2 shadow-xl"
                     />
+
                     <h1 className="mt-2 text-2xl font-black drop-shadow-lg">
                         Portaria Digital
                     </h1>
                 </header>
 
-                {/* --- PAINEL DE STATUS OFFLINE / SINCRONIZAÇÃO --- */}
-                <section className="mb-4 rounded-2xl bg-slate-900/90 border border-white/10 p-4 shadow-lg text-sm">
+                {/* STATUS */}
+
+                <section className="mb-4 rounded-2xl border border-white/10 bg-slate-900/90 p-4 text-sm shadow-lg">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span
-                                className={`h-3.5 w-3.5 rounded-full ${isOnline ? "bg-green-500 animate-pulse" : "bg-red-500"
+                                className={`h-3.5 w-3.5 rounded-full ${isOnline
+                                        ? "animate-pulse bg-green-500"
+                                        : "bg-red-500"
                                     }`}
                             />
+
                             <span className="font-bold uppercase tracking-wider">
-                                {isOnline ? "Online (Firestore)" : "Dispositivo Offline"}
+                                {isOnline
+                                    ? "Online (Firestore)"
+                                    : "Dispositivo Offline"}
                             </span>
                         </div>
+
                         {isOnline && (
                             <button
-                                onClick={realizarSincronizacaoAutomatica}
-                                disabled={sincronizando}
-                                className="rounded-xl bg-green-700 hover:bg-green-600 px-3 py-1.5 text-xs font-black text-white shadow transition disabled:opacity-50"
+                                onClick={
+                                    realizarSincronizacaoAutomatica
+                                }
+                                disabled={
+                                    sincronizando
+                                }
+                                className="rounded-xl bg-green-700 px-3 py-1.5 text-xs font-black text-white shadow transition hover:bg-green-600 disabled:opacity-50"
                             >
-                                {sincronizando ? "SINCRONIZANDO..." : "SINCRONIZAR"}
+                                {sincronizando
+                                    ? "SINCRONIZANDO..."
+                                    : "SINCRONIZAR"}
                             </button>
                         )}
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 text-white/80">
                         <p>
-                            Sincronizado: <span className="font-bold text-white">{ultimaSinc || "Nunca"}</span>
+                            Sincronizado:{" "}
+                            <span className="font-bold text-white">
+                                {ultimaSinc ||
+                                    "Nunca"}
+                            </span>
                         </p>
+
                         <p className="text-right">
                             Fila Pendente:{" "}
                             <span
-                                className={`font-black ${pendentesCount > 0 ? "text-yellow-400" : "text-white"
+                                className={`font-black ${pendentesCount > 0
+                                        ? "text-yellow-400"
+                                        : "text-white"
                                     }`}
                             >
                                 {pendentesCount}
@@ -582,35 +1327,63 @@ export default function PortariaPage() {
                     </div>
 
                     {!isOnline && (
-                        <p className="mt-2 text-xs text-red-300 font-semibold bg-red-950/40 p-2 rounded-lg text-center">
+                        <p className="mt-2 rounded-lg bg-red-950/40 p-2 text-center text-xs font-semibold text-red-300">
                             Aviso: Use apenas UM aparelho na portaria enquanto offline.
                         </p>
                     )}
                 </section>
 
+                {/* CONTADORES */}
+
                 <div className="mb-4 grid grid-cols-3 gap-2">
                     <div className="rounded-2xl bg-green-700/95 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">👥 Hoje</p>
-                        <p className="text-2xl font-black">{entradasHoje}</p>
+                        <p className="text-xs font-bold">
+                            👥 Hoje
+                        </p>
+
+                        <p className="text-2xl font-black">
+                            {entradasHoje}
+                        </p>
                     </div>
+
                     <div className="rounded-2xl bg-blue-700/95 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">📅 Mês</p>
-                        <p className="text-2xl font-black">{entradasMes}</p>
+                        <p className="text-xs font-bold">
+                            📅 Mês
+                        </p>
+
+                        <p className="text-2xl font-black">
+                            {entradasMes}
+                        </p>
                     </div>
+
                     <div className="rounded-2xl bg-purple-700/95 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">🏆 Total</p>
-                        <p className="text-2xl font-black">{totalUtilizados}</p>
+                        <p className="text-xs font-bold">
+                            🏆 Total
+                        </p>
+
+                        <p className="text-2xl font-black">
+                            {totalUtilizados}
+                        </p>
                     </div>
                 </div>
+
+                {/* RESULTADO */}
 
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl backdrop-blur-sm ${painelClass}`}
                 >
                     <p
-                        className={`text-7xl ${!pedido && !cameraAtiva ? "animate-pulse" : ""
+                        className={`text-7xl ${!pedido &&
+                                !cameraAtiva
+                                ? "animate-pulse"
+                                : ""
                             }`}
                     >
-                        {valido ? "✅" : usado || pedido ? "⛔" : "📷"}
+                        {valido
+                            ? "✅"
+                            : usado || pedido
+                                ? "⛔"
+                                : "📷"}
                     </p>
 
                     <h2 className="mt-4 text-4xl font-black leading-tight drop-shadow-lg">
@@ -623,48 +1396,106 @@ export default function PortariaPage() {
                         </p>
                     )}
 
-                    {usado && usadoEm && (
-                        <div className="mt-4 rounded-2xl bg-white/20 p-4 text-center text-xl font-black">
-                            Utilizado em:
-                            <br />
-                            {formatarDataHora(usadoEm)}
-                        </div>
-                    )}
+                    {usado &&
+                        usadoEm && (
+                            <div className="mt-4 rounded-2xl bg-white/20 p-4 text-center text-xl font-black">
+                                Utilizado em:
+                                <br />
+                                {formatarDataHora(
+                                    usadoEm
+                                )}
+                            </div>
+                        )}
 
                     {pedido && (
                         <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-lg font-bold">
-                            <p>Cliente: {pedido.nome}</p>
-                            <p>CPF: {pedido.cpf}</p>
-                            <p>Produto: {pedido.produto}</p>
-                            <p>Qtd: {pedido.quantidade}</p>
-                            <p>Código: {pedido.codigoIngresso}</p>
-                            <p>Data da visita: {formatarData(pedido.dataVisita)}</p>
+                            <p>
+                                Cliente:{" "}
+                                {pedido.nome}
+                            </p>
+
+                            <p>
+                                CPF: {pedido.cpf}
+                            </p>
+
+                            <p>
+                                Produto:{" "}
+                                {pedido.produto}
+                            </p>
+
+                            <p>
+                                Qtd:{" "}
+                                {pedido.quantidade}
+                            </p>
+
+                            <p>
+                                Código:{" "}
+                                {
+                                    pedido.codigoIngresso
+                                }
+                            </p>
+
+                            <p>
+                                Data da visita:{" "}
+                                {formatarData(
+                                    pedido.dataVisita
+                                )}
+                            </p>
+
                             <p>
                                 Pagamento:{" "}
-                                {pedido.statusPagamento === "pago"
+                                {pedido.statusPagamento ===
+                                    "pago"
                                     ? "Confirmado"
                                     : pedido.statusPagamento}
                             </p>
-                            <p>Status: {pedido.statusOperacional || "ativo"}</p>
 
-                            {validadoPor && <p>Funcionário: {validadoPor}</p>}
-                            {usado && usadoEm && <p>Entrada: {formatarDataHora(usadoEm)}</p>}
+                            <p>
+                                Status:{" "}
+                                {pedido.statusOperacional ||
+                                    "ativo"}
+                            </p>
+
+                            {validadoPor && (
+                                <p>
+                                    Funcionário:{" "}
+                                    {validadoPor}
+                                </p>
+                            )}
+
+                            {usado &&
+                                usadoEm && (
+                                    <p>
+                                        Entrada:{" "}
+                                        {formatarDataHora(
+                                            usadoEm
+                                        )}
+                                    </p>
+                                )}
                         </div>
                     )}
                 </section>
 
+                {/* BUSCAS */}
+
                 <section className="mt-5 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl backdrop-blur-sm">
                     {!cameraAtiva ? (
                         <button
-                            onClick={iniciarCamera}
-                            disabled={carregando}
+                            onClick={
+                                iniciarCamera
+                            }
+                            disabled={
+                                carregando
+                            }
                             className="w-full rounded-2xl bg-green-700 px-5 py-6 text-2xl font-black text-white shadow-lg disabled:opacity-60"
                         >
                             📷 ESCANEAR QR CODE
                         </button>
                     ) : (
                         <button
-                            onClick={pararCamera}
+                            onClick={
+                                pararCamera
+                            }
                             className="w-full rounded-2xl bg-red-600 px-5 py-5 text-xl font-black text-white shadow-lg"
                         >
                             FECHAR CÂMERA
@@ -673,58 +1504,100 @@ export default function PortariaPage() {
 
                     {cameraAtiva && (
                         <div className="mt-4 overflow-hidden rounded-2xl bg-black p-2">
-                            <div id="leitor-portaria" className="w-full" />
+                            <div
+                                id="leitor-portaria"
+                                className="w-full"
+                            />
                         </div>
                     )}
+
+                    {/* PMN */}
 
                     <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                         <input
                             type="text"
-                            value={codigoManual}
-                            onChange={(e) => setCodigoManual(e.target.value.toUpperCase())}
+                            value={
+                                codigoManual
+                            }
+                            onChange={(e) =>
+                                setCodigoManual(
+                                    e.target.value.toUpperCase()
+                                )
+                            }
                             placeholder="Digite o código PMN"
                             className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold uppercase outline-none focus:border-green-700"
                         />
 
                         <button
                             onClick={() => {
-                                if (!codigoManual.trim()) {
-                                    setMensagem("DIGITE O CÓDIGO DO INGRESSO");
-                                    vibrar("erro");
+                                if (
+                                    !codigoManual.trim()
+                                ) {
+                                    setMensagem(
+                                        "DIGITE O CÓDIGO DO INGRESSO"
+                                    );
+
+                                    vibrar(
+                                        "erro"
+                                    );
+
                                     return;
                                 }
-                                buscarIngresso(codigoManual.trim());
+
+                                buscarIngresso(
+                                    codigoManual.trim()
+                                );
                             }}
-                            disabled={carregando}
+                            disabled={
+                                carregando
+                            }
                             className="rounded-2xl bg-blue-600 px-5 py-4 font-black text-white disabled:opacity-60"
                         >
                             BUSCAR
                         </button>
                     </div>
 
+                    {/* CPF */}
+
                     <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                         <input
                             type="text"
                             value={cpfBusca}
-                            onChange={(e) => setCpfBusca(e.target.value)}
+                            onChange={(e) =>
+                                setCpfBusca(
+                                    e.target.value
+                                )
+                            }
                             placeholder="Digite o CPF"
                             className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold outline-none focus:border-green-700"
                         />
 
                         <button
-                            onClick={buscarPorCpf}
-                            disabled={carregando}
+                            onClick={
+                                buscarPorCpf
+                            }
+                            disabled={
+                                carregando
+                            }
                             className="rounded-2xl bg-purple-600 px-5 py-4 font-black text-white disabled:opacity-60"
                         >
                             CPF
                         </button>
                     </div>
 
+                    {/* FUNCIONÁRIO */}
+
                     <div className="mt-4">
                         <input
                             type="text"
-                            value={funcionario}
-                            onChange={(e) => setFuncionario(e.target.value)}
+                            value={
+                                funcionario
+                            }
+                            onChange={(e) =>
+                                setFuncionario(
+                                    e.target.value
+                                )
+                            }
                             placeholder="Nome do funcionário"
                             className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold outline-none focus:border-green-700"
                         />
@@ -733,9 +1606,14 @@ export default function PortariaPage() {
                     <button
                         onClick={() => {
                             setPedido(null);
+
                             setCodigoManual("");
+
                             setCpfBusca("");
-                            setMensagem("Aguardando leitura do ingresso");
+
+                            setMensagem(
+                                "Aguardando leitura do ingresso"
+                            );
                         }}
                         className="mt-4 w-full rounded-2xl border border-slate-300 px-5 py-4 font-bold text-slate-700"
                     >
@@ -745,22 +1623,27 @@ export default function PortariaPage() {
 
                 {valido && (
                     <button
-                        onClick={confirmarEntrada}
-                        disabled={carregando}
+                        onClick={
+                            confirmarEntrada
+                        }
+                        disabled={
+                            carregando
+                        }
                         className="mt-5 w-full rounded-3xl bg-green-500 px-5 py-6 text-2xl font-black text-white shadow-xl disabled:opacity-60"
                     >
                         ✅ CONFIRMAR ENTRADA
                     </button>
                 )}
 
-                {!valido && pedido && (
-                    <button
-                        disabled
-                        className="mt-5 w-full rounded-3xl bg-red-700 px-5 py-6 text-2xl font-black text-white shadow-xl"
-                    >
-                        ⛔ ENTRADA BLOQUEADA
-                    </button>
-                )}
+                {!valido &&
+                    pedido && (
+                        <button
+                            disabled
+                            className="mt-5 w-full rounded-3xl bg-red-700 px-5 py-6 text-2xl font-black text-white shadow-xl"
+                        >
+                            ⛔ ENTRADA BLOQUEADA
+                        </button>
+                    )}
             </div>
         </main>
     );
