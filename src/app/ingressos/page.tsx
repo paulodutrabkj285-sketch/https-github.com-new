@@ -1067,11 +1067,11 @@ export default function IngressosPage() {
                 📘 Facebook
               </a>
 
-              <a href="/privacidade" className="block transition hover:text-zinc-900">
+              <a href="/politica-privacidade" className="block transition hover:text-zinc-900">
                 Política de Privacidade
               </a>
 
-              <a href="/termos" className="block transition hover:text-zinc-900">
+              <a href="/termos-de-uso" className="block transition hover:text-zinc-900">
                 Termos de Uso
               </a>
             </div>
