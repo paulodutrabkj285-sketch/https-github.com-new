@@ -232,7 +232,7 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       SINCRONIZAÇÃO MANUAL/AUTOMÁTICA
+       SINCRONIZAÇÃO
     ====================================== */
 
     async function realizarSincronizacaoAutomatica() {
@@ -253,12 +253,6 @@ export default function PortariaPage() {
 
             const pedidosNuvem =
                 await listarPedidosAtivosPortaria();
-
-            console.log(
-                "PORTARIA: sincronização recebeu",
-                pedidosNuvem.length,
-                "pedido(s)"
-            );
 
             try {
                 await salvarPedidosLocalmente(
@@ -350,6 +344,33 @@ export default function PortariaPage() {
 
     function limpar(valor: string) {
         return String(valor || "").trim();
+    }
+
+    function quantidadeDoPedido(
+        item?: Pedido | null
+    ) {
+        if (!item) {
+            return 1;
+        }
+
+        const quantidade = Number(
+            item.quantidade ||
+            item.quantidadePessoas ||
+            1
+        );
+
+        return Number.isFinite(quantidade) &&
+            quantidade > 0
+            ? quantidade
+            : 1;
+    }
+
+    function textoPessoas(
+        quantidade: number
+    ) {
+        return quantidade === 1
+            ? "1 PESSOA"
+            : `${quantidade} PESSOAS`;
     }
 
     function formatarDataHora(
@@ -461,18 +482,9 @@ export default function PortariaPage() {
                 const pedidos =
                     await listarPedidosAtivosPortaria();
 
-                console.log(
-                    "PORTARIA: pedidos encontrados no Firestore:",
-                    pedidos.length
-                );
-
                 try {
                     await salvarPedidosLocalmente(
                         pedidos
-                    );
-
-                    console.log(
-                        "PORTARIA: cache atualizado com sucesso"
                     );
                 } catch (erroCache) {
                     console.error(
@@ -489,15 +501,7 @@ export default function PortariaPage() {
                 );
 
                 try {
-                    const locais =
-                        await listarPedidosLocalmente();
-
-                    console.log(
-                        "PORTARIA: usando cache local:",
-                        locais.length
-                    );
-
-                    return locais;
+                    return await listarPedidosLocalmente();
                 } catch (erroLocal) {
                     console.error(
                         "PORTARIA: erro ao ler cache local:",
@@ -510,15 +514,7 @@ export default function PortariaPage() {
         }
 
         try {
-            const locais =
-                await listarPedidosLocalmente();
-
-            console.log(
-                "PORTARIA OFFLINE: pedidos locais:",
-                locais.length
-            );
-
-            return locais;
+            return await listarPedidosLocalmente();
         } catch (erroLocal) {
             console.error(
                 "PORTARIA: erro ao ler cache offline:",
@@ -530,7 +526,7 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       CONTADORES
+       CONTADORES DE PESSOAS
     ====================================== */
 
     async function atualizarContadores() {
@@ -551,9 +547,7 @@ export default function PortariaPage() {
                 hoje.getFullYear();
 
             let contadorHoje = 0;
-
             let contadorMes = 0;
-
             let contadorTotal = 0;
 
             pedidos.forEach(
@@ -565,7 +559,15 @@ export default function PortariaPage() {
                         return;
                     }
 
-                    contadorTotal++;
+                    const quantidade =
+                        Number(
+                            item.quantidade ||
+                            item.quantidadePessoas ||
+                            1
+                        ) || 1;
+
+                    contadorTotal +=
+                        quantidade;
 
                     const dataEntrada =
                         item.utilizadoEm ||
@@ -585,14 +587,16 @@ export default function PortariaPage() {
                         data.getMonth() === mes &&
                         data.getFullYear() === ano
                     ) {
-                        contadorHoje++;
+                        contadorHoje +=
+                            quantidade;
                     }
 
                     if (
                         data.getMonth() === mes &&
                         data.getFullYear() === ano
                     ) {
-                        contadorMes++;
+                        contadorMes +=
+                            quantidade;
                     }
                 }
             );
@@ -743,18 +747,8 @@ export default function PortariaPage() {
             const dadosQr =
                 extrairQr(textoQr);
 
-            console.log(
-                "PORTARIA: buscando ingresso:",
-                dadosQr
-            );
-
             const pedidos =
                 await obterListaDePedidosAtiva();
-
-            console.log(
-                "PORTARIA: total disponível para busca:",
-                pedidos.length
-            );
 
             const encontrado =
                 pedidos.find(
@@ -793,11 +787,6 @@ export default function PortariaPage() {
             await pararCamera();
 
             if (!encontrado) {
-                console.log(
-                    "PORTARIA: ingresso não encontrado:",
-                    dadosQr
-                );
-
                 setMensagem(
                     "INGRESSO NÃO ENCONTRADO"
                 );
@@ -806,12 +795,6 @@ export default function PortariaPage() {
 
                 return;
             }
-
-            console.log(
-                "PORTARIA: ingresso encontrado:",
-                encontrado.id,
-                encontrado.codigoIngresso
-            );
 
             validarPedidoEncontrado(
                 encontrado,
@@ -1092,6 +1075,11 @@ export default function PortariaPage() {
         pedido?.statusOperacional ===
         "utilizado";
 
+    const quantidadeAtual =
+        quantidadeDoPedido(
+            pedido
+        );
+
     const painelClass =
         valido
             ? "bg-green-600/95 border-green-300"
@@ -1240,7 +1228,7 @@ export default function PortariaPage() {
                 <div className="mb-4 grid grid-cols-3 gap-2">
                     <div className="rounded-2xl bg-green-700/95 p-3 text-center shadow-lg">
                         <p className="text-xs font-bold">
-                            👥 Hoje
+                            👥 Pessoas Hoje
                         </p>
 
                         <p className="text-2xl font-black">
@@ -1250,7 +1238,7 @@ export default function PortariaPage() {
 
                     <div className="rounded-2xl bg-blue-700/95 p-3 text-center shadow-lg">
                         <p className="text-xs font-bold">
-                            📅 Mês
+                            📅 Pessoas Mês
                         </p>
 
                         <p className="text-2xl font-black">
@@ -1260,7 +1248,7 @@ export default function PortariaPage() {
 
                     <div className="rounded-2xl bg-purple-700/95 p-3 text-center shadow-lg">
                         <p className="text-xs font-bold">
-                            🏆 Total
+                            🏆 Pessoas Total
                         </p>
 
                         <p className="text-2xl font-black">
@@ -1332,11 +1320,25 @@ export default function PortariaPage() {
                         {mensagem}
                     </h2>
 
+                    {/* QUANTIDADE EM DESTAQUE */}
+
                     {valido && (
-                        <p className="mt-3 rounded-2xl bg-white/20 p-3 text-lg font-bold">
-                            Liberado para
-                            confirmação da entrada.
-                        </p>
+                        <div className="mt-5 rounded-3xl border-4 border-white bg-white px-4 py-6 text-green-700 shadow-2xl">
+                            <p className="text-sm font-black uppercase tracking-[0.2em]">
+                                Liberar entrada para
+                            </p>
+
+                            <p className="mt-2 text-5xl font-black leading-none">
+                                {textoPessoas(
+                                    quantidadeAtual
+                                )}
+                            </p>
+
+                            <p className="mt-3 text-sm font-bold text-green-800">
+                                Este QR Code representa
+                                todo o grupo desta compra.
+                            </p>
+                        </div>
                     )}
 
                     {usado &&
@@ -1363,8 +1365,11 @@ export default function PortariaPage() {
                             </p>
 
                             <p>
-                                Qtd:{" "}
-                                {pedido.quantidade}
+                                Quantidade:{" "}
+                                {quantidadeAtual}{" "}
+                                {quantidadeAtual === 1
+                                    ? "pessoa"
+                                    : "pessoas"}
                             </p>
 
                             <p>
@@ -1502,13 +1507,6 @@ export default function PortariaPage() {
 
                             setCodigoManual("");
 
-                            /*
-                             * NÃO limpa o funcionário.
-                             * O atendente continua
-                             * selecionado para o
-                             * próximo ingresso.
-                             */
-
                             setMensagem(
                                 "Aguardando leitura do ingresso"
                             );
@@ -1529,7 +1527,10 @@ export default function PortariaPage() {
                         }
                         className="mt-5 w-full rounded-3xl bg-green-500 px-5 py-6 text-2xl font-black text-white shadow-xl disabled:opacity-60"
                     >
-                        ✅ CONFIRMAR ENTRADA
+                        ✅ CONFIRMAR ENTRADA DE{" "}
+                        {textoPessoas(
+                            quantidadeAtual
+                        )}
                     </button>
                 )}
 
