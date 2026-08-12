@@ -8,6 +8,7 @@ import {
 
 import {
     listarPedidosLocalmente,
+    LocalValidacao,
     obterPendentes,
     registrarValidacaoOffline,
     salvarPedidosLocalmente,
@@ -35,13 +36,31 @@ const FUNCIONARIOS = [
     "FRANCISCO",
 ];
 
+/* ======================================
+   TIPO LOCAL DO PEDIDO
+====================================== */
+
+type PedidoPortaria = Pedido & {
+    cachoeiraMundoNovoValidado?: boolean;
+    cachoeiraMundoNovoValidadoPor?: string;
+    cachoeiraMundoNovoValidadoEm?: string;
+};
+
+/* ======================================
+   COMPONENTE
+====================================== */
+
 export default function PortariaPage() {
     const [pedido, setPedido] =
-        useState<Pedido | null>(null);
+        useState<PedidoPortaria | null>(null);
 
-    const [mensagem, setMensagem] = useState(
-        "Aguardando leitura do ingresso"
-    );
+    const [mensagem, setMensagem] =
+        useState(
+            "Selecione o local de validação"
+        );
+
+    const [localValidacao, setLocalValidacao] =
+        useState<LocalValidacao | "">("");
 
     const [carregando, setCarregando] =
         useState(false);
@@ -132,10 +151,16 @@ export default function PortariaPage() {
         };
     }, []);
 
+    /* ======================================
+       ATUALIZA FILA
+    ====================================== */
+
     useEffect(() => {
         obterPendentes()
             .then((itens) => {
-                setPendentesCount(itens.length);
+                setPendentesCount(
+                    itens.length
+                );
             })
             .catch((error) => {
                 console.error(
@@ -146,7 +171,39 @@ export default function PortariaPage() {
     }, [pedido]);
 
     /* ======================================
-       STATUS INTERNET
+       TROCA DE LOCAL
+    ====================================== */
+
+    useEffect(() => {
+        if (!localValidacao) {
+            setEntradasHoje(0);
+            setEntradasMes(0);
+            setTotalUtilizados(0);
+
+            return;
+        }
+
+        setPedido(null);
+        setCodigoManual("");
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            setMensagem(
+                "PORTARIA PRINCIPAL - Aguardando ingresso"
+            );
+        } else {
+            setMensagem(
+                "CACHOEIRA MUNDO NOVO - Aguardando ingresso"
+            );
+        }
+
+        atualizarContadores();
+    }, [localValidacao]);
+
+    /* ======================================
+       INTERNET
     ====================================== */
 
     function handleOnline() {
@@ -160,7 +217,7 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       INICIALIZAR DADOS
+       INICIALIZAÇÃO DE DADOS
     ====================================== */
 
     async function inicializarDados() {
@@ -175,25 +232,9 @@ export default function PortariaPage() {
                     const pedidosNuvem =
                         await listarPedidosAtivosPortaria();
 
-                    console.log(
-                        "PORTARIA: pedidos carregados do Firestore:",
-                        pedidosNuvem.length
+                    await salvarPedidosLocalmente(
+                        pedidosNuvem
                     );
-
-                    try {
-                        await salvarPedidosLocalmente(
-                            pedidosNuvem
-                        );
-
-                        console.log(
-                            "PORTARIA: cache local atualizado"
-                        );
-                    } catch (erroCache) {
-                        console.error(
-                            "PORTARIA: erro ao salvar cache local:",
-                            erroCache
-                        );
-                    }
 
                     const agora =
                         new Date().toLocaleTimeString(
@@ -208,24 +249,22 @@ export default function PortariaPage() {
 
                     try {
                         await sincronizarPendentes();
-                    } catch (erroPendentes) {
+                    } catch (error) {
                         console.error(
                             "PORTARIA: erro ao sincronizar pendentes:",
-                            erroPendentes
+                            error
                         );
                     }
-                } catch (erroFirestore) {
+                } catch (error) {
                     console.error(
                         "PORTARIA: erro ao carregar Firestore:",
-                        erroFirestore
+                        error
                     );
                 }
             }
-
-            await atualizarContadores();
         } catch (error) {
             console.error(
-                "PORTARIA: erro geral ao inicializar:",
+                "PORTARIA: erro de inicialização:",
                 error
             );
         }
@@ -244,26 +283,19 @@ export default function PortariaPage() {
             try {
                 enviados =
                     await sincronizarPendentes();
-            } catch (erroPendentes) {
+            } catch (error) {
                 console.error(
                     "PORTARIA: erro ao enviar pendências:",
-                    erroPendentes
+                    error
                 );
             }
 
             const pedidosNuvem =
                 await listarPedidosAtivosPortaria();
 
-            try {
-                await salvarPedidosLocalmente(
-                    pedidosNuvem
-                );
-            } catch (erroCache) {
-                console.error(
-                    "PORTARIA: erro ao salvar cache durante sincronização:",
-                    erroCache
-                );
-            }
+            await salvarPedidosLocalmente(
+                pedidosNuvem
+            );
 
             const agora =
                 new Date().toLocaleTimeString(
@@ -276,23 +308,16 @@ export default function PortariaPage() {
 
             setUltimaSinc(agora);
 
-            try {
-                const pendentes =
-                    await obterPendentes();
+            const pendentes =
+                await obterPendentes();
 
-                setPendentesCount(
-                    pendentes.length
-                );
-            } catch (erroPendentes) {
-                console.error(
-                    "PORTARIA: erro ao atualizar fila:",
-                    erroPendentes
-                );
-            }
+            setPendentesCount(
+                pendentes.length
+            );
 
             if (enviados > 0) {
                 setMensagem(
-                    `Sincronizado: ${enviados} entrada(s) enviada(s)`
+                    `${enviados} validação(ões) sincronizada(s)`
                 );
 
                 vibrar("sucesso");
@@ -321,7 +346,8 @@ export default function PortariaPage() {
         tipo: "sucesso" | "erro"
     ) {
         if (
-            typeof navigator === "undefined" ||
+            typeof navigator ===
+            "undefined" ||
             !navigator.vibrate
         ) {
             return;
@@ -353,16 +379,23 @@ export default function PortariaPage() {
             return 1;
         }
 
-        const quantidade = Number(
-            item.quantidade ||
-            item.quantidadePessoas ||
-            1
-        );
+        const quantidade =
+            Number(
+                item.quantidade ||
+                item.quantidadePessoas ||
+                1
+            );
 
-        return Number.isFinite(quantidade) &&
-            quantidade > 0
-            ? quantidade
-            : 1;
+        if (
+            !Number.isFinite(
+                quantidade
+            ) ||
+            quantidade <= 0
+        ) {
+            return 1;
+        }
+
+        return quantidade;
     }
 
     function textoPessoas(
@@ -376,20 +409,27 @@ export default function PortariaPage() {
     function formatarDataHora(
         valor?: string
     ) {
-        if (!valor) return "";
+        if (!valor) {
+            return "";
+        }
 
         return new Date(
             valor
-        ).toLocaleString("pt-BR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        ).toLocaleString(
+            "pt-BR",
+            {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            }
+        );
     }
 
-    function formatarData(valor?: string) {
+    function formatarData(
+        valor?: string
+    ) {
         if (!valor) {
             return "Não informada";
         }
@@ -397,15 +437,36 @@ export default function PortariaPage() {
         const partes =
             valor.split("-");
 
-        if (partes.length === 3) {
+        if (
+            partes.length ===
+            3
+        ) {
             return `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
 
         return valor;
     }
 
+    function nomeLocal() {
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            return "Portaria Principal";
+        }
+
+        if (
+            localValidacao ===
+            "cachoeira_mundo_novo"
+        ) {
+            return "Cachoeira Mundo Novo";
+        }
+
+        return "Local não selecionado";
+    }
+
     /* ======================================
-       VALIDADE DO INGRESSO
+       VALIDADE DE DATA
     ====================================== */
 
     function verificarValidadeData(
@@ -418,9 +479,15 @@ export default function PortariaPage() {
             };
         }
 
-        const hoje = new Date();
+        const hoje =
+            new Date();
 
-        hoje.setHours(0, 0, 0, 0);
+        hoje.setHours(
+            0,
+            0,
+            0,
+            0
+        );
 
         const dataIngresso =
             new Date(
@@ -435,20 +502,29 @@ export default function PortariaPage() {
         );
 
         const inicioPermitido =
-            new Date(dataIngresso);
+            new Date(
+                dataIngresso
+            );
 
         inicioPermitido.setDate(
-            inicioPermitido.getDate() - 1
+            inicioPermitido.getDate() -
+            1
         );
 
         const fimPermitido =
-            new Date(dataIngresso);
+            new Date(
+                dataIngresso
+            );
 
         fimPermitido.setDate(
-            fimPermitido.getDate() + 30
+            fimPermitido.getDate() +
+            30
         );
 
-        if (hoje < inicioPermitido) {
+        if (
+            hoje <
+            inicioPermitido
+        ) {
             return {
                 valido: false,
                 mensagem:
@@ -456,7 +532,10 @@ export default function PortariaPage() {
             };
         }
 
-        if (hoje > fimPermitido) {
+        if (
+            hoje >
+            fimPermitido
+        ) {
             return {
                 valido: false,
                 mensagem:
@@ -471,11 +550,11 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       LISTA ATIVA DE PEDIDOS
+       PEDIDOS ATIVOS
     ====================================== */
 
     async function obterListaDePedidosAtiva(): Promise<
-        Pedido[]
+        PedidoPortaria[]
     > {
         if (isOnline) {
             try {
@@ -486,50 +565,48 @@ export default function PortariaPage() {
                     await salvarPedidosLocalmente(
                         pedidos
                     );
-                } catch (erroCache) {
+                } catch (error) {
                     console.error(
-                        "PORTARIA: erro ao salvar cache local:",
-                        erroCache
+                        "PORTARIA: erro no cache:",
+                        error
                     );
                 }
 
-                return pedidos;
-            } catch (erroFirestore) {
+                return pedidos as PedidoPortaria[];
+            } catch (error) {
                 console.error(
-                    "PORTARIA: erro ao consultar Firestore:",
-                    erroFirestore
+                    "PORTARIA: Firestore indisponível:",
+                    error
                 );
 
                 try {
-                    return await listarPedidosLocalmente();
-                } catch (erroLocal) {
-                    console.error(
-                        "PORTARIA: erro ao ler cache local:",
-                        erroLocal
-                    );
-
+                    return (
+                        await listarPedidosLocalmente()
+                    ) as PedidoPortaria[];
+                } catch {
                     return [];
                 }
             }
         }
 
         try {
-            return await listarPedidosLocalmente();
-        } catch (erroLocal) {
-            console.error(
-                "PORTARIA: erro ao ler cache offline:",
-                erroLocal
-            );
-
+            return (
+                await listarPedidosLocalmente()
+            ) as PedidoPortaria[];
+        } catch {
             return [];
         }
     }
 
     /* ======================================
-       CONTADORES DE PESSOAS
+       CONTADORES POR LOCAL
     ====================================== */
 
     async function atualizarContadores() {
+        if (!localValidacao) {
+            return;
+        }
+
         try {
             const pedidos =
                 await obterListaDePedidosAtiva();
@@ -546,34 +623,62 @@ export default function PortariaPage() {
             const ano =
                 hoje.getFullYear();
 
-            let contadorHoje = 0;
-            let contadorMes = 0;
-            let contadorTotal = 0;
+            let contadorHoje =
+                0;
+
+            let contadorMes =
+                0;
+
+            let contadorTotal =
+                0;
 
             pedidos.forEach(
-                (item: any) => {
+                (
+                    item: PedidoPortaria
+                ) => {
+                    let utilizado =
+                        false;
+
+                    let dataEntrada =
+                        "";
+
                     if (
-                        item.statusOperacional !==
-                        "utilizado"
+                        localValidacao ===
+                        "principal"
                     ) {
+                        utilizado =
+                            item.statusOperacional ===
+                            "utilizado";
+
+                        dataEntrada =
+                            item.utilizadoEm ||
+                            item.validadoEm ||
+                            "";
+                    } else {
+                        utilizado =
+                            item.cachoeiraMundoNovoValidado ===
+                            true;
+
+                        dataEntrada =
+                            item.cachoeiraMundoNovoValidadoEm ||
+                            "";
+                    }
+
+                    if (!utilizado) {
                         return;
                     }
 
                     const quantidade =
-                        Number(
-                            item.quantidade ||
-                            item.quantidadePessoas ||
-                            1
-                        ) || 1;
+                        quantidadeDoPedido(
+                            item
+                        );
 
                     contadorTotal +=
                         quantidade;
 
-                    const dataEntrada =
-                        item.utilizadoEm ||
-                        item.validadoEm;
-
-                    if (!dataEntrada) {
+                    if (
+                        !dataEntrada
+                    ) {
                         return;
                     }
 
@@ -583,17 +688,22 @@ export default function PortariaPage() {
                         );
 
                     if (
-                        data.getDate() === dia &&
-                        data.getMonth() === mes &&
-                        data.getFullYear() === ano
+                        data.getDate() ===
+                        dia &&
+                        data.getMonth() ===
+                        mes &&
+                        data.getFullYear() ===
+                        ano
                     ) {
                         contadorHoje +=
                             quantidade;
                     }
 
                     if (
-                        data.getMonth() === mes &&
-                        data.getFullYear() === ano
+                        data.getMonth() ===
+                        mes &&
+                        data.getFullYear() ===
+                        ano
                     ) {
                         contadorMes +=
                             quantidade;
@@ -614,14 +724,14 @@ export default function PortariaPage() {
             );
         } catch (error) {
             console.error(
-                "PORTARIA: erro ao atualizar contadores:",
+                "PORTARIA: erro nos contadores:",
                 error
             );
         }
     }
 
     /* ======================================
-       EXTRAIR QR CODE
+       EXTRAIR QR
     ====================================== */
 
     function extrairQr(
@@ -635,23 +745,113 @@ export default function PortariaPage() {
                 JSON.parse(valor);
 
             return {
-                codigo: limpar(
-                    dados?.codigo ||
-                    dados?.codigoIngresso ||
-                    ""
-                ),
+                codigo:
+                    limpar(
+                        dados?.codigo ||
+                        dados?.codigoIngresso ||
+                        ""
+                    ),
 
-                pedidoId: limpar(
-                    dados?.pedidoId ||
-                    ""
-                ),
+                pedidoId:
+                    limpar(
+                        dados?.pedidoId ||
+                        ""
+                    ),
             };
         } catch {
             return {
-                codigo: valor,
-                pedidoId: "",
+                codigo:
+                    valor,
+
+                pedidoId:
+                    "",
             };
         }
+    }
+
+    /* ======================================
+       STATUS NO LOCAL
+    ====================================== */
+
+    function foiUtilizadoNesteLocal(
+        item: PedidoPortaria
+    ) {
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            return (
+                item.statusOperacional ===
+                "utilizado"
+            );
+        }
+
+        if (
+            localValidacao ===
+            "cachoeira_mundo_novo"
+        ) {
+            return (
+                item.cachoeiraMundoNovoValidado ===
+                true
+            );
+        }
+
+        return false;
+    }
+
+    /* ======================================
+       DATA DA UTILIZAÇÃO LOCAL
+    ====================================== */
+
+    function dataUtilizacaoLocal(
+        item?: PedidoPortaria | null
+    ) {
+        if (!item) {
+            return "";
+        }
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            return (
+                item.utilizadoEm ||
+                item.validadoEm ||
+                ""
+            );
+        }
+
+        return (
+            item.cachoeiraMundoNovoValidadoEm ||
+            ""
+        );
+    }
+
+    /* ======================================
+       FUNCIONÁRIO DA UTILIZAÇÃO LOCAL
+    ====================================== */
+
+    function funcionarioUtilizacaoLocal(
+        item?: PedidoPortaria | null
+    ) {
+        if (!item) {
+            return "";
+        }
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            return (
+                item.validadoPor ||
+                ""
+            );
+        }
+
+        return (
+            item.cachoeiraMundoNovoValidadoPor ||
+            ""
+        );
     }
 
     /* ======================================
@@ -659,16 +859,30 @@ export default function PortariaPage() {
     ====================================== */
 
     function validarPedidoEncontrado(
-        encontrado: Pedido,
+        encontrado: PedidoPortaria,
         codigo?: string
     ) {
-        setPedido(encontrado);
+        setPedido(
+            encontrado
+        );
 
         setCodigoManual(
             encontrado.codigoIngresso ||
             codigo ||
             ""
         );
+
+        if (!localValidacao) {
+            setMensagem(
+                "SELECIONE O LOCAL DE VALIDAÇÃO"
+            );
+
+            vibrar("erro");
+
+            return;
+        }
+
+        /* PAGAMENTO */
 
         if (
             encontrado.statusPagamento !==
@@ -683,18 +897,7 @@ export default function PortariaPage() {
             return;
         }
 
-        if (
-            encontrado.statusOperacional ===
-            "utilizado"
-        ) {
-            setMensagem(
-                "INGRESSO JÁ UTILIZADO"
-            );
-
-            vibrar("erro");
-
-            return;
-        }
+        /* BLOQUEADO */
 
         if (
             encontrado.statusOperacional ===
@@ -709,12 +912,16 @@ export default function PortariaPage() {
             return;
         }
 
+        /* VALIDADE */
+
         const validade =
             verificarValidadeData(
                 encontrado.dataVisita
             );
 
-        if (!validade.valido) {
+        if (
+            !validade.valido
+        ) {
             setMensagem(
                 validade.mensagem ||
                 "INGRESSO FORA DO PERÍODO"
@@ -725,27 +932,124 @@ export default function PortariaPage() {
             return;
         }
 
-        setMensagem(
-            "INGRESSO VÁLIDO"
-        );
+        /* ==================================
+           PORTARIA PRINCIPAL
+        ================================== */
 
-        vibrar("sucesso");
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            if (
+                encontrado.statusOperacional ===
+                "utilizado"
+            ) {
+                setMensagem(
+                    "INGRESSO JÁ UTILIZADO NA PORTARIA PRINCIPAL"
+                );
+
+                vibrar("erro");
+
+                return;
+            }
+
+            setMensagem(
+                "INGRESSO VÁLIDO"
+            );
+
+            vibrar(
+                "sucesso"
+            );
+
+            return;
+        }
+
+        /* ==================================
+           CACHOEIRA MUNDO NOVO
+        ================================== */
+
+        if (
+            localValidacao ===
+            "cachoeira_mundo_novo"
+        ) {
+            /*
+             * Primeiro precisa ter
+             * passado na entrada principal.
+             */
+
+            if (
+                encontrado.statusOperacional !==
+                "utilizado"
+            ) {
+                setMensagem(
+                    "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            /*
+             * Já entrou uma vez
+             * na Cachoeira.
+             */
+
+            if (
+                encontrado.cachoeiraMundoNovoValidado ===
+                true
+            ) {
+                setMensagem(
+                    "ACESSO À CACHOEIRA JÁ UTILIZADO"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            setMensagem(
+                "ACESSO À CACHOEIRA VÁLIDO"
+            );
+
+            vibrar(
+                "sucesso"
+            );
+        }
     }
 
     /* ======================================
-       BUSCAR QR / CÓDIGO PMN
+       BUSCAR INGRESSO
     ====================================== */
 
     async function buscarIngresso(
         textoQr: string
     ) {
+        if (!localValidacao) {
+            setMensagem(
+                "SELECIONE O LOCAL DE VALIDAÇÃO"
+            );
+
+            vibrar("erro");
+
+            return;
+        }
+
         try {
-            setCarregando(true);
+            setCarregando(
+                true
+            );
 
             setPedido(null);
 
             const dadosQr =
-                extrairQr(textoQr);
+                extrairQr(
+                    textoQr
+                );
 
             const pedidos =
                 await obterListaDePedidosAtiva();
@@ -812,7 +1116,9 @@ export default function PortariaPage() {
 
             vibrar("erro");
         } finally {
-            setCarregando(false);
+            setCarregando(
+                false
+            );
         }
     }
 
@@ -821,13 +1127,27 @@ export default function PortariaPage() {
     ====================================== */
 
     async function iniciarCamera() {
+        if (!localValidacao) {
+            setMensagem(
+                "SELECIONE O LOCAL DE VALIDAÇÃO"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
         setPedido(null);
 
         setMensagem(
-            "Aponte a câmera para o QR Code"
+            `Aponte a câmera para o QR Code - ${nomeLocal()}`
         );
 
-        setCameraAtiva(true);
+        setCameraAtiva(
+            true
+        );
 
         setTimeout(
             async () => {
@@ -845,7 +1165,6 @@ export default function PortariaPage() {
                             facingMode:
                                 "environment",
                         },
-
                         {
                             fps: 10,
 
@@ -854,15 +1173,17 @@ export default function PortariaPage() {
                                 height: 280,
                             },
                         },
-
-                        async (texto) => {
-                            if (texto) {
+                        async (
+                            texto
+                        ) => {
+                            if (
+                                texto
+                            ) {
                                 await buscarIngresso(
                                     texto
                                 );
                             }
                         },
-
                         () => { }
                     );
                 } catch (error) {
@@ -879,7 +1200,9 @@ export default function PortariaPage() {
                         false
                     );
 
-                    vibrar("erro");
+                    vibrar(
+                        "erro"
+                    );
                 }
             },
             300
@@ -904,16 +1227,21 @@ export default function PortariaPage() {
                 error
             );
         } finally {
-            setCameraAtiva(false);
+            setCameraAtiva(
+                false
+            );
         }
     }
 
     /* ======================================
-       CONFIRMAR ENTRADA
+       CONFIRMAR VALIDAÇÃO
     ====================================== */
 
     async function confirmarEntrada() {
-        if (!pedido) {
+        if (
+            !pedido ||
+            !localValidacao
+        ) {
             return;
         }
 
@@ -922,13 +1250,17 @@ export default function PortariaPage() {
                 pedido.dataVisita
             );
 
-        if (!validade.valido) {
+        if (
+            !validade.valido
+        ) {
             setMensagem(
                 validade.mensagem ||
                 "INGRESSO INVÁLIDO"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
 
             return;
         }
@@ -938,33 +1270,126 @@ export default function PortariaPage() {
                 "SELECIONE O FUNCIONÁRIO"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
 
             return;
         }
 
+        /*
+         * Revalida antes de gravar.
+         */
+
+        if (
+            localValidacao ===
+            "principal" &&
+            pedido.statusOperacional ===
+            "utilizado"
+        ) {
+            setMensagem(
+                "INGRESSO JÁ UTILIZADO NA PORTARIA PRINCIPAL"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        if (
+            localValidacao ===
+            "cachoeira_mundo_novo"
+        ) {
+            if (
+                pedido.statusOperacional !==
+                "utilizado"
+            ) {
+                setMensagem(
+                    "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            if (
+                pedido.cachoeiraMundoNovoValidado ===
+                true
+            ) {
+                setMensagem(
+                    "ACESSO À CACHOEIRA JÁ UTILIZADO"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+        }
+
         try {
-            setCarregando(true);
+            setCarregando(
+                true
+            );
 
             const agora =
                 new Date().toISOString();
 
-            const nomeFuncionario =
-                funcionario;
+            let dadosUtilizacao:
+                Record<
+                    string,
+                    unknown
+                >;
 
-            const dadosUtilizacao = {
-                statusOperacional:
-                    "utilizado",
+            /* ==================================
+               PORTARIA PRINCIPAL
+            ================================== */
 
-                validadoPor:
-                    nomeFuncionario,
+            if (
+                localValidacao ===
+                "principal"
+            ) {
+                dadosUtilizacao =
+                {
+                    statusOperacional:
+                        "utilizado",
 
-                validadoEm:
-                    agora,
+                    validadoPor:
+                        funcionario,
 
-                utilizadoEm:
-                    agora,
-            };
+                    validadoEm:
+                        agora,
+
+                    utilizadoEm:
+                        agora,
+                };
+            } else {
+                /* ==================================
+                   CACHOEIRA MUNDO NOVO
+                ================================== */
+
+                dadosUtilizacao =
+                {
+                    cachoeiraMundoNovoValidado:
+                        true,
+
+                    cachoeiraMundoNovoValidadoPor:
+                        funcionario,
+
+                    cachoeiraMundoNovoValidadoEm:
+                        agora,
+                };
+            }
+
+            /* ==================================
+               ONLINE
+            ================================== */
 
             if (isOnline) {
                 await atualizarPedido(
@@ -979,29 +1404,50 @@ export default function PortariaPage() {
                     await salvarPedidosLocalmente(
                         pedidosNuvem
                     );
-                } catch (erroCache) {
+                } catch (error) {
                     console.error(
-                        "PORTARIA: erro ao atualizar cache após entrada:",
-                        erroCache
+                        "PORTARIA: erro ao atualizar cache:",
+                        error
                     );
                 }
             } else {
+                /* ==================================
+                   OFFLINE
+                ================================== */
+
                 await registrarValidacaoOffline(
                     pedido.id,
+                    localValidacao,
                     dadosUtilizacao
                 );
             }
 
-            setPedido({
-                ...pedido,
-                ...dadosUtilizacao,
-            } as Pedido);
+            const pedidoAtualizado =
+                {
+                    ...pedido,
+                    ...dadosUtilizacao,
+                } as PedidoPortaria;
 
-            setMensagem(
-                "ENTRADA CONFIRMADA"
+            setPedido(
+                pedidoAtualizado
             );
 
-            vibrar("sucesso");
+            if (
+                localValidacao ===
+                "principal"
+            ) {
+                setMensagem(
+                    "ENTRADA PRINCIPAL CONFIRMADA"
+                );
+            } else {
+                setMensagem(
+                    "ACESSO À CACHOEIRA CONFIRMADO"
+                );
+            }
+
+            vibrar(
+                "sucesso"
+            );
 
             try {
                 const pendentes =
@@ -1020,7 +1466,7 @@ export default function PortariaPage() {
             await atualizarContadores();
         } catch (error) {
             console.error(
-                "PORTARIA: erro ao confirmar entrada:",
+                "PORTARIA: erro ao confirmar:",
                 error
             );
 
@@ -1028,9 +1474,13 @@ export default function PortariaPage() {
                 "ERRO AO CONFIRMAR ENTRADA"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
         } finally {
-            setCarregando(false);
+            setCarregando(
+                false
+            );
         }
     }
 
@@ -1038,52 +1488,61 @@ export default function PortariaPage() {
        ESTADO VISUAL
     ====================================== */
 
-    const pedidoAny =
-        pedido as
-        | (Pedido & {
-            utilizadoEm?: string;
-            validadoEm?: string;
-            validadoPor?: string;
-        })
-        | null;
-
-    const usadoEm =
-        pedidoAny?.utilizadoEm ||
-        pedidoAny?.validadoEm ||
-        "";
-
-    const validadoPor =
-        pedidoAny?.validadoPor ||
-        "";
-
     const validadeAtual =
         verificarValidadeData(
             pedido?.dataVisita
         );
 
-    const valido =
+    const usado =
+        !!pedido &&
+        foiUtilizadoNesteLocal(
+            pedido
+        );
+
+    let valido =
         !!pedido &&
         pedido.statusPagamento ===
         "pago" &&
         pedido.statusOperacional !==
-        "utilizado" &&
-        pedido.statusOperacional !==
         "bloqueado" &&
-        validadeAtual.valido;
+        validadeAtual.valido &&
+        !usado;
 
-    const usado =
-        pedido?.statusOperacional ===
-        "utilizado";
+    /*
+     * Na Cachoeira:
+     * só é válido se já passou
+     * pela Portaria Principal.
+     */
+
+    if (
+        valido &&
+        localValidacao ===
+        "cachoeira_mundo_novo"
+    ) {
+        valido =
+            pedido?.statusOperacional ===
+            "utilizado";
+    }
 
     const quantidadeAtual =
         quantidadeDoPedido(
             pedido
         );
 
+    const usadoEm =
+        dataUtilizacaoLocal(
+            pedido
+        );
+
+    const validadoPor =
+        funcionarioUtilizacaoLocal(
+            pedido
+        );
+
     const painelClass =
         valido
             ? "bg-green-600/95 border-green-300"
-            : usado || pedido
+            : pedido
                 ? "bg-red-600/95 border-red-300"
                 : "bg-slate-950/85 border-white/30";
 
@@ -1109,11 +1568,11 @@ export default function PortariaPage() {
                         className="h-36 w-36 rounded-3xl bg-white/10 object-contain p-3 shadow-2xl"
                     />
 
-                    <h1 className="mt-6 text-3xl font-black drop-shadow-lg">
+                    <h1 className="mt-6 text-3xl font-black">
                         Parque Mundo Novo
                     </h1>
 
-                    <p className="mt-2 text-lg font-semibold text-white/90">
+                    <p className="mt-2 text-lg font-semibold">
                         Portaria Digital
                     </p>
 
@@ -1144,6 +1603,8 @@ export default function PortariaPage() {
             <div className="absolute inset-0 bg-black/65" />
 
             <div className="relative z-10 mx-auto max-w-md">
+                {/* CABEÇALHO */}
+
                 <header className="mb-4 text-center">
                     <img
                         src="/logo-final.png"
@@ -1151,27 +1612,80 @@ export default function PortariaPage() {
                         className="mx-auto h-20 w-20 rounded-3xl bg-white/10 object-contain p-2 shadow-xl"
                     />
 
-                    <h1 className="mt-2 text-2xl font-black drop-shadow-lg">
+                    <h1 className="mt-2 text-2xl font-black">
                         Portaria Digital
                     </h1>
                 </header>
 
-                {/* STATUS */}
+                {/* ==================================
+                    LOCAL DA VALIDAÇÃO
+                ================================== */}
+
+                <section className="mb-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
+                    <p className="mb-3 text-center text-sm font-black uppercase tracking-wide text-slate-600">
+                        📍 Local de validação
+                    </p>
+
+                    <div className="grid gap-3">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setLocalValidacao(
+                                    "principal"
+                                )
+                            }
+                            className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
+                                "principal"
+                                ? "border-green-700 bg-green-700 text-white"
+                                : "border-slate-200 bg-white text-slate-800"
+                                }`}
+                        >
+                            🚪 PORTARIA PRINCIPAL
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setLocalValidacao(
+                                    "cachoeira_mundo_novo"
+                                )
+                            }
+                            className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
+                                "cachoeira_mundo_novo"
+                                ? "border-blue-700 bg-blue-700 text-white"
+                                : "border-slate-200 bg-white text-slate-800"
+                                }`}
+                        >
+                            🌊 CACHOEIRA MUNDO NOVO
+                        </button>
+                    </div>
+
+                    {localValidacao && (
+                        <p className="mt-3 rounded-xl bg-slate-100 p-3 text-center text-sm font-black">
+                            Local atual:{" "}
+                            {nomeLocal()}
+                        </p>
+                    )}
+                </section>
+
+                {/* ==================================
+                    STATUS INTERNET
+                ================================== */}
 
                 <section className="mb-4 rounded-2xl border border-white/10 bg-slate-900/90 p-4 text-sm shadow-lg">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <span
                                 className={`h-3.5 w-3.5 rounded-full ${isOnline
-                                        ? "animate-pulse bg-green-500"
-                                        : "bg-red-500"
+                                    ? "animate-pulse bg-green-500"
+                                    : "bg-red-500"
                                     }`}
                             />
 
-                            <span className="font-bold uppercase tracking-wider">
+                            <span className="font-bold uppercase">
                                 {isOnline
-                                    ? "Online (Firestore)"
-                                    : "Dispositivo Offline"}
+                                    ? "Online"
+                                    : "Offline"}
                             </span>
                         </div>
 
@@ -1183,7 +1697,7 @@ export default function PortariaPage() {
                                 disabled={
                                     sincronizando
                                 }
-                                className="rounded-xl bg-green-700 px-3 py-1.5 text-xs font-black text-white shadow transition hover:bg-green-600 disabled:opacity-50"
+                                className="rounded-xl bg-green-700 px-3 py-2 text-xs font-black disabled:opacity-50"
                             >
                                 {sincronizando
                                     ? "SINCRONIZANDO..."
@@ -1194,70 +1708,100 @@ export default function PortariaPage() {
 
                     <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 text-white/80">
                         <p>
-                            Sincronizado:{" "}
-                            <span className="font-bold text-white">
+                            Última sinc:
+                            <br />
+
+                            <strong className="text-white">
                                 {ultimaSinc ||
                                     "Nunca"}
-                            </span>
+                            </strong>
                         </p>
 
                         <p className="text-right">
-                            Fila Pendente:{" "}
-                            <span
-                                className={`font-black ${pendentesCount > 0
+                            Fila:
+                            <br />
+
+                            <strong
+                                className={
+                                    pendentesCount >
+                                        0
                                         ? "text-yellow-400"
                                         : "text-white"
-                                    }`}
+                                }
                             >
-                                {pendentesCount}
-                            </span>
+                                {
+                                    pendentesCount
+                                }
+                            </strong>
                         </p>
                     </div>
 
                     {!isOnline && (
-                        <p className="mt-2 rounded-lg bg-red-950/40 p-2 text-center text-xs font-semibold text-red-300">
-                            Aviso: Use apenas UM
-                            aparelho na portaria
-                            enquanto offline.
-                        </p>
+                        <div className="mt-3 rounded-xl bg-red-950/50 p-3 text-center text-xs font-bold text-red-200">
+                            ⚠️ OFFLINE
+                            <br />
+                            Use apenas um
+                            aparelho por portaria
+                            enquanto estiver sem
+                            internet.
+                        </div>
                     )}
                 </section>
 
-                {/* CONTADORES */}
+                {/* ==================================
+                    CONTADORES
+                ================================== */}
 
-                <div className="mb-4 grid grid-cols-3 gap-2">
-                    <div className="rounded-2xl bg-green-700/95 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">
-                            👥 Pessoas Hoje
-                        </p>
+                {localValidacao && (
+                    <>
+                        <div className="mb-2 rounded-xl bg-black/70 p-2 text-center text-xs font-black uppercase">
+                            Contadores —{" "}
+                            {nomeLocal()}
+                        </div>
 
-                        <p className="text-2xl font-black">
-                            {entradasHoje}
-                        </p>
-                    </div>
+                        <div className="mb-4 grid grid-cols-3 gap-2">
+                            <div className="rounded-2xl bg-green-700/95 p-3 text-center shadow-lg">
+                                <p className="text-xs font-bold">
+                                    👥 Hoje
+                                </p>
 
-                    <div className="rounded-2xl bg-blue-700/95 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">
-                            📅 Pessoas Mês
-                        </p>
+                                <p className="text-2xl font-black">
+                                    {
+                                        entradasHoje
+                                    }
+                                </p>
+                            </div>
 
-                        <p className="text-2xl font-black">
-                            {entradasMes}
-                        </p>
-                    </div>
+                            <div className="rounded-2xl bg-blue-700/95 p-3 text-center shadow-lg">
+                                <p className="text-xs font-bold">
+                                    📅 Mês
+                                </p>
 
-                    <div className="rounded-2xl bg-purple-700/95 p-3 text-center shadow-lg">
-                        <p className="text-xs font-bold">
-                            🏆 Pessoas Total
-                        </p>
+                                <p className="text-2xl font-black">
+                                    {
+                                        entradasMes
+                                    }
+                                </p>
+                            </div>
 
-                        <p className="text-2xl font-black">
-                            {totalUtilizados}
-                        </p>
-                    </div>
-                </div>
+                            <div className="rounded-2xl bg-purple-700/95 p-3 text-center shadow-lg">
+                                <p className="text-xs font-bold">
+                                    🏆 Total
+                                </p>
 
-                {/* FUNCIONÁRIO */}
+                                <p className="text-2xl font-black">
+                                    {
+                                        totalUtilizados
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* ==================================
+                    FUNCIONÁRIO
+                ================================== */}
 
                 <section className="mb-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
                     <p className="mb-2 text-sm font-black uppercase tracking-wide text-slate-600">
@@ -1265,25 +1809,35 @@ export default function PortariaPage() {
                     </p>
 
                     <select
-                        value={funcionario}
+                        value={
+                            funcionario
+                        }
                         onChange={(e) =>
                             setFuncionario(
                                 e.target.value
                             )
                         }
-                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-lg font-black text-slate-900 outline-none focus:border-green-700"
+                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-lg font-black"
                     >
                         <option value="">
                             SELECIONE O FUNCIONÁRIO
                         </option>
 
                         {FUNCIONARIOS.map(
-                            (nome) => (
+                            (
+                                nome
+                            ) => (
                                 <option
-                                    key={nome}
-                                    value={nome}
+                                    key={
+                                        nome
+                                    }
+                                    value={
+                                        nome
+                                    }
                                 >
-                                    {nome}
+                                    {
+                                        nome
+                                    }
                                 </option>
                             )
                         )}
@@ -1292,82 +1846,103 @@ export default function PortariaPage() {
                     {funcionario && (
                         <p className="mt-3 rounded-xl bg-green-100 p-2 text-center text-sm font-black text-green-800">
                             ✅ Atendimento:{" "}
-                            {funcionario}
+                            {
+                                funcionario
+                            }
                         </p>
                     )}
                 </section>
 
-                {/* RESULTADO */}
+                {/* ==================================
+                    RESULTADO
+                ================================== */}
 
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl backdrop-blur-sm ${painelClass}`}
                 >
-                    <p
-                        className={`text-7xl ${!pedido &&
-                                !cameraAtiva
-                                ? "animate-pulse"
-                                : ""
-                            }`}
-                    >
+                    <p className="text-7xl">
                         {valido
                             ? "✅"
-                            : usado || pedido
+                            : pedido
                                 ? "⛔"
-                                : "📷"}
+                                : localValidacao
+                                    ? "📷"
+                                    : "📍"}
                     </p>
 
-                    <h2 className="mt-4 text-4xl font-black leading-tight drop-shadow-lg">
+                    <h2 className="mt-4 text-3xl font-black leading-tight">
                         {mensagem}
                     </h2>
 
-                    {/* QUANTIDADE EM DESTAQUE */}
+                    {/* QUANTIDADE */}
 
                     {valido && (
                         <div className="mt-5 rounded-3xl border-4 border-white bg-white px-4 py-6 text-green-700 shadow-2xl">
                             <p className="text-sm font-black uppercase tracking-[0.2em]">
-                                Liberar entrada para
+                                Liberar
                             </p>
 
-                            <p className="mt-2 text-5xl font-black leading-none">
+                            <p className="mt-2 text-5xl font-black">
                                 {textoPessoas(
                                     quantidadeAtual
                                 )}
                             </p>
 
-                            <p className="mt-3 text-sm font-bold text-green-800">
-                                Este QR Code representa
-                                todo o grupo desta compra.
+                            <p className="mt-3 text-sm font-black">
+                                {nomeLocal()}
                             </p>
                         </div>
                     )}
 
+                    {/* JÁ UTILIZADO */}
+
                     {usado &&
                         usadoEm && (
-                            <div className="mt-4 rounded-2xl bg-white/20 p-4 text-center text-xl font-black">
-                                Utilizado em:
+                            <div className="mt-4 rounded-2xl bg-white/20 p-4 text-center text-lg font-black">
+                                Já utilizado em:
                                 <br />
+
                                 {formatarDataHora(
                                     usadoEm
+                                )}
+
+                                {validadoPor && (
+                                    <>
+                                        <br />
+                                        Por:{" "}
+                                        {
+                                            validadoPor
+                                        }
+                                    </>
                                 )}
                             </div>
                         )}
 
+                    {/* DADOS DO PEDIDO */}
+
                     {pedido && (
-                        <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-lg font-bold">
+                        <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-base font-bold">
                             <p>
                                 Cliente:{" "}
-                                {pedido.nome}
+                                {
+                                    pedido.nome
+                                }
                             </p>
 
                             <p>
                                 Produto:{" "}
-                                {pedido.produto}
+                                {
+                                    pedido.produto
+                                }
                             </p>
 
                             <p>
                                 Quantidade:{" "}
-                                {quantidadeAtual}{" "}
-                                {quantidadeAtual === 1
+                                {
+                                    quantidadeAtual
+                                }{" "}
+                                {quantidadeAtual ===
+                                    1
                                     ? "pessoa"
                                     : "pessoas"}
                             </p>
@@ -1394,44 +1969,65 @@ export default function PortariaPage() {
                                     : pedido.statusPagamento}
                             </p>
 
-                            <p>
-                                Status:{" "}
-                                {pedido.statusOperacional ||
-                                    "ativo"}
-                            </p>
+                            {/* SITUAÇÃO PRINCIPAL */}
 
-                            {validadoPor && (
-                                <p>
-                                    Funcionário:{" "}
-                                    {validadoPor}
+                            <div className="mt-4 rounded-xl bg-black/20 p-3">
+                                <p className="font-black">
+                                    🚪 Portaria
+                                    Principal
                                 </p>
-                            )}
 
-                            {usado &&
-                                usadoEm && (
-                                    <p>
-                                        Entrada:{" "}
-                                        {formatarDataHora(
-                                            usadoEm
-                                        )}
-                                    </p>
-                                )}
+                                <p>
+                                    {pedido.statusOperacional ===
+                                        "utilizado"
+                                        ? `✅ Validada${pedido.utilizadoEm
+                                            ? ` em ${formatarDataHora(
+                                                pedido.utilizadoEm
+                                            )}`
+                                            : ""
+                                        }`
+                                        : "⏳ Ainda não validada"}
+                                </p>
+                            </div>
+
+                            {/* SITUAÇÃO CACHOEIRA */}
+
+                            <div className="mt-2 rounded-xl bg-black/20 p-3">
+                                <p className="font-black">
+                                    🌊 Cachoeira
+                                    Mundo Novo
+                                </p>
+
+                                <p>
+                                    {pedido.cachoeiraMundoNovoValidado
+                                        ? `✅ Validada${pedido.cachoeiraMundoNovoValidadoEm
+                                            ? ` em ${formatarDataHora(
+                                                pedido.cachoeiraMundoNovoValidadoEm
+                                            )}`
+                                            : ""
+                                        }`
+                                        : "⏳ Ainda não validada"}
+                                </p>
+                            </div>
                         </div>
                     )}
                 </section>
 
-                {/* BUSCAS */}
+                {/* ==================================
+                    QR / BUSCA
+                ================================== */}
 
-                <section className="mt-5 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl backdrop-blur-sm">
+                <section className="mt-5 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
                     {!cameraAtiva ? (
                         <button
                             onClick={
                                 iniciarCamera
                             }
                             disabled={
-                                carregando
+                                carregando ||
+                                !localValidacao
                             }
-                            className="w-full rounded-2xl bg-green-700 px-5 py-6 text-2xl font-black text-white shadow-lg disabled:opacity-60"
+                            className="w-full rounded-2xl bg-green-700 px-5 py-6 text-2xl font-black text-white disabled:bg-slate-400"
                         >
                             📷 ESCANEAR QR CODE
                         </button>
@@ -1440,7 +2036,7 @@ export default function PortariaPage() {
                             onClick={
                                 pararCamera
                             }
-                            className="w-full rounded-2xl bg-red-600 px-5 py-5 text-xl font-black text-white shadow-lg"
+                            className="w-full rounded-2xl bg-red-600 px-5 py-5 text-xl font-black text-white"
                         >
                             FECHAR CÂMERA
                         </button>
@@ -1455,8 +2051,6 @@ export default function PortariaPage() {
                         </div>
                     )}
 
-                    {/* CÓDIGO PMN */}
-
                     <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
                         <input
                             type="text"
@@ -1468,12 +2062,25 @@ export default function PortariaPage() {
                                     e.target.value.toUpperCase()
                                 )
                             }
-                            placeholder="Digite o código PMN"
-                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold uppercase outline-none focus:border-green-700"
+                            placeholder="Código PMN"
+                            disabled={
+                                !localValidacao
+                            }
+                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold uppercase disabled:bg-slate-200"
                         />
 
                         <button
                             onClick={() => {
+                                if (
+                                    !localValidacao
+                                ) {
+                                    setMensagem(
+                                        "SELECIONE O LOCAL"
+                                    );
+
+                                    return;
+                                }
+
                                 if (
                                     !codigoManual.trim()
                                 ) {
@@ -1493,9 +2100,10 @@ export default function PortariaPage() {
                                 );
                             }}
                             disabled={
-                                carregando
+                                carregando ||
+                                !localValidacao
                             }
-                            className="rounded-2xl bg-blue-600 px-5 py-4 font-black text-white disabled:opacity-60"
+                            className="rounded-2xl bg-blue-600 px-5 py-4 font-black text-white disabled:bg-slate-400"
                         >
                             BUSCAR
                         </button>
@@ -1503,12 +2111,18 @@ export default function PortariaPage() {
 
                     <button
                         onClick={() => {
-                            setPedido(null);
+                            setPedido(
+                                null
+                            );
 
-                            setCodigoManual("");
+                            setCodigoManual(
+                                ""
+                            );
 
                             setMensagem(
-                                "Aguardando leitura do ingresso"
+                                localValidacao
+                                    ? `${nomeLocal()} - Aguardando ingresso`
+                                    : "Selecione o local de validação"
                             );
                         }}
                         className="mt-4 w-full rounded-2xl border border-slate-300 px-5 py-4 font-bold text-slate-700"
@@ -1516,6 +2130,10 @@ export default function PortariaPage() {
                         LIMPAR INGRESSO
                     </button>
                 </section>
+
+                {/* ==================================
+                    CONFIRMAR
+                ================================== */}
 
                 {valido && (
                     <button
@@ -1525,12 +2143,20 @@ export default function PortariaPage() {
                         disabled={
                             carregando
                         }
-                        className="mt-5 w-full rounded-3xl bg-green-500 px-5 py-6 text-2xl font-black text-white shadow-xl disabled:opacity-60"
+                        className={`mt-5 w-full rounded-3xl px-5 py-6 text-xl font-black text-white shadow-xl disabled:opacity-60 ${localValidacao ===
+                            "principal"
+                            ? "bg-green-500"
+                            : "bg-blue-500"
+                            }`}
                     >
-                        ✅ CONFIRMAR ENTRADA DE{" "}
-                        {textoPessoas(
-                            quantidadeAtual
-                        )}
+                        {localValidacao ===
+                            "principal"
+                            ? `✅ CONFIRMAR ENTRADA DE ${textoPessoas(
+                                quantidadeAtual
+                            )}`
+                            : `🌊 CONFIRMAR ACESSO DE ${textoPessoas(
+                                quantidadeAtual
+                            )}`}
                     </button>
                 )}
 
@@ -1538,9 +2164,9 @@ export default function PortariaPage() {
                     pedido && (
                         <button
                             disabled
-                            className="mt-5 w-full rounded-3xl bg-red-700 px-5 py-6 text-2xl font-black text-white shadow-xl"
+                            className="mt-5 w-full rounded-3xl bg-red-700 px-5 py-6 text-xl font-black text-white"
                         >
-                            ⛔ ENTRADA BLOQUEADA
+                            ⛔ ACESSO BLOQUEADO
                         </button>
                     )}
             </div>
