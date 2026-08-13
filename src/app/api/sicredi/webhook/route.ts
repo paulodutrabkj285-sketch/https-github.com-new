@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { atualizarPedido, buscarPedidoPorTxid } from "@/lib/pedidos";
-import { enviarIngressoPorEmail } from "@/lib/email";
+import { buscarPedidoPorTxid } from "@/lib/pedidos";
+import { finalizarPagamento } from "@/lib/finalizar-pagamento";
 
 export const runtime = "nodejs";
-
-function centavos(valor: any) {
-    return Math.round(Number(valor || 0) * 100);
-}
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
 
-        console.log("WEBHOOK SICREDI RECEBIDO:", JSON.stringify(body, null, 2));
+        console.log(
+            "WEBHOOK SICREDI RECEBIDO:",
+            JSON.stringify(body, null, 2)
+        );
 
-        const pixLista = Array.isArray(body?.pix) ? body.pix : [];
+        const pixLista = Array.isArray(body?.pix)
+            ? body.pix
+            : [];
 
         if (pixLista.length === 0) {
             return NextResponse.json({
@@ -23,112 +24,157 @@ export async function POST(req: NextRequest) {
             });
         }
 
+        const resultados: any[] = [];
+
         for (const pix of pixLista) {
-            const txid = pix?.txid;
-            const valorPago = Number(pix?.valor || 0);
+            const txid = String(
+                pix?.txid || ""
+            ).trim();
+
+            const valorPago = Number(
+                pix?.valor || 0
+            );
+
+            const endToEndId = String(
+                pix?.endToEndId || ""
+            );
+
+            const horario = String(
+                pix?.horario || ""
+            );
+
+            /* ======================================
+               VALIDAR TXID
+            ====================================== */
 
             if (!txid) {
-                console.log("PIX SEM TXID:", pix);
+                console.log(
+                    "WEBHOOK: PIX SEM TXID",
+                    pix
+                );
+
+                resultados.push({
+                    ok: false,
+                    motivo: "pix_sem_txid",
+                });
+
                 continue;
             }
 
-            const pedido: any = await buscarPedidoPorTxid(txid);
+            /* ======================================
+               BUSCAR PEDIDO
+            ====================================== */
+
+            const pedido: any =
+                await buscarPedidoPorTxid(
+                    txid
+                );
 
             if (!pedido) {
-                console.log("PEDIDO NÃO ENCONTRADO PARA TXID:", txid);
-                continue;
-            }
+                console.error(
+                    "WEBHOOK: PEDIDO NÃO ENCONTRADO",
+                    {
+                        txid,
+                        valorPago,
+                        endToEndId,
+                    }
+                );
 
-            const valorPedidoCentavos = centavos(pedido.valorTotal);
-            const valorPagoCentavos = centavos(valorPago);
-
-            if (valorPagoCentavos !== valorPedidoCentavos) {
-                await atualizarPedido(pedido.id, {
-                    statusPagamento: "valor_divergente",
-                    statusOperacional: "bloqueado",
-                    sicrediStatus: "CONCLUIDA",
-                    valorPago,
-                    pixEndToEndId: pix?.endToEndId || "",
-                    pixHorario: pix?.horario || "",
-                });
-
-                console.log("VALOR DIVERGENTE:", {
-                    pedidoId: pedido.id,
+                resultados.push({
+                    ok: false,
+                    motivo: "pedido_nao_encontrado",
                     txid,
-                    valorPedido: pedido.valorTotal,
-                    valorPago,
                 });
 
+                /*
+                 * Não devolvemos erro geral
+                 * porque pode haver outros Pix
+                 * no mesmo webhook.
+                 */
                 continue;
             }
 
-            const codigoIngresso = pedido.codigoIngresso || `PMN-${pedido.id}`;
-
-            await atualizarPedido(pedido.id, {
-                statusPagamento: "pago",
-                statusOperacional: "ativo",
-                sicrediStatus: "CONCLUIDA",
-                valorPago,
-                codigoIngresso,
-                qrCodeIngresso: codigoIngresso,
-                pixEndToEndId: pix?.endToEndId || "",
-                pixHorario: pix?.horario || "",
-            });
-
-            console.log("PAGAMENTO CONFIRMADO:", {
-                pedidoId: pedido.id,
-                txid,
-                valorPago,
-            });
-
-            if (!pedido.emailIngressoEnviado && pedido.email) {
-                try {
-                    await enviarIngressoPorEmail({
-                        para: pedido.email,
-                        nome: pedido.nome || "Cliente",
-                        produto: pedido.produto || "Ingresso Parque Mundo Novo",
-                        quantidade: Number(pedido.quantidade || 1),
-                        codigoIngresso,
-                        pedidoId: pedido.id,
-                        dataVisita: pedido.dataVisita || pedido.dataEntrada || "",
-                    });
-
-                    await atualizarPedido(pedido.id, {
-                        emailIngressoEnviado: true,
-                        emailIngressoEnviadoEm: new Date().toISOString(),
-                    });
-
-                    console.log("EMAIL DO INGRESSO ENVIADO:", {
-                        pedidoId: pedido.id,
-                        email: pedido.email,
-                    });
-                } catch (emailError: any) {
-                    console.error(
-                        "ERRO AO ENVIAR EMAIL DO INGRESSO:",
-                        emailError?.message || emailError
-                    );
-
-                    await atualizarPedido(pedido.id, {
-                        emailIngressoErro: String(emailError?.message || emailError),
-                        emailIngressoErroEm: new Date().toISOString(),
-                    });
+            console.log(
+                "WEBHOOK: PEDIDO ENCONTRADO",
+                {
+                    pedidoId: pedido.id,
+                    codigoIngresso:
+                        pedido.codigoIngresso || null,
+                    statusPagamento:
+                        pedido.statusPagamento || null,
+                    statusOperacional:
+                        pedido.statusOperacional || null,
+                    valorPedido:
+                        pedido.valorTotal || 0,
+                    valorPago,
+                    txid,
                 }
-            }
+            );
+
+            /* ======================================
+               FINALIZAÇÃO CENTRALIZADA
+            ====================================== */
+
+            const resultado =
+                await finalizarPagamento({
+                    pedidoId: pedido.id,
+                    formaPagamento: "pix",
+                    valorPago,
+                    pixEndToEndId: endToEndId,
+                    pixHorario: horario,
+                    sicrediTxid: txid,
+                });
+
+            /*
+             * resultado já contém pedidoId.
+             * Não repetimos pedidoId aqui.
+             */
+            resultados.push({
+                txid,
+                ...resultado,
+            });
+
+            console.log(
+                "WEBHOOK: RESULTADO FINALIZAÇÃO",
+                {
+                    txid,
+                    ...resultado,
+                }
+            );
         }
+
+        /* ======================================
+           RESPOSTA
+        ====================================== */
 
         return NextResponse.json({
             ok: true,
-            mensagem: "Webhook processado.",
+            mensagem: "Webhook Sicredi processado.",
+            quantidade: resultados.length,
+            resultados,
         });
     } catch (error: any) {
-        console.error("ERRO WEBHOOK SICREDI:", error?.message || error);
+        const mensagem = String(
+            error?.message ||
+            error ||
+            "Erro desconhecido"
+        );
+
+        console.error(
+            "ERRO WEBHOOK SICREDI:",
+            mensagem
+        );
 
         return NextResponse.json(
             {
                 ok: false,
-                error: "Erro ao processar webhook Sicredi.",
+                error:
+                    "Erro ao processar webhook Sicredi.",
+                details: mensagem,
             },
-            { status: 500 }
+            {
+                status: 500,
+            }
         );
     }
 }
