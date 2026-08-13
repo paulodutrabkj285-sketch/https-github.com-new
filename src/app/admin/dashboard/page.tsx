@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import {
   calcularResumoFinanceiro,
   listarPedidos,
@@ -8,6 +10,8 @@ import {
 } from "@/lib/pedidos";
 
 export default function DashboardPage() {
+  const router = useRouter();
+
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -17,7 +21,10 @@ export default function DashboardPage() {
         const lista = await listarPedidos();
         setPedidos(lista);
       } catch (error) {
-        console.error("DASHBOARD: erro ao carregar pedidos:", error);
+        console.error(
+          "DASHBOARD: erro ao carregar pedidos:",
+          error
+        );
       } finally {
         setCarregando(false);
       }
@@ -211,6 +218,17 @@ export default function DashboardPage() {
           </div>
 
           <section className="flex flex-wrap gap-3">
+            <button
+              onClick={() =>
+                router.push(
+                  "/admin/envio-ingressos"
+                )
+              }
+              className="rounded-xl bg-[#166534] px-5 py-3 font-bold text-white shadow-md hover:bg-green-800"
+            >
+              📧 Envio de Ingressos
+            </button>
+
             <button
               onClick={imprimirRelatorio}
               className="rounded-xl bg-green-700 px-5 py-3 font-bold text-white"
@@ -540,8 +558,6 @@ export default function DashboardPage() {
             ====================================== */}
 
             <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* VENDAS POR PRODUTO */}
-
               <div className="rounded-2xl bg-white p-5 shadow-md">
                 <h2 className="text-2xl font-bold text-[#166534]">
                   Ingressos vendidos por Produto
@@ -591,8 +607,6 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
-
-              {/* PAGOS / PENDENTES / EXPIRADOS */}
 
               <div className="rounded-2xl bg-white p-5 shadow-md">
                 <h2 className="text-2xl font-bold text-[#166534]">
@@ -698,8 +712,7 @@ export default function DashboardPage() {
                 <span className="rounded-full bg-green-100 px-4 py-2 font-bold text-green-800">
                   {visitantesEntradasHoje}{" "}
                   visitante
-                  {visitantesEntradasHoje !==
-                    1
+                  {visitantesEntradasHoje !== 1
                     ? "s"
                     : ""}
                 </span>
@@ -1375,10 +1388,6 @@ function gerarDashboardOperacional(
 function gerarEstatisticasProdutos(
   pedidos: Pedido[]
 ) {
-  /*
-   * Agora somente vendas pagas entram
-   * nas estatísticas comerciais.
-   */
   const pagos =
     pedidos.filter(
       (pedido) =>
@@ -1482,12 +1491,6 @@ function gerarFaturamentoPorDia(
     Record<string, number> =
     {};
 
-  /*
-   * CORREÇÃO:
-   *
-   * pedidos pendentes ou expirados
-   * não são faturamento.
-   */
   pedidos
     .filter(
       (pedido) =>
