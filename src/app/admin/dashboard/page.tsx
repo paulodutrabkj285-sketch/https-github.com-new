@@ -203,7 +203,10 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
       <div className="mx-auto max-w-7xl">
-        {/* CABEÇALHO */}
+
+        {/* ======================================
+            CABEÇALHO
+        ====================================== */}
 
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between print:hidden">
           <div>
@@ -218,6 +221,20 @@ export default function DashboardPage() {
           </div>
 
           <section className="flex flex-wrap gap-3">
+
+            {/* NOVO BOTÃO DAS AGÊNCIAS */}
+
+            <button
+              onClick={() =>
+                router.push(
+                  "/admin/reservas-agencias"
+                )
+              }
+              className="rounded-xl bg-amber-600 px-5 py-3 font-bold text-white shadow-md hover:bg-amber-700"
+            >
+              🏢 Agências e Reservas
+            </button>
+
             <button
               onClick={() =>
                 router.push(
@@ -266,7 +283,9 @@ export default function DashboardPage() {
           </section>
         </div>
 
-        {/* IMPRESSÃO */}
+        {/* ======================================
+            IMPRESSÃO
+        ====================================== */}
 
         <div className="hidden print:block">
           <h1 className="text-3xl font-bold text-[#166534]">
@@ -288,6 +307,7 @@ export default function DashboardPage() {
           </p>
         ) : (
           <>
+
             {/* ======================================
                 DESDE O LANÇAMENTO
             ====================================== */}
@@ -352,7 +372,7 @@ export default function DashboardPage() {
             </section>
 
             {/* ======================================
-                VENDAS SEPARADAS POR PRODUTO
+                VENDAS POR PRODUTO
             ====================================== */}
 
             <section className="mt-6">
@@ -558,6 +578,7 @@ export default function DashboardPage() {
             ====================================== */}
 
             <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+
               <div className="rounded-2xl bg-white p-5 shadow-md">
                 <h2 className="text-2xl font-bold text-[#166534]">
                   Ingressos vendidos por Produto
@@ -704,6 +725,7 @@ export default function DashboardPage() {
             ====================================== */}
 
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
+
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-2xl font-bold text-[#166534]">
                   Entradas de Hoje
@@ -712,7 +734,8 @@ export default function DashboardPage() {
                 <span className="rounded-full bg-green-100 px-4 py-2 font-bold text-green-800">
                   {visitantesEntradasHoje}{" "}
                   visitante
-                  {visitantesEntradasHoje !== 1
+                  {visitantesEntradasHoje !==
+                    1
                     ? "s"
                     : ""}
                 </span>
@@ -1080,8 +1103,7 @@ function StatusPagamento({
 
   if (
     status === "cancelado" ||
-    status ===
-    "valor_divergente"
+    status === "valor_divergente"
   ) {
     classes =
       "bg-red-100 text-red-800";
@@ -1115,7 +1137,8 @@ function ehHoje(
 ) {
   if (!valor) return false;
 
-  const hoje = new Date();
+  const hoje =
+    new Date();
 
   const data =
     new Date(valor);
@@ -1135,7 +1158,8 @@ function ehMesAtual(
 ) {
   if (!valor) return false;
 
-  const hoje = new Date();
+  const hoje =
+    new Date();
 
   const data =
     new Date(valor);
