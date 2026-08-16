@@ -11,177 +11,307 @@ import {
 
 import { db } from "./firebase";
 
-export type AgenciaInput = {
-    nomeEmpresa: string;
-    responsavel: string;
-    documento: string;
-    cadastur: string;
+/* ==========================================
+   TIPOS
+========================================== */
 
-    tipoParceiro:
+export type TipoParceiro =
     | "agencia"
     | "guia"
     | "transportadora"
     | "operadora";
+
+export type StatusAgencia =
+    | "pendente"
+    | "ativa"
+    | "bloqueada"
+    | "reprovada";
+
+export type CategoriaAgencia =
+    | "Bronze"
+    | "Prata"
+    | "Ouro"
+    | "Diamante";
+
+export type AgenciaInput = {
+    nomeEmpresa: string;
+    responsavel: string;
+
+    /*
+     * Documento principal do novo fluxo:
+     * CNPJ.
+     */
+    documento: string;
+
+    /*
+     * Cadastur não é mais obrigatório
+     * no cadastro público.
+     *
+     * Ele poderá ser conferido e
+     * registrado pelo Admin.
+     */
+    cadastur?: string;
+
+    tipoParceiro: TipoParceiro;
 
     telefone: string;
     whatsapp: string;
     email: string;
     cidade: string;
     estado: string;
+
     observacoes?: string;
 };
 
-export type Agencia = AgenciaInput & {
-    id: string;
+export type Agencia =
+    AgenciaInput & {
+        id: string;
 
-    status:
-    | "pendente"
-    | "ativa"
-    | "bloqueada";
+        status: StatusAgencia;
 
-    descontoPadrao: number;
+        descontoPadrao: number;
 
-    categoria:
-    | "Bronze"
-    | "Prata"
-    | "Ouro"
-    | "Diamante";
+        /*
+         * Mantido por compatibilidade
+         * com a página atual de reservas.
+         */
+        categoria: CategoriaAgencia;
 
-    aprovacaoAutomatica: boolean;
+        totalVisitantes: number;
+        receitaGerada: number;
+        descontosConcedidos: number;
 
-    totalVisitantes: number;
-    receitaGerada: number;
-    descontosConcedidos: number;
+        /*
+         * Aprovação administrativa.
+         */
+        aprovadoEm?: string;
+        aprovadoPor?: string;
 
-    createdAt: string;
-    updatedAt?: string;
+        reprovadoEm?: string;
+        reprovadoPor?: string;
+        motivoReprovacao?: string;
 
-    aprovadoEm?: string;
-    aprovadoPor?: string;
-};
+        bloqueadoEm?: string;
+        bloqueadoPor?: string;
+
+        /*
+         * Verificação administrativa
+         * do CNPJ.
+         */
+        documentoVerificado?: boolean;
+        documentoVerificadoEm?: string;
+        documentoVerificadoPor?: string;
+
+        /*
+         * Verificação do Cadastur.
+         */
+        cadasturVerificado?: boolean;
+        cadasturVerificadoEm?: string;
+        cadasturVerificadoPor?: string;
+        cadasturSituacao?: string;
+
+        /*
+         * O parceiro nunca é aprovado
+         * automaticamente.
+         */
+        aprovacaoAutomatica: boolean;
+
+        createdAt: string;
+        updatedAt?: string;
+    };
 
 /* ==========================================
-   LIMPEZA / VALIDAÇÃO
+   LIMPEZA
 ========================================== */
 
-function limpar(valor: string) {
-    return String(valor || "").trim();
+function limpar(
+    valor?: string
+) {
+    return String(
+        valor || ""
+    ).trim();
 }
 
-function validarCadastur(cadastur: string) {
-    const valor = limpar(cadastur);
-
-    /*
-     * Por enquanto verificamos se foi informado.
-     *
-     * A validação oficial do número do Cadastur
-     * pode ser adicionada depois, caso desejado.
-     */
-    return valor.length > 0;
+function somenteDigitos(
+    valor?: string
+) {
+    return String(
+        valor || ""
+    ).replace(
+        /\D/g,
+        ""
+    );
 }
 
 /* ==========================================
-   CRIAR AGÊNCIA / GUIA
+   VALIDAR CNPJ
+========================================== */
+
+export function validarCnpj(
+    valor?: string
+) {
+    const cnpj =
+        somenteDigitos(
+            valor
+        );
+
+    /*
+     * Por enquanto:
+     * validação básica de tamanho.
+     *
+     * A conferência oficial será
+     * feita pelo Admin antes da aprovação.
+     */
+    return (
+        cnpj.length === 14
+    );
+}
+
+/* ==========================================
+   CRIAR AGÊNCIA / PARCEIRO
 ========================================== */
 
 export async function criarAgencia(
     dados: AgenciaInput
 ) {
-    const cadastur = limpar(
-        dados.cadastur
-    );
+    const documento =
+        somenteDigitos(
+            dados.documento
+        );
 
-    if (!validarCadastur(cadastur)) {
+    if (
+        !validarCnpj(
+            documento
+        )
+    ) {
         throw new Error(
-            "O número do Cadastur é obrigatório."
+            "Informe um CNPJ válido com 14 dígitos."
         );
     }
 
-    const ref = await addDoc(
-        collection(
-            db,
-            "agencias"
-        ),
-        {
-            ...dados,
+    const agora =
+        new Date()
+            .toISOString();
 
-            nomeEmpresa: limpar(
-                dados.nomeEmpresa
+    const ref =
+        await addDoc(
+            collection(
+                db,
+                "agencias"
             ),
+            {
+                nomeEmpresa:
+                    limpar(
+                        dados.nomeEmpresa
+                    ),
 
-            responsavel: limpar(
-                dados.responsavel
-            ),
+                responsavel:
+                    limpar(
+                        dados.responsavel
+                    ),
 
-            documento: limpar(
-                dados.documento
-            ),
+                documento,
 
-            cadastur,
+                cadastur:
+                    limpar(
+                        dados.cadastur
+                    ),
 
-            telefone: limpar(
-                dados.telefone
-            ),
+                tipoParceiro:
+                    dados.tipoParceiro,
 
-            whatsapp: limpar(
-                dados.whatsapp
-            ),
+                telefone:
+                    somenteDigitos(
+                        dados.telefone
+                    ),
 
-            email: limpar(
-                dados.email
-            ).toLowerCase(),
+                whatsapp:
+                    somenteDigitos(
+                        dados.whatsapp
+                    ),
 
-            cidade: limpar(
-                dados.cidade
-            ),
+                email:
+                    limpar(
+                        dados.email
+                    )
+                        .toLowerCase(),
 
-            estado: limpar(
-                dados.estado
-            ).toUpperCase(),
+                cidade:
+                    limpar(
+                        dados.cidade
+                    ),
 
-            observacoes: limpar(
-                dados.observacoes ||
-                ""
-            ),
+                estado:
+                    limpar(
+                        dados.estado
+                    )
+                        .toUpperCase(),
 
-            /*
-             * NOVA REGRA:
-             *
-             * O parceiro não é aprovado
-             * automaticamente.
-             */
-            status:
-                "pendente",
+                observacoes:
+                    limpar(
+                        dados.observacoes
+                    ),
 
-            /*
-             * O desconto real será calculado
-             * conforme a quantidade de visitantes.
-             *
-             * Até 20 pessoas = 5%
-             * Acima de 20 = 10%
-             */
-            descontoPadrao:
-                5,
+                /* ==================================
+                   NOVO FLUXO
+                ================================== */
 
-            categoria:
-                "Bronze",
+                /*
+                 * Sempre entra aguardando aprovação.
+                 */
+                status:
+                    "pendente",
 
-            aprovacaoAutomatica:
-                false,
+                /*
+                 * Nunca aprova automaticamente.
+                 */
+                aprovacaoAutomatica:
+                    false,
 
-            totalVisitantes:
-                0,
+                /*
+                 * Ainda não verificado pelo Admin.
+                 */
+                documentoVerificado:
+                    false,
 
-            receitaGerada:
-                0,
+                cadasturVerificado:
+                    false,
 
-            descontosConcedidos:
-                0,
+                cadasturSituacao:
+                    "aguardando_verificacao",
 
-            createdAt:
-                new Date().toISOString(),
-        }
-    );
+                /*
+                 * Regra comercial base.
+                 *
+                 * O desconto real será calculado
+                 * pela quantidade do grupo.
+                 */
+                descontoPadrao:
+                    5,
+
+                /*
+                 * Mantido porque a página
+                 * de reservas atual usa este campo.
+                 */
+                categoria:
+                    "Bronze",
+
+                totalVisitantes:
+                    0,
+
+                receitaGerada:
+                    0,
+
+                descontosConcedidos:
+                    0,
+
+                createdAt:
+                    agora,
+
+                updatedAt:
+                    agora,
+            }
+        );
 
     return ref.id;
 }
@@ -191,24 +321,28 @@ export async function criarAgencia(
 ========================================== */
 
 export async function listarAgencias() {
-    const q = query(
-        collection(
-            db,
-            "agencias"
-        ),
+    const q =
+        query(
+            collection(
+                db,
+                "agencias"
+            ),
 
-        orderBy(
-            "createdAt",
-            "desc"
-        )
-    );
+            orderBy(
+                "createdAt",
+                "desc"
+            )
+        );
 
     const snap =
         await getDocs(q);
 
     return snap.docs.map(
-        (docItem) => ({
-            id: docItem.id,
+        (
+            docItem
+        ) => ({
+            id:
+                docItem.id,
 
             ...docItem.data(),
         })
@@ -223,27 +357,35 @@ export async function buscarAgenciaPorId(
     id: string
 ): Promise<Agencia | null> {
     const idLimpo =
-        limpar(id);
+        limpar(
+            id
+        );
 
     if (!idLimpo) {
         return null;
     }
 
-    const ref = doc(
-        db,
-        "agencias",
-        idLimpo
-    );
+    const ref =
+        doc(
+            db,
+            "agencias",
+            idLimpo
+        );
 
     const snap =
-        await getDoc(ref);
+        await getDoc(
+            ref
+        );
 
-    if (!snap.exists()) {
+    if (
+        !snap.exists()
+    ) {
         return null;
     }
 
     return {
-        id: snap.id,
+        id:
+            snap.id,
 
         ...snap.data(),
     } as Agencia;
@@ -262,11 +404,12 @@ export async function atualizarAgencia(
             unknown
         >
 ) {
-    const ref = doc(
-        db,
-        "agencias",
-        id
-    );
+    const ref =
+        doc(
+            db,
+            "agencias",
+            id
+        );
 
     await updateDoc(
         ref,
@@ -274,7 +417,8 @@ export async function atualizarAgencia(
             ...dados,
 
             updatedAt:
-                new Date().toISOString(),
+                new Date()
+                    .toISOString(),
         }
     );
 }
@@ -285,8 +429,13 @@ export async function atualizarAgencia(
 
 export async function ativarAgencia(
     id: string,
-    aprovadoPor = "admin"
+    aprovadoPor =
+        "admin"
 ) {
+    const agora =
+        new Date()
+            .toISOString();
+
     await atualizarAgencia(
         id,
         {
@@ -296,10 +445,65 @@ export async function ativarAgencia(
             aprovacaoAutomatica:
                 false,
 
+            documentoVerificado:
+                true,
+
+            documentoVerificadoEm:
+                agora,
+
+            documentoVerificadoPor:
+                aprovadoPor,
+
+            cadasturVerificado:
+                true,
+
+            cadasturVerificadoEm:
+                agora,
+
+            cadasturVerificadoPor:
+                aprovadoPor,
+
+            cadasturSituacao:
+                "regular",
+
             aprovadoEm:
-                new Date().toISOString(),
+                agora,
 
             aprovadoPor,
+        }
+    );
+}
+
+/* ==========================================
+   REPROVAR AGÊNCIA
+========================================== */
+
+export async function reprovarAgencia(
+    id: string,
+    motivo:
+        string = "",
+    reprovadoPor =
+        "admin"
+) {
+    const agora =
+        new Date()
+            .toISOString();
+
+    await atualizarAgencia(
+        id,
+        {
+            status:
+                "reprovada",
+
+            motivoReprovacao:
+                limpar(
+                    motivo
+                ),
+
+            reprovadoEm:
+                agora,
+
+            reprovadoPor,
         }
     );
 }
@@ -309,13 +513,24 @@ export async function ativarAgencia(
 ========================================== */
 
 export async function bloquearAgencia(
-    id: string
+    id: string,
+    bloqueadoPor =
+        "admin"
 ) {
+    const agora =
+        new Date()
+            .toISOString();
+
     await atualizarAgencia(
         id,
         {
             status:
                 "bloqueada",
+
+            bloqueadoEm:
+                agora,
+
+            bloqueadoPor,
         }
     );
 }
@@ -333,6 +548,27 @@ export async function marcarAgenciaPendente(
             status:
                 "pendente",
 
+            documentoVerificado:
+                false,
+
+            documentoVerificadoEm:
+                "",
+
+            documentoVerificadoPor:
+                "",
+
+            cadasturVerificado:
+                false,
+
+            cadasturVerificadoEm:
+                "",
+
+            cadasturVerificadoPor:
+                "",
+
+            cadasturSituacao:
+                "aguardando_verificacao",
+
             aprovadoEm:
                 "",
 
@@ -343,7 +579,7 @@ export async function marcarAgenciaPendente(
 }
 
 /* ==========================================
-   VERIFICAR SE PODE RESERVAR
+   VERIFICAR SE PODE RESERVAR / COMPRAR
 ========================================== */
 
 export function agenciaPodeReservar(
@@ -356,6 +592,9 @@ export function agenciaPodeReservar(
         return false;
     }
 
+    /*
+     * Precisa estar aprovada.
+     */
     if (
         agencia.status !==
         "ativa"
@@ -363,10 +602,24 @@ export function agenciaPodeReservar(
         return false;
     }
 
+    /*
+     * CNPJ precisa ter sido
+     * conferido pelo Admin.
+     */
     if (
-        !validarCadastur(
-            agencia.cadastur
-        )
+        agencia.documentoVerificado !==
+        true
+    ) {
+        return false;
+    }
+
+    /*
+     * Regularidade/Cadastur precisa
+     * ter sido validada pelo Admin.
+     */
+    if (
+        agencia.cadasturVerificado !==
+        true
     ) {
         return false;
     }
@@ -382,26 +635,31 @@ export function agenciaPodeReservar(
  * REGRA OFICIAL:
  *
  * 1 até 20 visitantes = 5%
- * acima de 20 visitantes = 10%
- *
- * Zero visitantes = 0%
+ * 21 ou mais visitantes = 10%
+ * 0 visitantes = 0%
  */
 
 export function calcularDescontoGrupo(
     totalVisitantes: number
 ) {
-    const total = Number(
-        totalVisitantes || 0
-    );
+    const total =
+        Number(
+            totalVisitantes ||
+            0
+        );
 
     if (
-        !Number.isFinite(total) ||
+        !Number.isFinite(
+            total
+        ) ||
         total <= 0
     ) {
         return 0;
     }
 
-    if (total > 20) {
+    if (
+        total > 20
+    ) {
         return 10;
     }
 
@@ -409,7 +667,7 @@ export function calcularDescontoGrupo(
 }
 
 /* ==========================================
-   CALCULAR VALOR COM DESCONTO
+   APLICAR DESCONTO
 ========================================== */
 
 export function aplicarDescontoAgencia(
@@ -422,11 +680,16 @@ export function aplicarDescontoAgencia(
         );
 
     const valorOriginal =
-        Number(valor || 0);
+        Number(
+            valor || 0
+        );
 
     const valorDesconto =
         valorOriginal *
-        (percentual / 100);
+        (
+            percentual /
+            100
+        );
 
     const valorFinal =
         valorOriginal -

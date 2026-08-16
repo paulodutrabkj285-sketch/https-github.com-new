@@ -23,6 +23,10 @@ import {
   useState,
 } from "react";
 
+/* ==========================================
+   VALORES
+========================================== */
+
 const VALOR_ADULTO = 60;
 const VALOR_IDOSO = 30;
 const VALOR_ELEVADOR = 75;
@@ -30,57 +34,159 @@ const VALOR_ELEVADOR = 75;
 const WHATSAPP_PARQUE =
   "5549991299991";
 
+type ModalidadeReserva =
+  | "antecipado"
+  | "chegada";
+
+/* ==========================================
+   FUNDOS
+========================================== */
+
 const imagensFundo = [
   "/fotos/fundo-geral.jpg",
   "/fotos/cachoeira-alta.png",
   "/fotos/cachoeira-lago.png",
 ];
 
+/* ==========================================
+   PÁGINA
+========================================== */
+
 export default function ReservaParceiroPage() {
-  const [imagemAtual, setImagemAtual] =
-    useState(0);
+  const [
+    imagemAtual,
+    setImagemAtual,
+  ] = useState(0);
 
-  const [agencia, setAgencia] =
-    useState<Agencia | null>(null);
+  const [
+    agencia,
+    setAgencia,
+  ] = useState<Agencia | null>(
+    null
+  );
 
-  const [carregandoAgencia, setCarregandoAgencia] =
-    useState(true);
+  const [
+    carregandoAgencia,
+    setCarregandoAgencia,
+  ] = useState(true);
 
-  const [erroAgencia, setErroAgencia] =
-    useState("");
+  const [
+    erroAgencia,
+    setErroAgencia,
+  ] = useState("");
 
-  const [dataVisita, setDataVisita] =
-    useState("");
+  const [
+    modalidade,
+    setModalidade,
+  ] =
+    useState<ModalidadeReserva>(
+      "chegada"
+    );
 
-  const [horaPrevista, setHoraPrevista] =
-    useState("");
+  const [
+    dataVisita,
+    setDataVisita,
+  ] = useState("");
 
-  const [tipoVeiculo, setTipoVeiculo] =
-    useState("Ônibus");
+  const [
+    horaPrevista,
+    setHoraPrevista,
+  ] = useState("");
 
-  const [adultos, setAdultos] =
-    useState(0);
+  const [
+    tipoVeiculo,
+    setTipoVeiculo,
+  ] = useState("Ônibus");
 
-  const [idosos, setIdosos] =
-    useState(0);
+  const [
+    adultos,
+    setAdultos,
+  ] = useState(0);
 
-  const [temElevador, setTemElevador] =
-    useState(false);
+  const [
+    idosos,
+    setIdosos,
+  ] = useState(0);
 
-  const [qtdElevador, setQtdElevador] =
-    useState(0);
+  const [
+    temElevador,
+    setTemElevador,
+  ] = useState(false);
 
-  const [observacoes, setObservacoes] =
-    useState("");
+  const [
+    qtdElevador,
+    setQtdElevador,
+  ] = useState(0);
 
-  const [carregando, setCarregando] =
-    useState(false);
+  const [
+    observacoes,
+    setObservacoes,
+  ] = useState("");
 
-  const [mensagem, setMensagem] =
-    useState("");
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(false);
 
-  const [linkWhatsApp, setLinkWhatsApp] =
-    useState("");
+  const [
+    mensagem,
+    setMensagem,
+  ] = useState("");
+
+  const [
+    tipoMensagem,
+    setTipoMensagem,
+  ] = useState<
+    "sucesso" |
+    "erro" |
+    ""
+  >("");
+
+  const [
+    linkWhatsApp,
+    setLinkWhatsApp,
+  ] = useState("");
+
+  const [
+    reservaCriada,
+    setReservaCriada,
+  ] = useState<{
+    codigoGrupo: string;
+    modalidade: ModalidadeReserva;
+    totalVisitantes: number;
+    valorFinal: number;
+  } | null>(null);
+
+  /* ======================================
+     DATA MÍNIMA
+  ====================================== */
+
+  const dataHoje =
+    useMemo(() => {
+      const hoje =
+        new Date();
+
+      const ano =
+        hoje.getFullYear();
+
+      const mes =
+        String(
+          hoje.getMonth() + 1
+        ).padStart(
+          2,
+          "0"
+        );
+
+      const dia =
+        String(
+          hoje.getDate()
+        ).padStart(
+          2,
+          "0"
+        );
+
+      return `${ano}-${mes}-${dia}`;
+    }, []);
 
   /* ======================================
      FUNDO
@@ -88,16 +194,21 @@ export default function ReservaParceiroPage() {
 
   useEffect(() => {
     const intervalo =
-      setInterval(() => {
-        setImagemAtual(
-          (atual) =>
-            (atual + 1) %
-            imagensFundo.length
-        );
-      }, 7000);
+      setInterval(
+        () => {
+          setImagemAtual(
+            (atual) =>
+              (atual + 1) %
+              imagensFundo.length
+          );
+        },
+        7000
+      );
 
     return () =>
-      clearInterval(intervalo);
+      clearInterval(
+        intervalo
+      );
   }, []);
 
   /* ======================================
@@ -107,7 +218,10 @@ export default function ReservaParceiroPage() {
   useEffect(() => {
     async function carregarAgencia() {
       try {
-        setCarregandoAgencia(true);
+        setCarregandoAgencia(
+          true
+        );
+
         setErroAgencia("");
 
         if (
@@ -131,7 +245,7 @@ export default function ReservaParceiroPage() {
 
         if (!agenciaId) {
           setErroAgencia(
-            "Esta página só pode ser acessada por uma agência ou guia cadastrado."
+            "Esta página é exclusiva para parceiros cadastrados e aprovados."
           );
 
           return;
@@ -150,12 +264,16 @@ export default function ReservaParceiroPage() {
           return;
         }
 
+        setAgencia(
+          encontrada
+        );
+
         if (
-          !encontrada.cadastur ||
-          !encontrada.cadastur.trim()
+          encontrada.status ===
+          "pendente"
         ) {
           setErroAgencia(
-            "O parceiro não possui número Cadastur informado."
+            "Seu cadastro foi recebido e está aguardando análise do Parque Mundo Novo. As compras e reservas serão liberadas somente após a aprovação."
           );
 
           return;
@@ -163,12 +281,10 @@ export default function ReservaParceiroPage() {
 
         if (
           encontrada.status ===
-          "pendente"
+          "reprovada"
         ) {
-          setAgencia(encontrada);
-
           setErroAgencia(
-            "Seu cadastro foi recebido e está aguardando aprovação do Parque Mundo Novo. A reserva ficará disponível após a aprovação."
+            "Este cadastro não foi aprovado. Entre em contato com o Parque Mundo Novo para mais informações."
           );
 
           return;
@@ -178,8 +294,6 @@ export default function ReservaParceiroPage() {
           encontrada.status ===
           "bloqueada"
         ) {
-          setAgencia(encontrada);
-
           setErroAgencia(
             "Este cadastro está bloqueado. Entre em contato com o Parque Mundo Novo."
           );
@@ -192,16 +306,23 @@ export default function ReservaParceiroPage() {
             encontrada
           )
         ) {
-          setAgencia(encontrada);
-
           setErroAgencia(
-            "Este parceiro ainda não está autorizado a realizar reservas."
+            "Este parceiro ainda não está autorizado a realizar compras ou reservas com desconto."
           );
 
           return;
         }
 
-        setAgencia(encontrada);
+        if (
+          !encontrada.cadastur ||
+          !encontrada.cadastur.trim()
+        ) {
+          setErroAgencia(
+            "A aprovação deste parceiro ainda não possui confirmação do Cadastur."
+          );
+
+          return;
+        }
       } catch (error) {
         console.error(
           "Erro ao carregar agência:",
@@ -212,7 +333,9 @@ export default function ReservaParceiroPage() {
           "Não foi possível verificar o cadastro da agência."
         );
       } finally {
-        setCarregandoAgencia(false);
+        setCarregandoAgencia(
+          false
+        );
       }
     }
 
@@ -223,92 +346,117 @@ export default function ReservaParceiroPage() {
      CÁLCULO
   ====================================== */
 
-  const calculo = useMemo(() => {
-    const totalVisitantes =
-      adultos + idosos;
+  const calculo =
+    useMemo(() => {
+      const totalVisitantes =
+        adultos +
+        idosos;
 
-    const percentualDesconto =
-      calcularDescontoGrupo(
-        totalVisitantes
-      );
+      const percentualDesconto =
+        calcularDescontoGrupo(
+          totalVisitantes
+        );
 
-    const fatorDesconto =
-      percentualDesconto /
-      100;
+      const fatorDesconto =
+        percentualDesconto /
+        100;
 
-    const valorAdultosBruto =
-      adultos *
-      VALOR_ADULTO;
+      /* =============================
+         ADULTOS
+      ============================= */
 
-    const descontoAdultos =
-      valorAdultosBruto *
-      fatorDesconto;
+      const valorAdultosBruto =
+        adultos *
+        VALOR_ADULTO;
 
-    const valorAdultosFinal =
-      valorAdultosBruto -
-      descontoAdultos;
+      const descontoAdultos =
+        valorAdultosBruto *
+        fatorDesconto;
 
-    /*
-     * Idoso já possui meia entrada.
-     * Não recebe desconto adicional.
-     */
-    const valorIdososFinal =
-      idosos *
-      VALOR_IDOSO;
+      const valorAdultosFinal =
+        valorAdultosBruto -
+        descontoAdultos;
 
-    const valorElevadorBruto =
-      temElevador
-        ? qtdElevador *
-        VALOR_ELEVADOR
-        : 0;
+      /* =============================
+         IDOSOS
+      ============================= */
 
-    const descontoElevador =
-      valorElevadorBruto *
-      fatorDesconto;
+      /*
+       * Meia entrada já possui
+       * benefício legal.
+       *
+       * Portanto não recebe
+       * desconto adicional.
+       */
+      const valorIdososBruto =
+        idosos *
+        VALOR_IDOSO;
 
-    const valorElevadorFinal =
-      valorElevadorBruto -
-      descontoElevador;
+      const valorIdososFinal =
+        valorIdososBruto;
 
-    const valorBruto =
-      valorAdultosBruto +
-      valorIdososFinal +
-      valorElevadorBruto;
+      /* =============================
+         ELEVADOR
+      ============================= */
 
-    const valorDesconto =
-      descontoAdultos +
-      descontoElevador;
+      const valorElevadorBruto =
+        temElevador
+          ? qtdElevador *
+          VALOR_ELEVADOR
+          : 0;
 
-    const valorFinal =
-      valorAdultosFinal +
-      valorIdososFinal +
-      valorElevadorFinal;
+      const descontoElevador =
+        valorElevadorBruto *
+        fatorDesconto;
 
-    return {
-      totalVisitantes,
+      const valorElevadorFinal =
+        valorElevadorBruto -
+        descontoElevador;
 
-      percentualDesconto,
+      /* =============================
+         TOTAL
+      ============================= */
 
-      valorAdultosBruto,
-      descontoAdultos,
-      valorAdultosFinal,
+      const valorBruto =
+        valorAdultosBruto +
+        valorIdososBruto +
+        valorElevadorBruto;
 
-      valorIdososFinal,
+      const valorDesconto =
+        descontoAdultos +
+        descontoElevador;
 
-      valorElevadorBruto,
-      descontoElevador,
-      valorElevadorFinal,
+      const valorFinal =
+        valorAdultosFinal +
+        valorIdososFinal +
+        valorElevadorFinal;
 
-      valorBruto,
-      valorDesconto,
-      valorFinal,
-    };
-  }, [
-    adultos,
-    idosos,
-    temElevador,
-    qtdElevador,
-  ]);
+      return {
+        totalVisitantes,
+
+        percentualDesconto,
+
+        valorAdultosBruto,
+        descontoAdultos,
+        valorAdultosFinal,
+
+        valorIdososBruto,
+        valorIdososFinal,
+
+        valorElevadorBruto,
+        descontoElevador,
+        valorElevadorFinal,
+
+        valorBruto,
+        valorDesconto,
+        valorFinal,
+      };
+    }, [
+      adultos,
+      idosos,
+      temElevador,
+      qtdElevador,
+    ]);
 
   /* ======================================
      FORMATAÇÃO
@@ -317,11 +465,16 @@ export default function ReservaParceiroPage() {
   function formatarMoeda(
     valor: number
   ) {
-    return valor.toLocaleString(
+    return Number(
+      valor || 0
+    ).toLocaleString(
       "pt-BR",
       {
-        style: "currency",
-        currency: "BRL",
+        style:
+          "currency",
+
+        currency:
+          "BRL",
       }
     );
   }
@@ -337,7 +490,8 @@ export default function ReservaParceiroPage() {
       ano,
       mes,
       dia,
-    ] = data.split("-");
+    ] =
+      data.split("-");
 
     return `${dia}/${mes}/${ano}`;
   }
@@ -348,7 +502,8 @@ export default function ReservaParceiroPage() {
 
   function gerarCodigoGrupo() {
     const ano =
-      new Date().getFullYear();
+      new Date()
+        .getFullYear();
 
     const numero =
       Math.floor(
@@ -361,6 +516,66 @@ export default function ReservaParceiroPage() {
   }
 
   /* ======================================
+     VALIDAÇÃO
+  ====================================== */
+
+  function validarDadosReserva() {
+    if (!agencia) {
+      return "Cadastro da agência não identificado.";
+    }
+
+    if (
+      !agenciaPodeReservar(
+        agencia
+      )
+    ) {
+      return "Esta agência não está autorizada a realizar compras ou reservas.";
+    }
+
+    if (!dataVisita) {
+      return "Informe a data da visita.";
+    }
+
+    if (
+      dataVisita <
+      dataHoje
+    ) {
+      return "A data da visita não pode ser anterior à data de hoje.";
+    }
+
+    if (
+      adultos <= 0 &&
+      idosos <= 0
+    ) {
+      return "Informe pelo menos 1 visitante.";
+    }
+
+    if (
+      adultos < 0 ||
+      idosos < 0
+    ) {
+      return "A quantidade de visitantes não pode ser negativa.";
+    }
+
+    if (
+      temElevador &&
+      qtdElevador <= 0
+    ) {
+      return "Informe a quantidade de pessoas que utilizarão o Elevador Panorâmico.";
+    }
+
+    if (
+      temElevador &&
+      qtdElevador >
+      calculo.totalVisitantes
+    ) {
+      return "A quantidade do Elevador não pode ser maior que o total de visitantes.";
+    }
+
+    return "";
+  }
+
+  /* ======================================
      WHATSAPP
   ====================================== */
 
@@ -370,7 +585,7 @@ export default function ReservaParceiroPage() {
     const texto = `
 🏞️ NOVA RESERVA DE AGÊNCIA
 
-🏢 Agência / Guia:
+🏢 Agência / Parceiro:
 ${agencia?.nomeEmpresa || "-"}
 
 👤 Responsável:
@@ -379,11 +594,13 @@ ${agencia?.responsavel || "-"}
 📑 Cadastur:
 ${agencia?.cadastur || "-"}
 
-Código do grupo:
+🆔 Código do grupo:
 ${codigoGrupo}
 
 📅 Data da visita:
-${formatarData(dataVisita)}
+${formatarData(
+      dataVisita
+    )}
 
 🕘 Chegada prevista:
 ${horaPrevista || "Não informada"}
@@ -398,7 +615,7 @@ ${adultos}
 ${idosos}
 
 👥 TOTAL:
-${calculo.totalVisitantes} pessoas
+${calculo.totalVisitantes} pessoa(s)
 
 🚡 Elevador:
 ${temElevador
@@ -439,88 +656,210 @@ ${observacoes ||
   }
 
   /* ======================================
-     SALVAR RESERVA
+     DADOS BASE DA RESERVA
   ====================================== */
 
-  async function salvarReserva() {
-    setMensagem("");
-    setLinkWhatsApp("");
-
+  function montarDadosBase(
+    codigoGrupo: string,
+    qrCodeGrupo: string
+  ) {
     if (!agencia) {
-      setMensagem(
-        "Cadastro da agência não identificado."
+      throw new Error(
+        "Agência não identificada."
       );
-
-      return;
     }
 
-    if (
-      !agenciaPodeReservar(
-        agencia
-      )
-    ) {
-      setMensagem(
-        "Esta agência ainda não está autorizada a realizar reservas."
+    return {
+      /* =====================
+         AGÊNCIA
+      ===================== */
+
+      agenciaId:
+        agencia.id,
+
+      agenciaNome:
+        agencia.nomeEmpresa,
+
+      agenciaResponsavel:
+        agencia.responsavel,
+
+      agenciaDocumento:
+        agencia.documento,
+
+      agenciaCadastur:
+        agencia.cadastur ||
+        "",
+
+      agenciaEmail:
+        agencia.email,
+
+      agenciaWhatsapp:
+        agencia.whatsapp,
+
+      tipoParceiro:
+        agencia.tipoParceiro,
+
+      categoriaParceiro:
+        agencia.categoria,
+
+      /* =====================
+         VISITA
+      ===================== */
+
+      dataVisita,
+
+      horaPrevista,
+
+      tipoVeiculo,
+
+      adultos,
+
+      idosos,
+
+      totalVisitantes:
+        calculo.totalVisitantes,
+
+      /* =====================
+         ELEVADOR
+      ===================== */
+
+      elevador:
+        temElevador,
+
+      qtdElevador:
+        temElevador
+          ? qtdElevador
+          : 0,
+
+      /* =====================
+         VALORES
+      ===================== */
+
+      valorAdultosBruto:
+        calculo.valorAdultosBruto,
+
+      descontoAdultos:
+        calculo.descontoAdultos,
+
+      valorAdultosFinal:
+        calculo.valorAdultosFinal,
+
+      valorIdososBruto:
+        calculo.valorIdososBruto,
+
+      valorIdososFinal:
+        calculo.valorIdososFinal,
+
+      valorElevadorBruto:
+        calculo.valorElevadorBruto,
+
+      descontoElevador:
+        calculo.descontoElevador,
+
+      valorElevadorFinal:
+        calculo.valorElevadorFinal,
+
+      valorBruto:
+        calculo.valorBruto,
+
+      valorDesconto:
+        calculo.valorDesconto,
+
+      valorFinal:
+        calculo.valorFinal,
+
+      descontoAplicado:
+        calculo.percentualDesconto,
+
+      /* =====================
+         GRUPO / QR
+      ===================== */
+
+      codigoGrupo,
+
+      qrCodeGrupo,
+
+      /* =====================
+         ORIGEM
+      ===================== */
+
+      origem:
+        "parceiros",
+
+      tipoReserva:
+        "agencia_guia",
+
+      /* =====================
+         OBSERVAÇÃO
+      ===================== */
+
+      observacoes,
+
+      /* =====================
+         DATAS
+      ===================== */
+
+      createdAt:
+        serverTimestamp(),
+
+      updatedAt:
+        serverTimestamp(),
+    };
+  }
+
+  /* ======================================
+     LIMPAR FORMULÁRIO
+  ====================================== */
+
+  function limparFormulario() {
+    setDataVisita("");
+    setHoraPrevista("");
+
+    setTipoVeiculo(
+      "Ônibus"
+    );
+
+    setAdultos(0);
+    setIdosos(0);
+
+    setTemElevador(
+      false
+    );
+
+    setQtdElevador(0);
+
+    setObservacoes("");
+  }
+
+  /* ======================================
+     PAGAR NA CHEGADA
+  ====================================== */
+
+  async function criarReservaChegada() {
+    setMensagem("");
+    setTipoMensagem("");
+    setLinkWhatsApp("");
+    setReservaCriada(null);
+
+    const erroValidacao =
+      validarDadosReserva();
+
+    if (erroValidacao) {
+      setTipoMensagem(
+        "erro"
       );
 
-      return;
-    }
-
-    if (
-      !agencia.cadastur ||
-      !agencia.cadastur.trim()
-    ) {
       setMensagem(
-        "Cadastur obrigatório."
-      );
-
-      return;
-    }
-
-    if (!dataVisita) {
-      setMensagem(
-        "Informe a data da visita."
-      );
-
-      return;
-    }
-
-    if (
-      adultos <= 0 &&
-      idosos <= 0
-    ) {
-      setMensagem(
-        "Informe pelo menos 1 visitante."
-      );
-
-      return;
-    }
-
-    if (
-      temElevador &&
-      qtdElevador <= 0
-    ) {
-      setMensagem(
-        "Informe a quantidade de pessoas que utilizarão o Elevador Panorâmico."
-      );
-
-      return;
-    }
-
-    if (
-      temElevador &&
-      qtdElevador >
-      calculo.totalVisitantes
-    ) {
-      setMensagem(
-        "A quantidade do Elevador não pode ser maior que o total de visitantes."
+        erroValidacao
       );
 
       return;
     }
 
     try {
-      setCarregando(true);
+      setCarregando(
+        true
+      );
 
       const codigoGrupo =
         gerarCodigoGrupo();
@@ -534,7 +873,10 @@ ${observacoes ||
             codigoGrupo,
 
             agenciaId:
-              agencia.id,
+              agencia?.id,
+
+            modalidade:
+              "chegada",
           })
         );
 
@@ -549,111 +891,13 @@ ${observacoes ||
           "reservas_agencias"
         ),
         {
-          /* =====================
-             AGÊNCIA REAL
-          ===================== */
+          ...montarDadosBase(
+            codigoGrupo,
+            qrCodeGrupo
+          ),
 
-          agenciaId:
-            agencia.id,
-
-          agenciaNome:
-            agencia.nomeEmpresa,
-
-          agenciaResponsavel:
-            agencia.responsavel,
-
-          agenciaDocumento:
-            agencia.documento,
-
-          agenciaCadastur:
-            agencia.cadastur,
-
-          agenciaEmail:
-            agencia.email,
-
-          agenciaWhatsapp:
-            agencia.whatsapp,
-
-          tipoParceiro:
-            agencia.tipoParceiro,
-
-          categoriaParceiro:
-            agencia.categoria,
-
-          /* =====================
-             VISITA
-          ===================== */
-
-          dataVisita,
-          horaPrevista,
-          tipoVeiculo,
-
-          adultos,
-          idosos,
-
-          totalVisitantes:
-            calculo.totalVisitantes,
-
-          /* =====================
-             ELEVADOR
-          ===================== */
-
-          elevador:
-            temElevador,
-
-          qtdElevador:
-            temElevador
-              ? qtdElevador
-              : 0,
-
-          /* =====================
-             VALORES
-          ===================== */
-
-          valorAdultosBruto:
-            calculo.valorAdultosBruto,
-
-          descontoAdultos:
-            calculo.descontoAdultos,
-
-          valorAdultosFinal:
-            calculo.valorAdultosFinal,
-
-          valorIdososFinal:
-            calculo.valorIdososFinal,
-
-          valorElevadorBruto:
-            calculo.valorElevadorBruto,
-
-          descontoElevador:
-            calculo.descontoElevador,
-
-          valorElevadorFinal:
-            calculo.valorElevadorFinal,
-
-          valorBruto:
-            calculo.valorBruto,
-
-          valorDesconto:
-            calculo.valorDesconto,
-
-          valorFinal:
-            calculo.valorFinal,
-
-          descontoAplicado:
-            calculo.percentualDesconto,
-
-          /* =====================
-             QR / GRUPO
-          ===================== */
-
-          codigoGrupo,
-
-          qrCodeGrupo,
-
-          /* =====================
-             STATUS
-          ===================== */
+          modalidadePagamento:
+            "chegada",
 
           statusPagamento:
             "a_pagar_na_chegada",
@@ -667,22 +911,6 @@ ${observacoes ||
           statusOperacional:
             "reservado",
 
-          origem:
-            "parceiros",
-
-          tipoReserva:
-            "agencia_guia",
-
-          /* =====================
-             OBSERVAÇÃO
-          ===================== */
-
-          observacoes,
-
-          /* =====================
-             WHATSAPP
-          ===================== */
-
           whatsappParque:
             WHATSAPP_PARQUE,
 
@@ -690,23 +918,34 @@ ${observacoes ||
 
           enviadoWhatsAppParque:
             true,
-
-          createdAt:
-            serverTimestamp(),
-
-          updatedAt:
-            serverTimestamp(),
         }
       );
+
+      setReservaCriada({
+        codigoGrupo,
+
+        modalidade:
+          "chegada",
+
+        totalVisitantes:
+          calculo.totalVisitantes,
+
+        valorFinal:
+          calculo.valorFinal,
+      });
 
       setLinkWhatsApp(
         whatsappReserva
       );
 
+      setTipoMensagem(
+        "sucesso"
+      );
+
       setMensagem(
-        `Reserva criada! Código ${codigoGrupo}. Grupo com ${calculo.totalVisitantes} pessoa(s). Valor a pagar na chegada: ${formatarMoeda(
+        `Reserva criada com sucesso. Código ${codigoGrupo}. O grupo possui ${calculo.totalVisitantes} pessoa(s) e deverá pagar ${formatarMoeda(
           calculo.valorFinal
-        )}.`
+        )} na chegada ao Parque.`
       );
 
       window.open(
@@ -714,39 +953,181 @@ ${observacoes ||
         "_blank"
       );
 
-      setDataVisita("");
-      setHoraPrevista("");
-      setTipoVeiculo(
-        "Ônibus"
-      );
-      setAdultos(0);
-      setIdosos(0);
-      setTemElevador(false);
-      setQtdElevador(0);
-      setObservacoes("");
+      limparFormulario();
     } catch (error) {
       console.error(
         "Erro ao criar reserva:",
         error
       );
 
+      setTipoMensagem(
+        "erro"
+      );
+
       setMensagem(
         "Erro ao criar reserva. Tente novamente."
       );
     } finally {
-      setCarregando(false);
+      setCarregando(
+        false
+      );
     }
   }
 
   /* ======================================
-     CARREGANDO
+     COMPRA ANTECIPADA
   ====================================== */
 
-  if (carregandoAgencia) {
+  async function criarReservaAntecipada() {
+    setMensagem("");
+    setTipoMensagem("");
+    setLinkWhatsApp("");
+    setReservaCriada(null);
+
+    const erroValidacao =
+      validarDadosReserva();
+
+    if (erroValidacao) {
+      setTipoMensagem(
+        "erro"
+      );
+
+      setMensagem(
+        erroValidacao
+      );
+
+      return;
+    }
+
+    try {
+      setCarregando(
+        true
+      );
+
+      const codigoGrupo =
+        gerarCodigoGrupo();
+
+      /*
+       * O QR já fica associado ao grupo,
+       * porém NÃO estará liberado na
+       * portaria enquanto o pagamento
+       * antecipado não for confirmado.
+       */
+      const qrCodeGrupo =
+        await QRCode.toDataURL(
+          JSON.stringify({
+            tipo:
+              "reserva_agencia",
+
+            codigoGrupo,
+
+            agenciaId:
+              agencia?.id,
+
+            modalidade:
+              "antecipado",
+          })
+        );
+
+      await addDoc(
+        collection(
+          db,
+          "reservas_agencias"
+        ),
+        {
+          ...montarDadosBase(
+            codigoGrupo,
+            qrCodeGrupo
+          ),
+
+          modalidadePagamento:
+            "antecipado",
+
+          statusPagamento:
+            "aguardando_pagamento_antecipado",
+
+          formaPagamento:
+            "pendente",
+
+          pagamentoNaChegada:
+            false,
+
+          /*
+           * Não libera a entrada.
+           *
+           * Na próxima etapa o Pix/cartão
+           * será conectado a esta reserva.
+           */
+          statusOperacional:
+            "aguardando_pagamento",
+
+          checkoutCriado:
+            false,
+        }
+      );
+
+      setReservaCriada({
+        codigoGrupo,
+
+        modalidade:
+          "antecipado",
+
+        totalVisitantes:
+          calculo.totalVisitantes,
+
+        valorFinal:
+          calculo.valorFinal,
+      });
+
+      setTipoMensagem(
+        "sucesso"
+      );
+
+      setMensagem(
+        `Pré-reserva criada. Código ${codigoGrupo}. Valor da compra antecipada: ${formatarMoeda(
+          calculo.valorFinal
+        )}. Na próxima etapa vamos conectar esta modalidade ao pagamento online.`
+      );
+
+      /*
+       * Ainda NÃO limpamos o formulário
+       * automaticamente.
+       *
+       * Isso ajuda nos testes enquanto
+       * o checkout antecipado não está
+       * conectado.
+       */
+    } catch (error) {
+      console.error(
+        "Erro ao criar compra antecipada:",
+        error
+      );
+
+      setTipoMensagem(
+        "erro"
+      );
+
+      setMensagem(
+        "Não foi possível criar a compra antecipada."
+      );
+    } finally {
+      setCarregando(
+        false
+      );
+    }
+  }
+
+  /* ======================================
+     CARREGANDO AGÊNCIA
+  ====================================== */
+
+  if (
+    carregandoAgencia
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-emerald-950 text-white">
         <div className="text-center">
-          <p className="text-3xl">
+          <p className="text-4xl">
             🏞️
           </p>
 
@@ -759,7 +1140,7 @@ ${observacoes ||
   }
 
   /* ======================================
-     AGÊNCIA NÃO AUTORIZADA
+     NÃO AUTORIZADA
   ====================================== */
 
   if (
@@ -787,7 +1168,7 @@ ${observacoes ||
           />
 
           <h1 className="mt-5 text-2xl font-black">
-            Reserva de Parceiros
+            Área de Parceiros
           </h1>
 
           {agencia && (
@@ -804,10 +1185,12 @@ ${observacoes ||
           </div>
 
           <p className="mt-5 text-sm text-slate-600">
-            O Parque Mundo Novo
-            precisa aprovar o
-            cadastro antes da
-            primeira reserva.
+            Compras antecipadas
+            e reservas com desconto
+            são liberadas somente
+            após a aprovação do
+            cadastro pelo Parque
+            Mundo Novo.
           </p>
 
           <a
@@ -822,25 +1205,31 @@ ${observacoes ||
   }
 
   /* ======================================
-     TELA DA RESERVA
+     TELA PRINCIPAL
   ====================================== */
 
   return (
     <main className="relative min-h-screen overflow-hidden text-white">
+
+      {/* FUNDO */}
+
       {imagensFundo.map(
         (
           imagem,
           index
         ) => (
           <div
-            key={imagem}
+            key={
+              imagem
+            }
             className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ${index ===
                 imagemAtual
                 ? "opacity-100"
                 : "opacity-0"
               }`}
             style={{
-              backgroundImage: `url('${imagem}')`,
+              backgroundImage:
+                `url('${imagem}')`,
             }}
           />
         )
@@ -849,112 +1238,282 @@ ${observacoes ||
       <div className="absolute inset-0 bg-black/65" />
 
       <div className="relative z-10 px-4 py-8">
-        <div className="mx-auto max-w-5xl">
-          {/* AGÊNCIA */}
+        <div className="mx-auto max-w-6xl">
 
-          <div className="mb-6 rounded-2xl border border-green-300/30 bg-green-950/90 p-5 shadow-xl">
-            <p className="text-xs font-black uppercase tracking-widest text-green-300">
-              Parceiro aprovado
-            </p>
+          {/* ==================================
+              PARCEIRO APROVADO
+          ================================== */}
 
-            <h2 className="mt-2 text-2xl font-black">
-              {
-                agencia.nomeEmpresa
-              }
-            </h2>
+          <div className="mb-6 rounded-3xl border border-green-300/30 bg-green-950/90 p-6 shadow-xl">
+            <div className="flex flex-wrap items-start justify-between gap-4">
 
-            <div className="mt-3 grid gap-2 text-sm text-white/90 md:grid-cols-3">
-              <p>
-                Responsável:{" "}
-                <strong>
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-green-300">
+                  ✅ Parceiro aprovado
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black">
                   {
-                    agencia.responsavel
+                    agencia.nomeEmpresa
                   }
-                </strong>
-              </p>
+                </h2>
 
-              <p>
-                Cadastur:{" "}
-                <strong>
+                <p className="mt-1 text-white/80">
+                  Responsável:{" "}
+                  <strong>
+                    {
+                      agencia.responsavel
+                    }
+                  </strong>
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-green-500/15 px-5 py-3 text-sm">
+                <p>
+                  Cadastur
+                </p>
+
+                <p className="font-black text-green-300">
                   {
                     agencia.cadastur
                   }
-                </strong>
-              </p>
+                </p>
+              </div>
+            </div>
 
-              <p>
-                Status:{" "}
-                <strong className="text-green-300">
+            <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-white/60">
+                  CNPJ
+                </p>
+
+                <p className="font-bold">
+                  {
+                    agencia.documento
+                  }
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-white/60">
+                  E-mail
+                </p>
+
+                <p className="font-bold">
+                  {
+                    agencia.email
+                  }
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-white/60">
+                  Status
+                </p>
+
+                <p className="font-black text-green-300">
                   APROVADO
-                </strong>
-              </p>
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* CABEÇALHO */}
+          {/* ==================================
+              CABEÇALHO
+          ================================== */}
 
-          <div className="mb-8 rounded-2xl border border-white/10 bg-black/40 p-6 shadow-xl backdrop-blur-sm">
+          <div className="mb-6 rounded-3xl border border-white/10 bg-black/45 p-6 shadow-xl backdrop-blur-sm">
             <p className="text-sm font-semibold text-emerald-300">
               Parque Mundo Novo
             </p>
 
-            <h1 className="mt-2 text-3xl font-bold">
-              Reserva para
-              Agências e Guias
+            <h1 className="mt-2 text-3xl font-black md:text-4xl">
+              Compras e Reservas para Parceiros
             </h1>
 
-            <p className="mt-2 text-slate-100">
-              Área exclusiva
-              para parceiros
-              cadastrados e
-              aprovados.
+            <p className="mt-3 max-w-3xl text-slate-100">
+              Escolha como deseja
+              organizar a visita do grupo.
+              Você pode pagar antecipadamente
+              ou fazer a reserva para pagamento
+              na chegada ao Parque.
             </p>
 
-            <div className="mt-4 rounded-xl bg-white/10 p-4 text-sm">
-              <p>
-                👥 Até 20
-                visitantes:{" "}
-                <strong>
-                  5% de
-                  desconto
-                </strong>
-              </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl bg-white/10 p-4">
+                <p className="font-black">
+                  👥 Até 20 pessoas
+                </p>
 
-              <p className="mt-1">
-                👥 Acima de 20
-                visitantes:{" "}
-                <strong>
-                  10% de
-                  desconto
-                </strong>
-              </p>
+                <p className="mt-1 text-emerald-300">
+                  5% de desconto
+                </p>
+              </div>
 
-              <p className="mt-1">
-                👴 Meia entrada
-                não recebe
-                desconto
-                adicional.
-              </p>
+              <div className="rounded-xl bg-white/10 p-4">
+                <p className="font-black">
+                  👥 Acima de 20
+                </p>
+
+                <p className="mt-1 text-emerald-300">
+                  10% de desconto
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/10 p-4">
+                <p className="font-black">
+                  👴 Meia entrada
+                </p>
+
+                <p className="mt-1 text-white/70">
+                  Sem desconto adicional
+                </p>
+              </div>
             </div>
           </div>
 
+          {/* ==================================
+              ESCOLHER MODALIDADE
+          ================================== */}
+
+          <section className="mb-6 rounded-3xl bg-white p-6 text-slate-900 shadow-xl">
+            <h2 className="text-2xl font-black">
+              Como deseja realizar esta reserva?
+            </h2>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+
+              {/* ANTECIPADO */}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setModalidade(
+                    "antecipado"
+                  );
+
+                  setMensagem("");
+                  setTipoMensagem("");
+                  setReservaCriada(
+                    null
+                  );
+                }}
+                className={`rounded-2xl border-2 p-5 text-left transition ${modalidade ===
+                    "antecipado"
+                    ? "border-emerald-600 bg-emerald-50"
+                    : "border-slate-200 bg-white hover:border-emerald-300"
+                  }`}
+              >
+                <p className="text-2xl">
+                  💳
+                </p>
+
+                <p className="mt-2 text-xl font-black">
+                  Comprar antecipadamente
+                </p>
+
+                <p className="mt-2 text-sm text-slate-600">
+                  Faça a compra antes da visita.
+                  Após a confirmação do pagamento,
+                  o grupo ficará liberado para entrada.
+                </p>
+
+                {modalidade ===
+                  "antecipado" && (
+                    <span className="mt-4 inline-block rounded-full bg-emerald-600 px-3 py-1 text-xs font-black text-white">
+                      SELECIONADO
+                    </span>
+                  )}
+              </button>
+
+              {/* CHEGADA */}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setModalidade(
+                    "chegada"
+                  );
+
+                  setMensagem("");
+                  setTipoMensagem("");
+                  setReservaCriada(
+                    null
+                  );
+                }}
+                className={`rounded-2xl border-2 p-5 text-left transition ${modalidade ===
+                    "chegada"
+                    ? "border-blue-600 bg-blue-50"
+                    : "border-slate-200 bg-white hover:border-blue-300"
+                  }`}
+              >
+                <p className="text-2xl">
+                  🚌
+                </p>
+
+                <p className="mt-2 text-xl font-black">
+                  Reservar e pagar na chegada
+                </p>
+
+                <p className="mt-2 text-sm text-slate-600">
+                  Garanta o cadastro do grupo
+                  e faça o pagamento na portaria
+                  antes da entrada.
+                </p>
+
+                {modalidade ===
+                  "chegada" && (
+                    <span className="mt-4 inline-block rounded-full bg-blue-600 px-3 py-1 text-xs font-black text-white">
+                      SELECIONADO
+                    </span>
+                  )}
+              </button>
+            </div>
+          </section>
+
+          {/* ==================================
+              CONTEÚDO
+          ================================== */}
+
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
             {/* FORMULÁRIO */}
 
-            <section className="rounded-2xl bg-white/95 p-6 text-slate-900 shadow-xl backdrop-blur lg:col-span-2">
-              <h2 className="mb-4 text-xl font-bold">
-                Dados da visita
-              </h2>
+            <section className="rounded-3xl bg-white/95 p-6 text-slate-900 shadow-xl backdrop-blur lg:col-span-2">
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-2xl font-black">
+                  Dados da visita
+                </h2>
+
+                <span
+                  className={`rounded-full px-4 py-2 text-xs font-black ${modalidade ===
+                      "antecipado"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-blue-100 text-blue-800"
+                    }`}
+                >
+                  {modalidade ===
+                    "antecipado"
+                    ? "COMPRA ANTECIPADA"
+                    : "PAGAMENTO NA CHEGADA"}
+                </span>
+              </div>
+
+              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                {/* DATA */}
+
                 <label>
                   <span className="font-medium">
-                    Data da
-                    visita
+                    Data da visita
                   </span>
 
                   <input
                     type="date"
+                    min={
+                      dataHoje
+                    }
                     value={
                       dataVisita
                     }
@@ -962,19 +1521,18 @@ ${observacoes ||
                       e
                     ) =>
                       setDataVisita(
-                        e
-                          .target
-                          .value
+                        e.target.value
                       )
                     }
-                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                    className="mt-1 w-full rounded-xl border px-3 py-3"
                   />
                 </label>
 
+                {/* HORÁRIO */}
+
                 <label>
                   <span className="font-medium">
-                    Chegada
-                    prevista
+                    Chegada prevista
                   </span>
 
                   <input
@@ -986,19 +1544,18 @@ ${observacoes ||
                       e
                     ) =>
                       setHoraPrevista(
-                        e
-                          .target
-                          .value
+                        e.target.value
                       )
                     }
-                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                    className="mt-1 w-full rounded-xl border px-3 py-3"
                   />
                 </label>
 
+                {/* VEÍCULO */}
+
                 <label>
                   <span className="font-medium">
-                    Tipo de
-                    veículo
+                    Tipo de veículo
                   </span>
 
                   <select
@@ -1009,12 +1566,10 @@ ${observacoes ||
                       e
                     ) =>
                       setTipoVeiculo(
-                        e
-                          .target
-                          .value
+                        e.target.value
                       )
                     }
-                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                    className="mt-1 w-full rounded-xl border px-3 py-3"
                   >
                     <option>
                       Van
@@ -1030,6 +1585,8 @@ ${observacoes ||
                   </select>
                 </label>
 
+                {/* ADULTOS */}
+
                 <label>
                   <span className="font-medium">
                     Adultos
@@ -1037,7 +1594,9 @@ ${observacoes ||
 
                   <input
                     type="number"
-                    min={0}
+                    min={
+                      0
+                    }
                     value={
                       adultos
                     }
@@ -1045,27 +1604,30 @@ ${observacoes ||
                       e
                     ) =>
                       setAdultos(
-                        Number(
-                          e
-                            .target
-                            .value
+                        Math.max(
+                          0,
+                          Number(
+                            e.target.value
+                          )
                         )
                       )
                     }
-                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                    className="mt-1 w-full rounded-xl border px-3 py-3"
                   />
                 </label>
 
+                {/* IDOSOS */}
+
                 <label>
                   <span className="font-medium">
-                    Idosos /
-                    meia
-                    entrada
+                    Idosos / meia entrada
                   </span>
 
                   <input
                     type="number"
-                    min={0}
+                    min={
+                      0
+                    }
                     value={
                       idosos
                     }
@@ -1073,21 +1635,23 @@ ${observacoes ||
                       e
                     ) =>
                       setIdosos(
-                        Number(
-                          e
-                            .target
-                            .value
+                        Math.max(
+                          0,
+                          Number(
+                            e.target.value
+                          )
                         )
                       )
                     }
-                    className="mt-1 w-full rounded-lg border px-3 py-2"
+                    className="mt-1 w-full rounded-xl border px-3 py-3"
                   />
                 </label>
 
+                {/* ELEVADOR */}
+
                 <div>
                   <span className="font-medium">
-                    Elevador
-                    Panorâmico
+                    Elevador Panorâmico
                   </span>
 
                   <div className="mt-2 flex gap-3">
@@ -1102,7 +1666,7 @@ ${observacoes ||
                           0
                         );
                       }}
-                      className={`rounded-lg border px-4 py-2 ${!temElevador
+                      className={`rounded-xl border px-5 py-3 font-bold ${!temElevador
                           ? "bg-slate-900 text-white"
                           : "bg-white text-slate-900"
                         }`}
@@ -1117,7 +1681,7 @@ ${observacoes ||
                           true
                         )
                       }
-                      className={`rounded-lg border px-4 py-2 ${temElevador
+                      className={`rounded-xl border px-5 py-3 font-bold ${temElevador
                           ? "bg-slate-900 text-white"
                           : "bg-white text-slate-900"
                         }`}
@@ -1127,16 +1691,19 @@ ${observacoes ||
                   </div>
                 </div>
 
+                {/* QUANTIDADE ELEVADOR */}
+
                 {temElevador && (
                   <label>
                     <span className="font-medium">
-                      Quantidade
-                      Elevador
+                      Pessoas no Elevador
                     </span>
 
                     <input
                       type="number"
-                      min={0}
+                      min={
+                        0
+                      }
                       max={
                         calculo.totalVisitantes ||
                         undefined
@@ -1148,20 +1715,23 @@ ${observacoes ||
                         e
                       ) =>
                         setQtdElevador(
-                          Number(
-                            e
-                              .target
-                              .value
+                          Math.max(
+                            0,
+                            Number(
+                              e.target.value
+                            )
                           )
                         )
                       }
-                      className="mt-1 w-full rounded-lg border px-3 py-2"
+                      className="mt-1 w-full rounded-xl border px-3 py-3"
                     />
                   </label>
                 )}
               </div>
 
-              <label className="mt-4 block">
+              {/* OBSERVAÇÃO */}
+
+              <label className="mt-5 block">
                 <span className="font-medium">
                   Observações
                 </span>
@@ -1174,20 +1744,65 @@ ${observacoes ||
                     e
                   ) =>
                     setObservacoes(
-                      e
-                        .target
-                        .value
+                      e.target.value
                     )
                   }
-                  className="mt-1 min-h-28 w-full rounded-lg border px-3 py-2"
+                  placeholder="Informações sobre o grupo, ônibus, guia, necessidades especiais etc."
+                  className="mt-1 min-h-28 w-full rounded-xl border px-3 py-3"
                 />
               </label>
 
+              {/* MENSAGEM */}
+
               {mensagem && (
-                <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 font-medium text-emerald-800">
-                  {mensagem}
+                <div
+                  className={`mt-5 rounded-xl border p-4 font-medium ${tipoMensagem ===
+                      "erro"
+                      ? "border-red-200 bg-red-50 text-red-800"
+                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    }`}
+                >
+                  {
+                    mensagem
+                  }
                 </div>
               )}
+
+              {/* RESERVA CRIADA */}
+
+              {reservaCriada && (
+                <div className="mt-5 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-5">
+                  <p className="text-sm font-bold uppercase text-emerald-700">
+                    Código do grupo
+                  </p>
+
+                  <p className="mt-1 font-mono text-2xl font-black text-emerald-900">
+                    {
+                      reservaCriada.codigoGrupo
+                    }
+                  </p>
+
+                  <p className="mt-3 text-sm">
+                    Grupo:{" "}
+                    <strong>
+                      {
+                        reservaCriada.totalVisitantes
+                      } pessoa(s)
+                    </strong>
+                  </p>
+
+                  <p className="mt-1 text-sm">
+                    Valor:{" "}
+                    <strong>
+                      {formatarMoeda(
+                        reservaCriada.valorFinal
+                      )}
+                    </strong>
+                  </p>
+                </div>
+              )}
+
+              {/* WHATSAPP */}
 
               {linkWhatsApp && (
                 <a
@@ -1198,38 +1813,58 @@ ${observacoes ||
                   rel="noopener noreferrer"
                   className="mt-4 block rounded-xl bg-green-600 px-4 py-3 text-center font-bold text-white"
                 >
-                  Enviar
-                  novamente
-                  para o
-                  WhatsApp do
-                  Parque
+                  Enviar novamente para o WhatsApp do Parque
                 </a>
               )}
 
-              <button
-                onClick={
-                  salvarReserva
-                }
-                disabled={
-                  carregando
-                }
-                className="mt-6 w-full rounded-xl bg-emerald-600 py-4 font-bold text-white disabled:bg-slate-400"
-              >
-                {carregando
-                  ? "Criando reserva..."
-                  : "Criar reserva da agência"}
-              </button>
+              {/* BOTÃO */}
+
+              {modalidade ===
+                "chegada" ? (
+                <button
+                  type="button"
+                  onClick={
+                    criarReservaChegada
+                  }
+                  disabled={
+                    carregando
+                  }
+                  className="mt-6 w-full rounded-xl bg-blue-600 py-4 text-lg font-black text-white transition hover:bg-blue-700 disabled:bg-slate-400"
+                >
+                  {carregando
+                    ? "Criando reserva..."
+                    : "Confirmar reserva e pagar na chegada"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={
+                    criarReservaAntecipada
+                  }
+                  disabled={
+                    carregando
+                  }
+                  className="mt-6 w-full rounded-xl bg-emerald-600 py-4 text-lg font-black text-white transition hover:bg-emerald-700 disabled:bg-slate-400"
+                >
+                  {carregando
+                    ? "Preparando compra..."
+                    : "Continuar para compra antecipada"}
+                </button>
+              )}
             </section>
 
-            {/* RESUMO */}
+            {/* ==================================
+                RESUMO
+            ================================== */}
 
-            <aside className="h-fit rounded-2xl bg-white/95 p-6 text-slate-900 shadow-xl">
-              <h2 className="mb-4 text-xl font-bold">
-                Resumo da
-                reserva
+            <aside className="h-fit rounded-3xl bg-white/95 p-6 text-slate-900 shadow-xl">
+
+              <h2 className="text-xl font-black">
+                Resumo
               </h2>
 
-              <div className="space-y-3 text-sm">
+              <div className="mt-5 space-y-3 text-sm">
+
                 <div className="flex justify-between">
                   <span>
                     Adultos
@@ -1254,7 +1889,7 @@ ${observacoes ||
                   </strong>
                 </div>
 
-                <div className="flex justify-between text-lg">
+                <div className="flex justify-between border-t pt-3 text-lg">
                   <span>
                     Total
                   </span>
@@ -1262,17 +1897,18 @@ ${observacoes ||
                   <strong>
                     {
                       calculo.totalVisitantes
-                    }
+                    } pessoa(s)
                   </strong>
                 </div>
 
-                <div className="rounded-xl bg-emerald-100 p-3 text-center">
+                {/* DESCONTO */}
+
+                <div className="rounded-xl bg-emerald-100 p-4 text-center">
                   <p className="text-xs font-bold uppercase text-emerald-700">
-                    Desconto
-                    do grupo
+                    Desconto do grupo
                   </p>
 
-                  <p className="text-3xl font-black text-emerald-800">
+                  <p className="mt-1 text-3xl font-black text-emerald-800">
                     {
                       calculo.percentualDesconto
                     }
@@ -1282,10 +1918,11 @@ ${observacoes ||
 
                 <hr />
 
+                {/* ADULTOS */}
+
                 <div className="flex justify-between">
                   <span>
                     Adultos
-                    bruto
                   </span>
 
                   <strong>
@@ -1295,19 +1932,23 @@ ${observacoes ||
                   </strong>
                 </div>
 
-                <div className="flex justify-between text-emerald-700">
-                  <span>
-                    Desconto
-                    adultos
-                  </span>
+                {calculo.descontoAdultos >
+                  0 && (
+                    <div className="flex justify-between text-emerald-700">
+                      <span>
+                        Desconto adultos
+                      </span>
 
-                  <strong>
-                    -{" "}
-                    {formatarMoeda(
-                      calculo.descontoAdultos
-                    )}
-                  </strong>
-                </div>
+                      <strong>
+                        -{" "}
+                        {formatarMoeda(
+                          calculo.descontoAdultos
+                        )}
+                      </strong>
+                    </div>
+                  )}
+
+                {/* IDOSOS */}
 
                 <div className="flex justify-between">
                   <span>
@@ -1321,12 +1962,13 @@ ${observacoes ||
                   </strong>
                 </div>
 
+                {/* ELEVADOR */}
+
                 {temElevador && (
                   <>
                     <div className="flex justify-between">
                       <span>
                         Elevador
-                        bruto
                       </span>
 
                       <strong>
@@ -1336,28 +1978,31 @@ ${observacoes ||
                       </strong>
                     </div>
 
-                    <div className="flex justify-between text-emerald-700">
-                      <span>
-                        Desconto
-                        elevador
-                      </span>
+                    {calculo.descontoElevador >
+                      0 && (
+                        <div className="flex justify-between text-emerald-700">
+                          <span>
+                            Desconto elevador
+                          </span>
 
-                      <strong>
-                        -{" "}
-                        {formatarMoeda(
-                          calculo.descontoElevador
-                        )}
-                      </strong>
-                    </div>
+                          <strong>
+                            -{" "}
+                            {formatarMoeda(
+                              calculo.descontoElevador
+                            )}
+                          </strong>
+                        </div>
+                      )}
                   </>
                 )}
 
                 <hr />
 
+                {/* BRUTO */}
+
                 <div className="flex justify-between">
                   <span>
-                    Valor
-                    bruto
+                    Valor normal
                   </span>
 
                   <strong>
@@ -1367,10 +2012,11 @@ ${observacoes ||
                   </strong>
                 </div>
 
+                {/* DESCONTO */}
+
                 <div className="flex justify-between text-emerald-700">
                   <span>
-                    Desconto
-                    total
+                    Desconto total
                   </span>
 
                   <strong>
@@ -1381,11 +2027,20 @@ ${observacoes ||
                   </strong>
                 </div>
 
-                <div className="rounded-xl bg-green-700 p-4 text-white">
+                {/* TOTAL */}
+
+                <div
+                  className={`rounded-xl p-4 text-white ${modalidade ===
+                      "antecipado"
+                      ? "bg-emerald-700"
+                      : "bg-blue-700"
+                    }`}
+                >
                   <p className="text-xs font-bold uppercase">
-                    Valor a
-                    pagar na
-                    chegada
+                    {modalidade ===
+                      "antecipado"
+                      ? "Valor da compra antecipada"
+                      : "Valor a pagar na chegada"}
                   </p>
 
                   <p className="mt-1 text-3xl font-black">
@@ -1396,21 +2051,49 @@ ${observacoes ||
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-xs text-yellow-800">
-                <p className="font-bold">
-                  Pagamento na
-                  chegada
-                </p>
+              {/* AVISO */}
 
-                <p className="mt-1">
-                  O grupo fará
-                  o pagamento
-                  no Parque
-                  Mundo Novo
-                  antes da
-                  entrada.
-                </p>
-              </div>
+              {modalidade ===
+                "chegada" ? (
+                <div className="mt-5 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-xs text-yellow-900">
+                  <p className="font-black">
+                    💰 Pagamento na chegada
+                  </p>
+
+                  <p className="mt-2">
+                    O grupo deverá realizar
+                    o pagamento no Parque
+                    antes da confirmação
+                    da entrada.
+                  </p>
+
+                  <p className="mt-2">
+                    Será gerado um código
+                    e QR Code para identificação
+                    do grupo na portaria.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-900">
+                  <p className="font-black">
+                    💳 Compra antecipada
+                  </p>
+
+                  <p className="mt-2">
+                    O grupo somente ficará
+                    liberado para entrada
+                    depois que o pagamento
+                    online for confirmado.
+                  </p>
+
+                  <p className="mt-2 font-bold">
+                    Nesta etapa estamos
+                    preparando a reserva.
+                    O pagamento online será
+                    conectado na próxima alteração.
+                  </p>
+                </div>
+              )}
             </aside>
           </div>
         </div>
