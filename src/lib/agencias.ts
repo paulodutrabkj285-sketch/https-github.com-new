@@ -7,6 +7,7 @@ import {
     orderBy,
     query,
     updateDoc,
+    where,
 } from "firebase/firestore";
 
 import { db } from "./firebase";
@@ -38,18 +39,10 @@ export type AgenciaInput = {
     responsavel: string;
 
     /*
-     * Documento principal do novo fluxo:
-     * CNPJ.
+     * CNPJ/documento principal.
      */
     documento: string;
 
-    /*
-     * Cadastur não é mais obrigatório
-     * no cadastro público.
-     *
-     * Ele poderá ser conferido e
-     * registrado pelo Admin.
-     */
     cadastur?: string;
 
     tipoParceiro: TipoParceiro;
@@ -71,19 +64,12 @@ export type Agencia =
 
         descontoPadrao: number;
 
-        /*
-         * Mantido por compatibilidade
-         * com a página atual de reservas.
-         */
         categoria: CategoriaAgencia;
 
         totalVisitantes: number;
         receitaGerada: number;
         descontosConcedidos: number;
 
-        /*
-         * Aprovação administrativa.
-         */
         aprovadoEm?: string;
         aprovadoPor?: string;
 
@@ -94,26 +80,15 @@ export type Agencia =
         bloqueadoEm?: string;
         bloqueadoPor?: string;
 
-        /*
-         * Verificação administrativa
-         * do CNPJ.
-         */
         documentoVerificado?: boolean;
         documentoVerificadoEm?: string;
         documentoVerificadoPor?: string;
 
-        /*
-         * Verificação do Cadastur.
-         */
         cadasturVerificado?: boolean;
         cadasturVerificadoEm?: string;
         cadasturVerificadoPor?: string;
         cadasturSituacao?: string;
 
-        /*
-         * O parceiro nunca é aprovado
-         * automaticamente.
-         */
         aprovacaoAutomatica: boolean;
 
         createdAt: string;
@@ -144,27 +119,72 @@ function somenteDigitos(
 }
 
 /* ==========================================
-   VALIDAR CNPJ
+   VALIDAR CNPJ / DOCUMENTO
 ========================================== */
 
 export function validarCnpj(
     valor?: string
 ) {
-    const cnpj =
+    const documento =
         somenteDigitos(
             valor
         );
 
     /*
-     * Por enquanto:
-     * validação básica de tamanho.
+     * Mantemos compatibilidade
+     * com cadastros antigos de guias,
+     * que podem possuir documento
+     * diferente de CNPJ.
      *
-     * A conferência oficial será
-     * feita pelo Admin antes da aprovação.
+     * Para Agência/Operadora,
+     * a tela pública atual envia CNPJ.
      */
-    return (
-        cnpj.length === 14
-    );
+    return documento.length >= 11;
+}
+
+/* ==========================================
+   BUSCAR PELO DOCUMENTO
+========================================== */
+
+export async function buscarAgenciaPorDocumento(
+    documento: string
+): Promise<Agencia | null> {
+    const documentoLimpo =
+        somenteDigitos(
+            documento
+        );
+
+    if (!documentoLimpo) {
+        return null;
+    }
+
+    const q =
+        query(
+            collection(
+                db,
+                "agencias"
+            ),
+            where(
+                "documento",
+                "==",
+                documentoLimpo
+            )
+        );
+
+    const snap =
+        await getDocs(q);
+
+    if (snap.empty) {
+        return null;
+    }
+
+    const item =
+        snap.docs[0];
+
+    return {
+        id: item.id,
+        ...item.data(),
+    } as Agencia;
 }
 
 /* ==========================================
@@ -185,7 +205,60 @@ export async function criarAgencia(
         )
     ) {
         throw new Error(
-            "Informe um CNPJ válido com 14 dígitos."
+            "Informe um documento/CNPJ válido."
+        );
+    }
+
+    /*
+     * PROTEÇÃO CONTRA DUPLICIDADE
+     *
+     * Antes de criar qualquer cadastro,
+     * verificamos se o documento já existe.
+     */
+    const existente =
+        await buscarAgenciaPorDocumento(
+            documento
+        );
+
+    if (existente) {
+        if (
+            existente.status ===
+            "ativa"
+        ) {
+            throw new Error(
+                "Este CNPJ/documento já possui cadastro aprovado no Parque Mundo Novo."
+            );
+        }
+
+        if (
+            existente.status ===
+            "pendente"
+        ) {
+            throw new Error(
+                "Este CNPJ/documento já possui um cadastro aguardando aprovação."
+            );
+        }
+
+        if (
+            existente.status ===
+            "bloqueada"
+        ) {
+            throw new Error(
+                "Este cadastro está bloqueado. Entre em contato com o Parque Mundo Novo."
+            );
+        }
+
+        if (
+            existente.status ===
+            "reprovada"
+        ) {
+            throw new Error(
+                "Este CNPJ/documento já possui um cadastro anterior. Entre em contato com o Parque Mundo Novo para solicitar uma nova análise."
+            );
+        }
+
+        throw new Error(
+            "Já existe um cadastro utilizando este CNPJ/documento."
         );
     }
 
@@ -233,8 +306,7 @@ export async function criarAgencia(
                 email:
                     limpar(
                         dados.email
-                    )
-                        .toLowerCase(),
+                    ).toLowerCase(),
 
                 cidade:
                     limpar(
@@ -244,8 +316,7 @@ export async function criarAgencia(
                 estado:
                     limpar(
                         dados.estado
-                    )
-                        .toUpperCase(),
+                    ).toUpperCase(),
 
                 observacoes:
                     limpar(
@@ -253,24 +324,15 @@ export async function criarAgencia(
                     ),
 
                 /* ==================================
-                   NOVO FLUXO
+                   APROVAÇÃO
                 ================================== */
 
-                /*
-                 * Sempre entra aguardando aprovação.
-                 */
                 status:
                     "pendente",
 
-                /*
-                 * Nunca aprova automaticamente.
-                 */
                 aprovacaoAutomatica:
                     false,
 
-                /*
-                 * Ainda não verificado pelo Admin.
-                 */
                 documentoVerificado:
                     false,
 
@@ -280,19 +342,9 @@ export async function criarAgencia(
                 cadasturSituacao:
                     "aguardando_verificacao",
 
-                /*
-                 * Regra comercial base.
-                 *
-                 * O desconto real será calculado
-                 * pela quantidade do grupo.
-                 */
                 descontoPadrao:
                     5,
 
-                /*
-                 * Mantido porque a página
-                 * de reservas atual usa este campo.
-                 */
                 categoria:
                     "Bronze",
 
@@ -475,7 +527,7 @@ export async function ativarAgencia(
 }
 
 /* ==========================================
-   REPROVAR AGÊNCIA
+   REPROVAR
 ========================================== */
 
 export async function reprovarAgencia(
@@ -509,7 +561,7 @@ export async function reprovarAgencia(
 }
 
 /* ==========================================
-   BLOQUEAR AGÊNCIA
+   BLOQUEAR
 ========================================== */
 
 export async function bloquearAgencia(
@@ -579,7 +631,7 @@ export async function marcarAgenciaPendente(
 }
 
 /* ==========================================
-   VERIFICAR SE PODE RESERVAR / COMPRAR
+   PODE RESERVAR / COMPRAR
 ========================================== */
 
 export function agenciaPodeReservar(
@@ -592,9 +644,6 @@ export function agenciaPodeReservar(
         return false;
     }
 
-    /*
-     * Precisa estar aprovada.
-     */
     if (
         agencia.status !==
         "ativa"
@@ -602,10 +651,6 @@ export function agenciaPodeReservar(
         return false;
     }
 
-    /*
-     * CNPJ precisa ter sido
-     * conferido pelo Admin.
-     */
     if (
         agencia.documentoVerificado !==
         true
@@ -613,10 +658,6 @@ export function agenciaPodeReservar(
         return false;
     }
 
-    /*
-     * Regularidade/Cadastur precisa
-     * ter sido validada pelo Admin.
-     */
     if (
         agencia.cadasturVerificado !==
         true
@@ -628,15 +669,12 @@ export function agenciaPodeReservar(
 }
 
 /* ==========================================
-   DESCONTO DO GRUPO
+   DESCONTO
 ========================================== */
 
 /*
- * REGRA OFICIAL:
- *
- * 1 até 20 visitantes = 5%
- * 21 ou mais visitantes = 10%
- * 0 visitantes = 0%
+ * 1 a 20 pessoas = 5%
+ * acima de 20 = 10%
  */
 
 export function calcularDescontoGrupo(
@@ -697,11 +735,8 @@ export function aplicarDescontoAgencia(
 
     return {
         percentual,
-
         valorOriginal,
-
         valorDesconto,
-
         valorFinal,
     };
 }

@@ -62,6 +62,8 @@ type ReservaAgencia = {
 
     tipoVeiculo?: string;
 
+    modalidadePagamento?: string;
+
     createdAt?: any;
 };
 
@@ -126,7 +128,6 @@ export default function ReservasAgenciasAdminPage() {
                         db,
                         "reservas_agencias"
                     ),
-
                     orderBy(
                         "createdAt",
                         "desc"
@@ -170,12 +171,6 @@ export default function ReservasAgenciasAdminPage() {
     async function aprovar(
         agencia: Agencia
     ) {
-        /*
-         * Antes de aprovar,
-         * o Admin informa o número
-         * encontrado na conferência
-         * do Cadastur.
-         */
         const cadasturInformado =
             window.prompt(
                 `Informe o número do Cadastur conferido para:\n\n${agencia.nomeEmpresa}\nCNPJ: ${formatarDocumento(
@@ -221,10 +216,6 @@ export default function ReservasAgenciasAdminPage() {
             setMensagem("");
             setErro("");
 
-            /*
-             * Primeiro salvamos o Cadastur
-             * que foi efetivamente conferido.
-             */
             await atualizarAgencia(
                 agencia.id,
                 {
@@ -232,16 +223,6 @@ export default function ReservasAgenciasAdminPage() {
                 }
             );
 
-            /*
-             * Depois ativamos.
-             *
-             * ativarAgencia também registra:
-             *
-             * documentoVerificado
-             * cadasturVerificado
-             * data da aprovação
-             * responsável pela aprovação
-             */
             await ativarAgencia(
                 agencia.id,
                 "admin"
@@ -375,7 +356,7 @@ export default function ReservasAgenciasAdminPage() {
     }
 
     /* ======================================
-       REATIVAR PARA NOVA ANÁLISE
+       VOLTAR PARA ANÁLISE
     ====================================== */
 
     async function voltarParaAnalise(
@@ -482,6 +463,16 @@ export default function ReservasAgenciasAdminPage() {
             );
         }
 
+        if (
+            numeros.length ===
+            11
+        ) {
+            return numeros.replace(
+                /^(\d{3})(\d{3})(\d{3})(\d{2})$/,
+                "$1.$2.$3-$4"
+            );
+        }
+
         return (
             documento ||
             "-"
@@ -561,7 +552,9 @@ export default function ReservasAgenciasAdminPage() {
         reservas.filter(
             (item) =>
                 item.statusOperacional ===
-                "reservado"
+                "reservado" ||
+                item.statusOperacional ===
+                "aguardando_pagamento"
         );
 
     const totalPessoasReservadas =
@@ -706,14 +699,16 @@ export default function ReservasAgenciasAdminPage() {
                             </p>
 
                             <p className="mt-2 text-sm">
-                                Confira o CNPJ e a situação do parceiro no Cadastur antes de aprovar.
+                                Confira o CNPJ/documento e
+                                a situação do parceiro no
+                                Cadastur antes de aprovar.
                             </p>
                         </div>
                     )}
 
                 {/* =================================
-                    PENDENTES
-                ================================= */}
+            PENDENTES
+        ================================= */}
 
                 <section className="mt-8 rounded-2xl bg-white p-5 shadow">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -753,7 +748,7 @@ export default function ReservasAgenciasAdminPage() {
                                         </th>
 
                                         <th className="p-3">
-                                            CNPJ
+                                            CNPJ / Documento
                                         </th>
 
                                         <th className="p-3">
@@ -890,8 +885,8 @@ export default function ReservasAgenciasAdminPage() {
                 </section>
 
                 {/* =================================
-                    APROVADAS
-                ================================= */}
+            APROVADAS
+        ================================= */}
 
                 <section className="mt-8 rounded-2xl bg-white p-5 shadow">
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -921,7 +916,7 @@ export default function ReservasAgenciasAdminPage() {
                                         </th>
 
                                         <th className="p-3">
-                                            CNPJ
+                                            CNPJ / Documento
                                         </th>
 
                                         <th className="p-3">
@@ -995,7 +990,7 @@ export default function ReservasAgenciasAdminPage() {
                                                 <td className="p-3">
                                                     <div className="space-y-1">
                                                         <span className="block rounded-full bg-green-100 px-3 py-1 text-center text-xs font-black text-green-800">
-                                                            CNPJ CONFERIDO
+                                                            DOCUMENTO CONFERIDO
                                                         </span>
 
                                                         <span className="block rounded-full bg-green-100 px-3 py-1 text-center text-xs font-black text-green-800">
@@ -1042,8 +1037,8 @@ export default function ReservasAgenciasAdminPage() {
                 </section>
 
                 {/* =================================
-                    BLOQUEADAS
-                ================================= */}
+            BLOQUEADAS
+        ================================= */}
 
                 {bloqueadas.length >
                     0 && (
@@ -1061,7 +1056,7 @@ export default function ReservasAgenciasAdminPage() {
                                             </th>
 
                                             <th className="p-3">
-                                                CNPJ
+                                                Documento
                                             </th>
 
                                             <th className="p-3">
@@ -1126,8 +1121,8 @@ export default function ReservasAgenciasAdminPage() {
                     )}
 
                 {/* =================================
-                    REPROVADAS
-                ================================= */}
+            REPROVADAS
+        ================================= */}
 
                 {reprovadas.length >
                     0 && (
@@ -1145,7 +1140,7 @@ export default function ReservasAgenciasAdminPage() {
                                             </th>
 
                                             <th className="p-3">
-                                                CNPJ
+                                                Documento
                                             </th>
 
                                             <th className="p-3">
@@ -1211,11 +1206,12 @@ export default function ReservasAgenciasAdminPage() {
                     )}
 
                 {/* =================================
-                    RESERVAS
-                ================================= */}
+            RESERVAS
+        ================================= */}
 
                 <section className="mt-8 rounded-2xl bg-white p-5 shadow">
                     <div className="flex flex-wrap items-center justify-between gap-4">
+
                         <div>
                             <h2 className="text-2xl font-black text-emerald-800">
                                 Reservas e Compras das Agências
@@ -1240,7 +1236,8 @@ export default function ReservasAgenciasAdminPage() {
                     </div>
 
                     <div className="mt-5 overflow-x-auto">
-                        <table className="w-full min-w-[1500px] text-left">
+                        <table className="w-full min-w-[1550px] text-left">
+
                             <thead>
                                 <tr className="border-b bg-slate-50">
                                     <th className="p-3">
@@ -1322,8 +1319,35 @@ export default function ReservasAgenciasAdminPage() {
                                                 className="border-b"
                                             >
                                                 <td className="p-3 font-black">
-                                                    {reserva.agenciaNome ||
-                                                        "Reserva antiga"}
+
+                                                    {reserva.agenciaNome ? (
+                                                        <div>
+                                                            <p>
+                                                                {
+                                                                    reserva.agenciaNome
+                                                                }
+                                                            </p>
+
+                                                            {reserva.agenciaDocumento && (
+                                                                <p className="mt-1 text-xs font-normal text-slate-500">
+                                                                    {formatarDocumento(
+                                                                        reserva.agenciaDocumento
+                                                                    )}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div>
+                                                            <p className="text-orange-700">
+                                                                Reserva antiga sem vínculo
+                                                            </p>
+
+                                                            <p className="mt-1 text-xs font-normal text-slate-500">
+                                                                Registro criado antes da identificação obrigatória da agência.
+                                                            </p>
+                                                        </div>
+                                                    )}
+
                                                 </td>
 
                                                 <td className="p-3 font-mono font-bold">
@@ -1491,6 +1515,28 @@ function StatusPagamento({
         );
     }
 
+    if (
+        status ===
+        "aguardando_pagamento_antecipado"
+    ) {
+        return (
+            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-orange-800">
+                AGUARDANDO PAGAMENTO
+            </span>
+        );
+    }
+
+    if (
+        status ===
+        "cancelado"
+    ) {
+        return (
+            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-black text-red-800">
+                CANCELADO
+            </span>
+        );
+    }
+
     return (
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">
             {status ||
@@ -1515,6 +1561,17 @@ function StatusOperacional({
         return (
             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-800">
                 RESERVADO
+            </span>
+        );
+    }
+
+    if (
+        status ===
+        "aguardando_pagamento"
+    ) {
+        return (
+            <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-black text-orange-800">
+                AGUARDANDO PAGAMENTO
             </span>
         );
     }
