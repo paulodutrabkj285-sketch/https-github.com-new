@@ -17,96 +17,191 @@ export type PedidoInput = {
   produto: string;
   tipo: string;
 
+  /* ==========================================
+     ORIGEM DO PEDIDO
+  ========================================== */
+
+  /*
+   * site:
+   * compras normais de ingressos
+   *
+   * parceiro:
+   * compra antecipada feita por
+   * agência/guia/parceiro aprovado
+   */
+  origem?: "site" | "parceiro";
+
+  /* ==========================================
+     VÍNCULO COM RESERVA DE AGÊNCIA
+  ========================================== */
+
+  reservaAgenciaId?: string;
+
+  codigoGrupo?: string;
+
+  agenciaId?: string;
+
+  agenciaNome?: string;
+
+  /* ==========================================
+     CLIENTE
+  ========================================== */
+
   nome: string;
+
   cpf: string;
+
   telefone: string;
+
   email: string;
 
+  /* ==========================================
+     VISITA
+  ========================================== */
+
   dataVisita?: string;
+
   dataEntrada?: string;
 
   noites?: number;
+
   quantidadePessoas?: number;
 
   quantidade: number;
 
+  /* ==========================================
+     VALORES
+  ========================================== */
+
   valorUnitario: number;
+
   valorTotal: number;
 
+  /* ==========================================
+     STATUS
+  ========================================== */
+
   statusPagamento: string;
+
   statusOperacional: string;
 
+  /* ==========================================
+     PAGBANK
+  ========================================== */
+
   pagbankCheckoutId?: string;
+
   pagbankReferenceId?: string;
+
   pagbankPayUrl?: string;
+
   pagbankStatus?: string;
 
+  /* ==========================================
+     INGRESSO
+  ========================================== */
+
   codigoIngresso?: string;
+
   qrCodeIngresso?: string;
 
-  // Controle da portaria principal
+  /* ==========================================
+     PORTARIA PRINCIPAL
+  ========================================== */
+
   validadoPor?: string;
+
   validadoEm?: string;
+
   utilizadoEm?: string;
 
-  // Cachoeira Mundo Novo
+  /* ==========================================
+     CACHOEIRA MUNDO NOVO
+  ========================================== */
+
   cachoeiraMundoNovoValidado?: boolean;
+
   cachoeiraMundoNovoValidadoPor?: string;
+
   cachoeiraMundoNovoValidadoEm?: string;
 
-  // Lembretes
+  /* ==========================================
+     LEMBRETES
+  ========================================== */
+
   lembrete24hEnviado?: boolean;
+
   lembrete24hEnviadoEm?: string;
 
   lembrete7dEnviado?: boolean;
+
   lembrete7dEnviadoEm?: string;
 
-  // Cartão
+  /* ==========================================
+     CARTÃO
+  ========================================== */
+
   formaPagamento?: string;
+
   parcelas?: number;
+
   cartaoStatus?: string;
+
   cartaoGateway?: string;
+
   cartaoTransactionId?: string;
 };
 
-export type Pedido = PedidoInput & {
-  id: string;
+export type Pedido =
+  PedidoInput & {
+    id: string;
 
-  createdAt?: string;
-  updatedAt?: string;
+    createdAt?: string;
 
-  expiracaoPix?: string;
+    updatedAt?: string;
 
-  pixExpiradoEm?: string;
+    expiracaoPix?: string;
 
-  sicrediTxid?: string;
-  sicrediStatus?: string;
-  sicrediPixCopiaCola?: string;
-  sicrediLocation?: string;
+    pixExpiradoEm?: string;
 
-  valorPago?: number;
+    sicrediTxid?: string;
 
-  emailIngressoEnviado?: boolean;
-  emailIngressoEnviadoEm?: string;
-  emailIngressoErro?: string;
-  emailIngressoErroEm?: string;
+    sicrediStatus?: string;
 
-  emailIngressoReenviado?: boolean;
-  emailIngressoReenviadoEm?: string;
+    sicrediPixCopiaCola?: string;
 
-  pixEndToEndId?: string;
-  pixHorario?: string;
-};
+    sicrediLocation?: string;
+
+    valorPago?: number;
+
+    emailIngressoEnviado?: boolean;
+
+    emailIngressoEnviadoEm?: string;
+
+    emailIngressoErro?: string;
+
+    emailIngressoErroEm?: string;
+
+    emailIngressoReenviado?: boolean;
+
+    emailIngressoReenviadoEm?: string;
+
+    pixEndToEndId?: string;
+
+    pixHorario?: string;
+  };
 
 /* ==========================================
    CÓDIGO DO INGRESSO
 ========================================== */
 
 function gerarCodigoIngresso() {
-  const numero = Math.floor(
-    10000 +
-    Math.random() * 90000
-  );
+  const numero =
+    Math.floor(
+      10000 +
+      Math.random() *
+      90000
+    );
 
   return `PMN-${numero}`;
 }
@@ -138,6 +233,7 @@ function gerarExpiracaoPix() {
  * está definitivamente expirado apenas
  * com base no relógio do navegador.
  */
+
 function pixEstaExpirado(
   pedido: Pedido
 ) {
@@ -187,6 +283,7 @@ function pixEstaExpirado(
  * ou uma reconciliação com o Sicredi
  * ainda pode recuperar o pagamento.
  */
+
 function aplicarExpiracaoVisual(
   pedidos: Pedido[]
 ): Pedido[] {
@@ -246,6 +343,18 @@ export async function criarPedido(
         "pedidos"
       ),
       {
+        /*
+         * Inclui automaticamente:
+         *
+         * origem
+         * reservaAgenciaId
+         * codigoGrupo
+         * agenciaId
+         * agenciaNome
+         *
+         * quando esses campos forem
+         * enviados pela compra de parceiro.
+         */
         ...dados,
 
         codigoIngresso,
@@ -327,6 +436,7 @@ export async function buscarPedidoPorId(
    * porque APIs de pagamento e
    * finalização usam esta função.
    */
+
   return {
     id:
       snap.id,
@@ -388,6 +498,7 @@ export async function buscarPedidoPorTxid(
    *
    * O webhook depende disso.
    */
+
   return {
     id:
       docItem.id,
@@ -456,6 +567,7 @@ export async function buscarPedidosPorCpf(
    * Nenhum campo é escrito
    * no Firestore.
    */
+
   return aplicarExpiracaoVisual(
     pedidos
   );
@@ -524,6 +636,7 @@ export async function buscarPedidoPorCodigo(
    * podemos mostrar o vencimento,
    * mas sem alterar o banco.
    */
+
   const resultado =
     aplicarExpiracaoVisual(
       [pedido]
@@ -580,6 +693,7 @@ export async function listarPedidos() {
    * dashboard não pode alterar
    * o estado bancário do pedido.
    */
+
   return aplicarExpiracaoVisual(
     pedidos
   );
@@ -704,10 +818,13 @@ export function calcularResumoFinanceiro(
   /*
    * Mantido como já estava.
    *
-   * Depois podemos corrigir
-   * separadamente as taxas do
-   * Pix/cartão no dashboard.
+   * Como a compra antecipada
+   * da agência também será um
+   * pedido normal com status
+   * "pago", ela entrará
+   * automaticamente aqui.
    */
+
   const taxaPercentual =
     4.99;
 

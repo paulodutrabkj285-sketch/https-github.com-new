@@ -644,6 +644,10 @@ export function agenciaPodeReservar(
         return false;
     }
 
+    /*
+     * O parceiro obrigatoriamente
+     * precisa continuar ATIVO.
+     */
     if (
         agencia.status !==
         "ativa"
@@ -651,16 +655,42 @@ export function agenciaPodeReservar(
         return false;
     }
 
+    /*
+     * COMPATIBILIDADE COM CADASTROS ANTIGOS
+     *
+     * Os parceiros aprovados antes da criação
+     * dos campos documentoVerificado e
+     * cadasturVerificado podem não possuir
+     * esses campos no Firestore.
+     *
+     * Portanto:
+     *
+     * true      = liberado
+     * undefined = cadastro antigo aprovado,
+     *             mantém compatibilidade
+     * false     = bloqueado
+     *
+     * Os novos cadastros continuam seguros,
+     * pois são criados como:
+     *
+     * status: "pendente"
+     * documentoVerificado: false
+     * cadasturVerificado: false
+     *
+     * e somente o admin os transforma
+     * em "ativa".
+     */
+
     if (
-        agencia.documentoVerificado !==
-        true
+        agencia.documentoVerificado ===
+        false
     ) {
         return false;
     }
 
     if (
-        agencia.cadasturVerificado !==
-        true
+        agencia.cadasturVerificado ===
+        false
     ) {
         return false;
     }

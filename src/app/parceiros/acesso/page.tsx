@@ -1,114 +1,44 @@
 "use client";
 
-import {
-    collection,
-    getDocs,
-    query,
-    where,
-} from "firebase/firestore";
-
-import { db } from "@/lib/firebase";
-
 import { useRouter } from "next/navigation";
-
-import {
-    useState,
-} from "react";
+import { useState } from "react";
 
 export default function AcessoParceiroPage() {
-    const router =
-        useRouter();
+    const router = useRouter();
 
-    const [
-        documento,
-        setDocumento,
-    ] =
-        useState("");
+    const [documento, setDocumento] = useState("");
+    const [email, setEmail] = useState("");
+    const [carregando, setCarregando] = useState(false);
+    const [mensagem, setMensagem] = useState("");
 
-    const [
-        email,
-        setEmail,
-    ] =
-        useState("");
-
-    const [
-        carregando,
-        setCarregando,
-    ] =
-        useState(false);
-
-    const [
-        mensagem,
-        setMensagem,
-    ] =
-        useState("");
-
-    const [
-        tipoMensagem,
-        setTipoMensagem,
-    ] =
-        useState<
-            "erro" |
-            "sucesso" |
-            ""
-        >("");
+    const [tipoMensagem, setTipoMensagem] =
+        useState<"erro" | "sucesso" | "">("");
 
     /* ==========================================
        FUNÇÕES
     ========================================== */
 
-    function somenteDigitos(
-        valor: string
-    ) {
-        return valor.replace(
-            /\D/g,
-            ""
-        );
+    function somenteDigitos(valor: string) {
+        return valor.replace(/\D/g, "");
     }
 
-    function formatarDocumento(
-        valor: string
-    ) {
-        const numeros =
-            somenteDigitos(
-                valor
-            );
+    function formatarDocumento(valor: string) {
+        const numeros = somenteDigitos(valor);
 
-        if (
-            numeros.length <= 11
-        ) {
+        // CPF
+        if (numeros.length <= 11) {
             return numeros
-                .replace(
-                    /(\d{3})(\d)/,
-                    "$1.$2"
-                )
-                .replace(
-                    /(\d{3})(\d)/,
-                    "$1.$2"
-                )
-                .replace(
-                    /(\d{3})(\d{1,2})$/,
-                    "$1-$2"
-                );
+                .replace(/(\d{3})(\d)/, "$1.$2")
+                .replace(/(\d{3})(\d)/, "$1.$2")
+                .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
         }
 
+        // CNPJ
         return numeros
-            .replace(
-                /^(\d{2})(\d)/,
-                "$1.$2"
-            )
-            .replace(
-                /^(\d{2})\.(\d{3})(\d)/,
-                "$1.$2.$3"
-            )
-            .replace(
-                /\.(\d{3})(\d)/,
-                ".$1/$2"
-            )
-            .replace(
-                /(\d{4})(\d)/,
-                "$1-$2"
-            );
+            .replace(/^(\d{2})(\d)/, "$1.$2")
+            .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+            .replace(/\.(\d{3})(\d)/, ".$1/$2")
+            .replace(/(\d{4})(\d)/, "$1-$2");
     }
 
     /* ==========================================
@@ -119,265 +49,138 @@ export default function AcessoParceiroPage() {
         setMensagem("");
         setTipoMensagem("");
 
-        const documentoLimpo =
-            somenteDigitos(
-                documento
-            );
+        const documentoLimpo = somenteDigitos(documento);
 
-        const emailLimpo =
-            email
-                .trim()
-                .toLowerCase();
+        const emailLimpo = email
+            .trim()
+            .toLowerCase();
 
-        if (
-            !documentoLimpo
-        ) {
-            setTipoMensagem(
-                "erro"
-            );
-
+        if (!documentoLimpo) {
+            setTipoMensagem("erro");
             setMensagem(
                 "Informe o CNPJ ou CPF cadastrado."
             );
-
             return;
         }
 
-        if (
-            !emailLimpo
-        ) {
-            setTipoMensagem(
-                "erro"
-            );
-
+        if (!emailLimpo) {
+            setTipoMensagem("erro");
             setMensagem(
                 "Informe o e-mail cadastrado."
             );
-
             return;
         }
 
         try {
-            setCarregando(
-                true
+            setCarregando(true);
+
+            /*
+             * Agora NÃO consultamos mais
+             * o Firestore diretamente no navegador.
+             *
+             * A validação acontece no servidor.
+             */
+            const resposta = await fetch(
+                "/parceiros/login",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+
+                    body: JSON.stringify({
+                        documento:
+                            documentoLimpo,
+
+                        email:
+                            emailLimpo,
+                    }),
+                }
             );
 
-            /*
-             * Primeiro procuramos pelo documento.
-             *
-             * No Firestore o documento é salvo
-             * somente com números.
-             */
-            const consulta =
-                query(
-                    collection(
-                        db,
-                        "agencias"
-                    ),
+            let dados: {
+                ok?: boolean;
+                error?: string;
+                mensagem?: string;
+            } = {};
 
-                    where(
-                        "documento",
-                        "==",
-                        documentoLimpo
-                    )
-                );
-
-            const snap =
-                await getDocs(
-                    consulta
-                );
-
-            if (
-                snap.empty
-            ) {
-                setTipoMensagem(
-                    "erro"
-                );
-
-                setMensagem(
-                    "Não encontramos um parceiro cadastrado com esse CNPJ/CPF."
-                );
-
-                return;
+            try {
+                dados =
+                    await resposta.json();
+            } catch {
+                dados = {};
             }
 
-            /*
-             * Pode existir cadastro antigo duplicado.
-             *
-             * Por segurança procuramos especificamente
-             * um cadastro ATIVO e com o mesmo e-mail.
-             */
-            const parceiro =
-                snap.docs.find(
-                    (item) => {
-                        const dados =
-                            item.data();
-
-                        const emailBanco =
-                            String(
-                                dados.email ||
-                                ""
-                            )
-                                .trim()
-                                .toLowerCase();
-
-                        return (
-                            dados.status ===
-                            "ativa" &&
-                            emailBanco ===
-                            emailLimpo
-                        );
-                    }
-                );
-
             if (
-                !parceiro
+                !resposta.ok ||
+                !dados.ok
             ) {
-                /*
-                 * Verifica se existe parceiro ativo
-                 * com o documento, mas e-mail diferente.
-                 */
-                const ativo =
-                    snap.docs.find(
-                        (item) =>
-                            item.data()
-                                .status ===
-                            "ativa"
-                    );
-
-                if (ativo) {
-                    setTipoMensagem(
-                        "erro"
-                    );
-
-                    setMensagem(
-                        "O e-mail informado não corresponde ao cadastro aprovado."
-                    );
-
-                    return;
-                }
-
-                /*
-                 * Verifica se está aguardando aprovação.
-                 */
-                const pendente =
-                    snap.docs.find(
-                        (item) =>
-                            item.data()
-                                .status ===
-                            "pendente"
-                    );
-
-                if (
-                    pendente
-                ) {
-                    setTipoMensagem(
-                        "erro"
-                    );
-
-                    setMensagem(
-                        "Seu cadastro ainda está aguardando aprovação do Parque Mundo Novo."
-                    );
-
-                    return;
-                }
-
-                /*
-                 * Verifica se foi bloqueado.
-                 */
-                const bloqueado =
-                    snap.docs.find(
-                        (item) =>
-                            item.data()
-                                .status ===
-                            "bloqueada"
-                    );
-
-                if (
-                    bloqueado
-                ) {
-                    setTipoMensagem(
-                        "erro"
-                    );
-
-                    setMensagem(
-                        "Este cadastro está bloqueado. Entre em contato com o Parque Mundo Novo."
-                    );
-
-                    return;
-                }
-
-                /*
-                 * Verifica reprovação.
-                 */
-                const reprovado =
-                    snap.docs.find(
-                        (item) =>
-                            item.data()
-                                .status ===
-                            "reprovada"
-                    );
-
-                if (
-                    reprovado
-                ) {
-                    setTipoMensagem(
-                        "erro"
-                    );
-
-                    setMensagem(
-                        "Este cadastro não está aprovado para acesso à área de parceiros."
-                    );
-
-                    return;
-                }
-
-                setTipoMensagem(
-                    "erro"
-                );
+                setTipoMensagem("erro");
 
                 setMensagem(
+                    dados.error ||
+                    dados.mensagem ||
                     "Não foi possível validar o acesso."
                 );
 
                 return;
             }
 
-            const parceiroId =
-                parceiro.id;
+            /*
+             * O servidor criou a sessão
+             * segura através do cookie.
+             *
+             * Não precisamos mais colocar
+             * agenciaId na URL.
+             */
 
-            setTipoMensagem(
-                "sucesso"
-            );
+            setTipoMensagem("sucesso");
 
             setMensagem(
                 "Cadastro localizado. Abrindo sua área..."
             );
 
             /*
-             * Redireciona para a área
-             * que já construímos.
+             * Pequeno intervalo apenas para
+             * o usuário visualizar a confirmação.
              */
-            router.push(
-                `/parceiros/reservas?agenciaId=${parceiroId}`
-            );
+            setTimeout(() => {
+                router.push(
+                    "/parceiros/reservas"
+                );
+
+                router.refresh();
+            }, 500);
         } catch (error) {
             console.error(
                 "Erro ao acessar área do parceiro:",
                 error
             );
 
-            setTipoMensagem(
-                "erro"
-            );
+            setTipoMensagem("erro");
 
             setMensagem(
                 "Não foi possível validar o acesso agora. Tente novamente."
             );
         } finally {
-            setCarregando(
-                false
-            );
+            setCarregando(false);
+        }
+    }
+
+    /* ==========================================
+       ENTER NO FORMULÁRIO
+    ========================================== */
+
+    function pressionarEnter(
+        e: React.KeyboardEvent
+    ) {
+        if (
+            e.key === "Enter" &&
+            !carregando
+        ) {
+            entrar();
         }
     }
 
@@ -449,12 +252,8 @@ export default function AcessoParceiroPage() {
 
                     <input
                         type="text"
-                        value={
-                            documento
-                        }
-                        onChange={(
-                            e
-                        ) => {
+                        value={documento}
+                        onChange={(e) => {
                             const valor =
                                 somenteDigitos(
                                     e.target.value
@@ -469,7 +268,11 @@ export default function AcessoParceiroPage() {
                                 )
                             );
                         }}
+                        onKeyDown={
+                            pressionarEnter
+                        }
                         placeholder="00.000.000/0000-00"
+                        autoComplete="username"
                         className="mt-2 w-full rounded-2xl border border-white/20 bg-white px-4 py-4 font-bold text-slate-900 outline-none"
                     />
                 </label>
@@ -483,17 +286,17 @@ export default function AcessoParceiroPage() {
 
                     <input
                         type="email"
-                        value={
-                            email
-                        }
-                        onChange={(
-                            e
-                        ) =>
+                        value={email}
+                        onChange={(e) =>
                             setEmail(
                                 e.target.value
                             )
                         }
+                        onKeyDown={
+                            pressionarEnter
+                        }
                         placeholder="email@empresa.com.br"
+                        autoComplete="email"
                         className="mt-2 w-full rounded-2xl border border-white/20 bg-white px-4 py-4 font-bold text-slate-900 outline-none"
                     />
                 </label>
@@ -516,12 +319,8 @@ export default function AcessoParceiroPage() {
 
                 <button
                     type="button"
-                    onClick={
-                        entrar
-                    }
-                    disabled={
-                        carregando
-                    }
+                    onClick={entrar}
+                    disabled={carregando}
                     className="mt-6 w-full rounded-2xl bg-emerald-500 px-5 py-4 text-lg font-black text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-500"
                 >
                     {carregando
