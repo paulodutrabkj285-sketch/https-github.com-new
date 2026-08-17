@@ -34,6 +34,7 @@ const FUNCIONARIOS = [
     "WELLINGTON",
     "PEDRO",
     "FRANCISCO",
+    "Perteson",
 ];
 
 /* ======================================
