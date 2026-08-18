@@ -332,7 +332,7 @@ export default function IngressosPage() {
       titulo:
         "Atendimento",
       texto:
-        "Para dúvidas sobre ingressos, fale pelo WhatsApp (48) 99338-18975 ou pelo e-mail ingressosparquemundonovo@gmail.com.",
+        "Para dúvidas sobre ingressos, fale pelo WhatsApp (48) 9338-18975 ou pelo e-mail ingressosparquemundonovo@gmail.com.",
     },
   ];
 
@@ -389,7 +389,7 @@ export default function IngressosPage() {
       pergunta:
         "Como solicito o cancelamento?",
       resposta:
-        "Entre em contato pelo WhatsApp do parque, (48) 99338-18975, informando o número do pedido. O reembolso é feito pelo mesmo meio de pagamento e pode levar alguns dias úteis.",
+        "Entre em contato pelo WhatsApp do parque, (48) 9338-18975, informando o número do pedido. O reembolso é feito pelo mesmo meio de pagamento e pode levar alguns dias úteis.",
     },
     {
       pergunta:
@@ -1535,7 +1535,7 @@ export default function IngressosPage() {
               Entre em contato pelo{" "}
 
               <a
-                href="https://wa.me/55489933818975?text=Olá!%20Gostaria%20de%20solicitar%20o%20reembolso%20de%20um%20ingresso."
+                href="https://wa.me/5548933818975?text=Olá!%20Gostaria%20de%20solicitar%20o%20reembolso%20de%20um%20ingresso."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-bold text-emerald-600 transition hover:text-emerald-800 hover:underline"
@@ -1675,12 +1675,12 @@ export default function IngressosPage() {
               <p className="flex items-center gap-2">
 
                 <a
-                  href="https://wa.me/55489933818975?text=Olá!%20Gostaria%20de%20tirar%20uma%20dúvida%20sobre%20o%20Parque%20Mundo%20Novo"
+                  href="https://wa.me/5548933818975?text=Olá!%20Gostaria%20de%20tirar%20uma%20dúvida%20sobre%20o%20Parque%20Mundo%20Novo"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 font-semibold text-zinc-600 transition hover:text-emerald-600"
                 >
-                  💬 (48) 99338-18975
+                  💬 (48) 9338-18975
                   (WhatsApp)
                 </a>
 
