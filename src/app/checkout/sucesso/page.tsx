@@ -26,8 +26,13 @@ function enviarCompraMeta(
 
   const chave = `meta_purchase_${pedidoId}`;
 
+  // Evita enviar a mesma compra novamente na mesma sessão
   if (sessionStorage.getItem(chave) === "1") {
-    console.log("META PIXEL: Purchase já enviado para", pedidoId);
+    console.log(
+      "META PIXEL: Purchase já enviado para",
+      pedidoId
+    );
+
     return;
   }
 
@@ -41,7 +46,8 @@ function enviarCompraMeta(
       window.fbq("track", "Purchase", {
         value: Number(valor || 0),
         currency: "BRL",
-        content_name: produto || "Ingresso Parque Mundo Novo",
+        content_name:
+          produto || "Ingresso Parque Mundo Novo",
         content_ids: [pedidoId],
         content_type: "product",
       });
@@ -57,6 +63,7 @@ function enviarCompraMeta(
       return;
     }
 
+    // Aguarda o Pixel carregar antes de desistir
     if (tentativas < maxTentativas) {
       setTimeout(tentarEnviar, 500);
     } else {
@@ -71,17 +78,24 @@ function enviarCompraMeta(
 
 export default function SucessoPage() {
   const [pedidoId, setPedidoId] = useState("");
-  const [status, setStatus] = useState("Pagamento pendente");
-  const [codigoIngresso, setCodigoIngresso] = useState("");
+  const [status, setStatus] = useState(
+    "Pagamento pendente"
+  );
+  const [codigoIngresso, setCodigoIngresso] =
+    useState("");
   const [qrCode, setQrCode] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [pago, setPago] = useState(false);
-  const [valorDivergente, setValorDivergente] = useState(false);
+  const [valorDivergente, setValorDivergente] =
+    useState(false);
 
   useEffect(() => {
     async function carregarPedido() {
       try {
-        const params = new URLSearchParams(window.location.search);
+        const params = new URLSearchParams(
+          window.location.search
+        );
+
         const id = params.get("pedidoId") || "";
 
         setPedidoId(id);
@@ -203,9 +217,7 @@ export default function SucessoPage() {
       <div className="absolute inset-0 bg-black/55" />
 
       <div className="relative z-10 mx-auto max-w-4xl">
-
         <section className="rounded-3xl border border-white/20 bg-emerald-950/75 p-6 text-center shadow-2xl backdrop-blur-md sm:p-8">
-
           <img
             src="/logo-final.png"
             alt="Parque Mundo Novo"
@@ -227,27 +239,22 @@ export default function SucessoPage() {
               ? "Pagamento confirmado. Seu ingresso digital está disponível."
               : "Seu pedido foi criado e está aguardando a confirmação do pagamento."}
           </p>
-
         </section>
 
         {pago && (
           <section className="mt-6 rounded-3xl border-2 border-red-400 bg-red-50 p-6 text-red-950 shadow-2xl">
-
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-
-              <div className="text-4xl">
-                ⚠️
-              </div>
+              <div className="text-4xl">⚠️</div>
 
               <div>
-
                 <h2 className="text-2xl font-black">
-                  O comprovante de pagamento não é válido como ingresso
+                  O comprovante de pagamento não é
+                  válido como ingresso
                 </h2>
 
                 <p className="mt-3 leading-relaxed">
-                  Para entrar no Parque Mundo Novo,
-                  é obrigatório apresentar o{" "}
+                  Para entrar no Parque Mundo Novo, é
+                  obrigatório apresentar o{" "}
                   <strong>
                     QR Code oficial do ingresso
                   </strong>
@@ -255,8 +262,8 @@ export default function SucessoPage() {
                 </p>
 
                 <p className="mt-3 leading-relaxed">
-                  O comprovante do Pix serve somente
-                  para comprovar o pagamento e{" "}
+                  O comprovante do Pix serve somente para
+                  comprovar o pagamento e{" "}
                   <strong>
                     não libera a entrada no parque
                   </strong>
@@ -265,27 +272,21 @@ export default function SucessoPage() {
 
                 <p className="mt-3 font-bold leading-relaxed">
                   O QR Code será lido e validado na
-                  portaria e poderá ser utilizado
-                  somente uma vez.
+                  portaria e poderá ser utilizado somente
+                  uma vez.
                 </p>
-
               </div>
-
             </div>
-
           </section>
         )}
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr]">
-
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl">
-
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados do ingresso
             </h2>
 
             <div className="space-y-4">
-
               {pedidoId && (
                 <Info
                   label="Número do pedido"
@@ -304,65 +305,50 @@ export default function SucessoPage() {
                   value={codigoIngresso}
                 />
               )}
-
             </div>
 
             {pago ? (
               <>
                 <div className="mt-6 rounded-2xl border border-green-300 bg-green-100 p-4 text-sm leading-relaxed text-green-900">
-
                   <strong>
                     Ingresso válido:
                   </strong>{" "}
-
                   pagamento confirmado automaticamente
                   pelo Sicredi e valor conferido com o
                   pedido.
-
                 </div>
 
                 <div className="mt-4 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
-
                   <strong>
                     Apresentação obrigatória:
                   </strong>{" "}
-
                   leve este ingresso com o QR Code no
                   celular ou impresso para validação na
                   portaria.
-
                 </div>
               </>
             ) : valorDivergente ? (
               <div className="mt-6 rounded-2xl border border-red-300 bg-red-100 p-4 text-sm leading-relaxed text-red-900">
-
                 <strong>
                   Pagamento com valor divergente:
                 </strong>{" "}
-
-                procure a equipe do parque. O QR Code
-                não foi liberado.
-
+                procure a equipe do parque. O QR Code não
+                foi liberado.
               </div>
             ) : (
               <div className="mt-6 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-900">
-
                 <strong>
                   Pagamento pendente:
                 </strong>{" "}
-
-                efetue o Pix dentro do prazo informado.
-                O QR Code do ingresso será liberado
-                somente após a confirmação automática
-                do pagamento.
-
+                efetue o Pix dentro do prazo informado. O
+                QR Code do ingresso será liberado somente
+                após a confirmação automática do
+                pagamento.
               </div>
             )}
-
           </div>
 
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-center text-gray-900 shadow-2xl">
-
             <h2 className="mb-4 text-3xl font-bold text-[#166534]">
               QR Code do ingresso
             </h2>
@@ -380,7 +366,6 @@ export default function SucessoPage() {
             )}
 
             <div className="flex justify-center">
-
               {carregando ? (
                 <div className="flex h-[280px] w-[280px] items-center justify-center rounded-3xl bg-gray-100 font-bold text-gray-500">
                   Carregando pedido...
@@ -397,7 +382,6 @@ export default function SucessoPage() {
                   Code oficial do ingresso.
                 </div>
               )}
-
             </div>
 
             {pago && codigoIngresso && (
@@ -405,14 +389,11 @@ export default function SucessoPage() {
                 Código: {codigoIngresso}
               </p>
             )}
-
           </div>
-
         </section>
 
         {pago && pedidoId && (
           <section className="mt-8 rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl">
-
             <h2 className="text-center text-2xl font-black text-[#166534]">
               Salve seu ingresso
             </h2>
@@ -424,7 +405,6 @@ export default function SucessoPage() {
             </p>
 
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-
               <button
                 type="button"
                 onClick={baixarQrCode}
@@ -439,20 +419,16 @@ export default function SucessoPage() {
               >
                 📄 Baixar ingresso em PDF
               </a>
-
             </div>
-
           </section>
         )}
 
         <section className="mt-8 rounded-3xl border border-yellow-300 bg-yellow-100 p-5 text-yellow-950 shadow-xl">
-
           <h2 className="text-xl font-black">
             Orientações para entrada no parque
           </h2>
 
           <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-relaxed">
-
             <li>
               Apresente o QR Code oficial do ingresso
               impresso ou pelo celular.
@@ -477,13 +453,10 @@ export default function SucessoPage() {
               Um documento oficial com foto poderá ser
               solicitado na portaria.
             </li>
-
           </ul>
-
         </section>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-
           <Link
             href="/ingressos"
             className="rounded-2xl bg-green-600 px-6 py-4 text-center font-bold text-white shadow-lg transition hover:bg-green-500"
@@ -497,11 +470,8 @@ export default function SucessoPage() {
           >
             Voltar para o início
           </Link>
-
         </div>
-
       </div>
-
     </main>
   );
 }
@@ -515,7 +485,6 @@ function Info({
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-
       <p className="text-sm font-semibold text-gray-500">
         {label}
       </p>
@@ -523,7 +492,6 @@ function Info({
       <p className="mt-1 break-words font-bold text-gray-900">
         {value}
       </p>
-
     </div>
   );
 }

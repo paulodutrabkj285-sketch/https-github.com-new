@@ -95,7 +95,9 @@ export const metadata: Metadata = {
 const schemaOrg = {
   "@context": "https://schema.org",
   "@type": ["TouristAttraction", "LocalBusiness"],
+
   name: "Parque Mundo Novo",
+
   alternateName: "Parque Mundo Novo Rota das Cachoeiras",
 
   url: "https://www.parquemundonovooficial.com.br",
@@ -113,15 +115,20 @@ const schemaOrg = {
 
   address: {
     "@type": "PostalAddress",
+
     streetAddress: "SC-110, KM 34",
+
     addressLocality: "Urubici",
+
     addressRegion: "SC",
+
     addressCountry: "BR",
   },
 
   openingHoursSpecification: [
     {
       "@type": "OpeningHoursSpecification",
+
       dayOfWeek: [
         "Monday",
         "Tuesday",
@@ -131,7 +138,9 @@ const schemaOrg = {
         "Saturday",
         "Sunday",
       ],
+
       opens: "08:00",
+
       closes: "17:30",
     },
   ],
@@ -149,6 +158,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
+
         {/* GOOGLE ANALYTICS */}
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
@@ -164,6 +174,7 @@ export default function RootLayout({
             }
 
             gtag('js', new Date());
+
             gtag('config', '${GA_ID}');
           `}
         </Script>
@@ -203,6 +214,7 @@ export default function RootLayout({
             );
 
             fbq('init', '${META_PIXEL_ID}');
+
             fbq('track', 'PageView');
           `}
         </Script>
@@ -227,6 +239,7 @@ export default function RootLayout({
         />
 
         {children}
+
       </body>
     </html>
   );
