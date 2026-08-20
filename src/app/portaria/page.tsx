@@ -6,17 +6,37 @@ import {
     Pedido,
 } from "@/lib/pedidos";
 
+import { db } from "@/lib/firebase";
+
 import {
     listarPedidosLocalmente,
+    listarReservasAgenciasLocalmente,
     LocalValidacao,
     obterPendentes,
     registrarValidacaoOffline,
+    registrarValidacaoReservaOffline,
+    ReservaAgenciaCache,
     salvarPedidosLocalmente,
+    salvarReservasAgenciasLocalmente,
     sincronizarPendentes,
 } from "@/lib/portariaDb";
 
-import { Html5Qrcode } from "html5-qrcode";
-import { useEffect, useRef, useState } from "react";
+import {
+    collection,
+    doc,
+    getDocs,
+    updateDoc,
+} from "firebase/firestore";
+
+import {
+    Html5Qrcode,
+} from "html5-qrcode";
+
+import {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 
 /* ======================================
    FUNCIONÁRIOS AUTORIZADOS
@@ -38,13 +58,48 @@ const FUNCIONARIOS = [
 ];
 
 /* ======================================
-   TIPO LOCAL DO PEDIDO
+   TIPOS
 ====================================== */
 
-type PedidoPortaria = Pedido & {
-    cachoeiraMundoNovoValidado?: boolean;
-    cachoeiraMundoNovoValidadoPor?: string;
-    cachoeiraMundoNovoValidadoEm?: string;
+type PedidoPortaria =
+    Pedido & {
+        cachoeiraMundoNovoValidado?:
+        boolean;
+
+        cachoeiraMundoNovoValidadoPor?:
+        string;
+
+        cachoeiraMundoNovoValidadoEm?:
+        string;
+    };
+
+type ReservaAgenciaPortaria =
+    ReservaAgenciaCache & {
+        cachoeiraMundoNovoValidado?:
+        boolean;
+
+        cachoeiraMundoNovoValidadoPor?:
+        string;
+
+        cachoeiraMundoNovoValidadoEm?:
+        string;
+    };
+
+type DadosQr = {
+    tipo:
+    string;
+
+    codigo:
+    string;
+
+    pedidoId:
+    string;
+
+    codigoGrupo:
+    string;
+
+    reservaAgenciaId:
+    string;
 };
 
 /* ======================================
@@ -52,218 +107,439 @@ type PedidoPortaria = Pedido & {
 ====================================== */
 
 export default function PortariaPage() {
-    const [pedido, setPedido] =
-        useState<PedidoPortaria | null>(null);
+    /* ======================================
+       ITEM ATUAL
+    ====================================== */
 
-    const [mensagem, setMensagem] =
+    const [
+        pedido,
+        setPedido,
+    ] =
+        useState<
+            PedidoPortaria |
+            null
+        >(null);
+
+    const [
+        reservaAgencia,
+        setReservaAgencia,
+    ] =
+        useState<
+            ReservaAgenciaPortaria |
+            null
+        >(null);
+
+    /* ======================================
+       TELA
+    ====================================== */
+
+    const [
+        mensagem,
+        setMensagem,
+    ] =
         useState(
             "Selecione o local de validação"
         );
 
-    const [localValidacao, setLocalValidacao] =
-        useState<LocalValidacao | "">("");
+    const [
+        localValidacao,
+        setLocalValidacao,
+    ] =
+        useState<
+            LocalValidacao |
+            ""
+        >("");
 
-    const [carregando, setCarregando] =
-        useState(false);
+    const [
+        carregando,
+        setCarregando,
+    ] =
+        useState(
+            false
+        );
 
-    const [cameraAtiva, setCameraAtiva] =
-        useState(false);
+    const [
+        cameraAtiva,
+        setCameraAtiva,
+    ] =
+        useState(
+            false
+        );
 
-    const [codigoManual, setCodigoManual] =
-        useState("");
+    const [
+        codigoManual,
+        setCodigoManual,
+    ] =
+        useState(
+            ""
+        );
 
-    const [funcionario, setFuncionario] =
-        useState("");
+    const [
+        funcionario,
+        setFuncionario,
+    ] =
+        useState(
+            ""
+        );
 
-    const [splash, setSplash] =
-        useState(true);
+    const [
+        splash,
+        setSplash,
+    ] =
+        useState(
+            true
+        );
 
     /* ======================================
-       OFFLINE / SINCRONIZAÇÃO
+       OFFLINE
     ====================================== */
 
-    const [isOnline, setIsOnline] =
-        useState(true);
+    const [
+        isOnline,
+        setIsOnline,
+    ] =
+        useState(
+            true
+        );
 
-    const [pendentesCount, setPendentesCount] =
-        useState(0);
+    const [
+        pendentesCount,
+        setPendentesCount,
+    ] =
+        useState(
+            0
+        );
 
-    const [ultimaSinc, setUltimaSinc] =
-        useState<string | null>(null);
+    const [
+        ultimaSinc,
+        setUltimaSinc,
+    ] =
+        useState<
+            string |
+            null
+        >(null);
 
-    const [sincronizando, setSincronizando] =
-        useState(false);
+    const [
+        sincronizando,
+        setSincronizando,
+    ] =
+        useState(
+            false
+        );
 
     /* ======================================
        CONTADORES
     ====================================== */
 
-    const [entradasHoje, setEntradasHoje] =
-        useState(0);
+    const [
+        entradasHoje,
+        setEntradasHoje,
+    ] =
+        useState(
+            0
+        );
 
-    const [entradasMes, setEntradasMes] =
-        useState(0);
+    const [
+        entradasMes,
+        setEntradasMes,
+    ] =
+        useState(
+            0
+        );
 
-    const [totalUtilizados, setTotalUtilizados] =
-        useState(0);
+    const [
+        totalUtilizados,
+        setTotalUtilizados,
+    ] =
+        useState(
+            0
+        );
 
     const leitorRef =
-        useRef<Html5Qrcode | null>(null);
+        useRef<
+            Html5Qrcode |
+            null
+        >(null);
 
     /* ======================================
        INICIALIZAÇÃO
     ====================================== */
 
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            setIsOnline(navigator.onLine);
+    useEffect(
+        () => {
+            if (
+                typeof window !==
+                "undefined"
+            ) {
+                setIsOnline(
+                    navigator.onLine
+                );
 
-            window.addEventListener(
-                "online",
-                handleOnline
-            );
-
-            window.addEventListener(
-                "offline",
-                handleOffline
-            );
-        }
-
-        inicializarDados();
-
-        const timer = setTimeout(() => {
-            setSplash(false);
-        }, 1800);
-
-        return () => {
-            if (typeof window !== "undefined") {
-                window.removeEventListener(
+                window.addEventListener(
                     "online",
                     handleOnline
                 );
 
-                window.removeEventListener(
+                window.addEventListener(
                     "offline",
                     handleOffline
                 );
             }
 
-            clearTimeout(timer);
-        };
-    }, []);
+            inicializarDados();
+
+            const timer =
+                setTimeout(
+                    () => {
+                        setSplash(
+                            false
+                        );
+                    },
+                    1800
+                );
+
+            return () => {
+                if (
+                    typeof window !==
+                    "undefined"
+                ) {
+                    window.removeEventListener(
+                        "online",
+                        handleOnline
+                    );
+
+                    window.removeEventListener(
+                        "offline",
+                        handleOffline
+                    );
+                }
+
+                clearTimeout(
+                    timer
+                );
+            };
+        },
+        []
+    );
 
     /* ======================================
-       ATUALIZA FILA
+       FILA
     ====================================== */
 
-    useEffect(() => {
-        obterPendentes()
-            .then((itens) => {
-                setPendentesCount(
-                    itens.length
+    useEffect(
+        () => {
+            obterPendentes()
+                .then(
+                    (
+                        itens
+                    ) => {
+                        setPendentesCount(
+                            itens.length
+                        );
+                    }
+                )
+                .catch(
+                    (
+                        error
+                    ) => {
+                        console.error(
+                            "PORTARIA: erro ao contar pendências:",
+                            error
+                        );
+                    }
                 );
-            })
-            .catch((error) => {
-                console.error(
-                    "PORTARIA: erro ao contar pendências:",
-                    error
-                );
-            });
-    }, [pedido]);
+        },
+        [
+            pedido,
+            reservaAgencia,
+        ]
+    );
 
     /* ======================================
        TROCA DE LOCAL
     ====================================== */
 
-    useEffect(() => {
-        if (!localValidacao) {
-            setEntradasHoje(0);
-            setEntradasMes(0);
-            setTotalUtilizados(0);
+    useEffect(
+        () => {
+            if (
+                !localValidacao
+            ) {
+                setEntradasHoje(
+                    0
+                );
 
-            return;
-        }
+                setEntradasMes(
+                    0
+                );
 
-        setPedido(null);
-        setCodigoManual("");
+                setTotalUtilizados(
+                    0
+                );
 
-        if (
-            localValidacao ===
-            "principal"
-        ) {
-            setMensagem(
-                "PORTARIA PRINCIPAL - Aguardando ingresso"
+                return;
+            }
+
+            setPedido(
+                null
             );
-        } else {
-            setMensagem(
-                "CACHOEIRA MUNDO NOVO - Aguardando ingresso"
-            );
-        }
 
-        atualizarContadores();
-    }, [localValidacao]);
+            setReservaAgencia(
+                null
+            );
+
+            setCodigoManual(
+                ""
+            );
+
+            if (
+                localValidacao ===
+                "principal"
+            ) {
+                setMensagem(
+                    "PORTARIA PRINCIPAL - Aguardando ingresso ou grupo"
+                );
+            } else {
+                setMensagem(
+                    "CACHOEIRA MUNDO NOVO - Aguardando ingresso ou grupo"
+                );
+            }
+
+            atualizarContadores();
+        },
+        [
+            localValidacao,
+        ]
+    );
 
     /* ======================================
        INTERNET
     ====================================== */
 
     function handleOnline() {
-        setIsOnline(true);
+        setIsOnline(
+            true
+        );
 
         realizarSincronizacaoAutomatica();
     }
 
     function handleOffline() {
-        setIsOnline(false);
+        setIsOnline(
+            false
+        );
     }
 
     /* ======================================
-       INICIALIZAÇÃO DE DADOS
+       RESERVAS NA NUVEM
+    ====================================== */
+
+    async function listarReservasAgenciasNuvem(): Promise<
+        ReservaAgenciaPortaria[]
+    > {
+        const snapshot =
+            await getDocs(
+                collection(
+                    db,
+                    "reservas_agencias"
+                )
+            );
+
+        return snapshot.docs.map(
+            (
+                documento
+            ) => ({
+                id:
+                    documento.id,
+
+                ...documento.data(),
+            })
+        ) as
+            ReservaAgenciaPortaria[];
+    }
+
+    /* ======================================
+       INICIALIZAÇÃO DOS DADOS
     ====================================== */
 
     async function inicializarDados() {
         try {
             const online =
-                typeof navigator !== "undefined"
+                typeof navigator !==
+                    "undefined"
                     ? navigator.onLine
                     : true;
 
-            if (online) {
-                try {
-                    const pedidosNuvem =
-                        await listarPedidosAtivosPortaria();
-
-                    await salvarPedidosLocalmente(
-                        pedidosNuvem
-                    );
-
-                    const agora =
-                        new Date().toLocaleTimeString(
-                            "pt-BR",
-                            {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            }
-                        );
-
-                    setUltimaSinc(agora);
-
-                    try {
-                        await sincronizarPendentes();
-                    } catch (error) {
-                        console.error(
-                            "PORTARIA: erro ao sincronizar pendentes:",
-                            error
-                        );
-                    }
-                } catch (error) {
-                    console.error(
-                        "PORTARIA: erro ao carregar Firestore:",
-                        error
-                    );
-                }
+            if (
+                !online
+            ) {
+                return;
             }
-        } catch (error) {
+
+            /* PEDIDOS */
+
+            try {
+                const pedidosNuvem =
+                    await listarPedidosAtivosPortaria();
+
+                await salvarPedidosLocalmente(
+                    pedidosNuvem
+                );
+            } catch (
+            error
+            ) {
+                console.error(
+                    "PORTARIA: erro ao carregar pedidos:",
+                    error
+                );
+            }
+
+            /* RESERVAS */
+
+            try {
+                const reservas =
+                    await listarReservasAgenciasNuvem();
+
+                await salvarReservasAgenciasLocalmente(
+                    reservas
+                );
+            } catch (
+            error
+            ) {
+                console.error(
+                    "PORTARIA: erro ao carregar reservas de agência:",
+                    error
+                );
+            }
+
+            /* SINCRONIZAÇÃO */
+
+            try {
+                await sincronizarPendentes();
+            } catch (
+            error
+            ) {
+                console.error(
+                    "PORTARIA: erro ao sincronizar pendentes:",
+                    error
+                );
+            }
+
+            setUltimaSinc(
+                new Date()
+                    .toLocaleTimeString(
+                        "pt-BR",
+                        {
+                            hour:
+                                "2-digit",
+
+                            minute:
+                                "2-digit",
+                        }
+                    )
+            );
+        } catch (
+        error
+        ) {
             console.error(
                 "PORTARIA: erro de inicialização:",
                 error
@@ -277,37 +553,74 @@ export default function PortariaPage() {
 
     async function realizarSincronizacaoAutomatica() {
         try {
-            setSincronizando(true);
+            setSincronizando(
+                true
+            );
 
-            let enviados = 0;
+            let enviados =
+                0;
 
             try {
                 enviados =
                     await sincronizarPendentes();
-            } catch (error) {
+            } catch (
+            error
+            ) {
                 console.error(
                     "PORTARIA: erro ao enviar pendências:",
                     error
                 );
             }
 
-            const pedidosNuvem =
-                await listarPedidosAtivosPortaria();
+            /* PEDIDOS */
 
-            await salvarPedidosLocalmente(
-                pedidosNuvem
-            );
+            try {
+                const pedidosNuvem =
+                    await listarPedidosAtivosPortaria();
 
-            const agora =
-                new Date().toLocaleTimeString(
-                    "pt-BR",
-                    {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                    }
+                await salvarPedidosLocalmente(
+                    pedidosNuvem
                 );
+            } catch (
+            error
+            ) {
+                console.error(
+                    "PORTARIA: erro ao atualizar pedidos:",
+                    error
+                );
+            }
 
-            setUltimaSinc(agora);
+            /* RESERVAS */
+
+            try {
+                const reservasNuvem =
+                    await listarReservasAgenciasNuvem();
+
+                await salvarReservasAgenciasLocalmente(
+                    reservasNuvem
+                );
+            } catch (
+            error
+            ) {
+                console.error(
+                    "PORTARIA: erro ao atualizar reservas:",
+                    error
+                );
+            }
+
+            setUltimaSinc(
+                new Date()
+                    .toLocaleTimeString(
+                        "pt-BR",
+                        {
+                            hour:
+                                "2-digit",
+
+                            minute:
+                                "2-digit",
+                        }
+                    )
+            );
 
             const pendentes =
                 await obterPendentes();
@@ -316,16 +629,23 @@ export default function PortariaPage() {
                 pendentes.length
             );
 
-            if (enviados > 0) {
+            if (
+                enviados >
+                0
+            ) {
                 setMensagem(
                     `${enviados} validação(ões) sincronizada(s)`
                 );
 
-                vibrar("sucesso");
+                vibrar(
+                    "sucesso"
+                );
             }
 
             await atualizarContadores();
-        } catch (error) {
+        } catch (
+        error
+        ) {
             console.error(
                 "PORTARIA: sincronização falhou:",
                 error
@@ -335,7 +655,9 @@ export default function PortariaPage() {
                 "ERRO AO SINCRONIZAR"
             );
         } finally {
-            setSincronizando(false);
+            setSincronizando(
+                false
+            );
         }
     }
 
@@ -344,7 +666,9 @@ export default function PortariaPage() {
     ====================================== */
 
     function vibrar(
-        tipo: "sucesso" | "erro"
+        tipo:
+            "sucesso" |
+            "erro"
     ) {
         if (
             typeof navigator ===
@@ -354,14 +678,21 @@ export default function PortariaPage() {
             return;
         }
 
-        if (tipo === "sucesso") {
-            navigator.vibrate(120);
+        if (
+            tipo ===
+            "sucesso"
+        ) {
+            navigator.vibrate(
+                120
+            );
         } else {
-            navigator.vibrate([
-                180,
-                100,
-                180,
-            ]);
+            navigator.vibrate(
+                [
+                    180,
+                    100,
+                    180,
+                ]
+            );
         }
     }
 
@@ -369,14 +700,24 @@ export default function PortariaPage() {
        AUXILIARES
     ====================================== */
 
-    function limpar(valor: string) {
-        return String(valor || "").trim();
+    function limpar(
+        valor:
+            unknown
+    ) {
+        return String(
+            valor ||
+            ""
+        ).trim();
     }
 
     function quantidadeDoPedido(
-        item?: Pedido | null
+        item?:
+            Pedido |
+            null
     ) {
-        if (!item) {
+        if (
+            !item
+        ) {
             return 1;
         }
 
@@ -391,7 +732,38 @@ export default function PortariaPage() {
             !Number.isFinite(
                 quantidade
             ) ||
-            quantidade <= 0
+            quantidade <=
+            0
+        ) {
+            return 1;
+        }
+
+        return quantidade;
+    }
+
+    function quantidadeDaReserva(
+        item?:
+            ReservaAgenciaPortaria |
+            null
+    ) {
+        if (
+            !item
+        ) {
+            return 1;
+        }
+
+        const quantidade =
+            Number(
+                item.totalVisitantes ||
+                1
+            );
+
+        if (
+            !Number.isFinite(
+                quantidade
+            ) ||
+            quantidade <=
+            0
         ) {
             return 1;
         }
@@ -400,17 +772,41 @@ export default function PortariaPage() {
     }
 
     function textoPessoas(
-        quantidade: number
+        quantidade:
+            number
     ) {
-        return quantidade === 1
+        return quantidade ===
+            1
             ? "1 PESSOA"
             : `${quantidade} PESSOAS`;
     }
 
-    function formatarDataHora(
-        valor?: string
+    function formatarMoeda(
+        valor?:
+            number
     ) {
-        if (!valor) {
+        return Number(
+            valor ||
+            0
+        ).toLocaleString(
+            "pt-BR",
+            {
+                style:
+                    "currency",
+
+                currency:
+                    "BRL",
+            }
+        );
+    }
+
+    function formatarDataHora(
+        valor?:
+            string
+    ) {
+        if (
+            !valor
+        ) {
             return "";
         }
 
@@ -419,24 +815,38 @@ export default function PortariaPage() {
         ).toLocaleString(
             "pt-BR",
             {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
+                day:
+                    "2-digit",
+
+                month:
+                    "2-digit",
+
+                year:
+                    "numeric",
+
+                hour:
+                    "2-digit",
+
+                minute:
+                    "2-digit",
             }
         );
     }
 
     function formatarData(
-        valor?: string
+        valor?:
+            string
     ) {
-        if (!valor) {
+        if (
+            !valor
+        ) {
             return "Não informada";
         }
 
         const partes =
-            valor.split("-");
+            valor.split(
+                "-"
+            );
 
         if (
             partes.length ===
@@ -467,16 +877,22 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       VALIDADE DE DATA
+       VALIDADE
     ====================================== */
 
     function verificarValidadeData(
-        dataVisita?: string
+        dataVisita?:
+            string
     ) {
-        if (!dataVisita) {
+        if (
+            !dataVisita
+        ) {
             return {
-                valido: true,
-                mensagem: "",
+                valido:
+                    true,
+
+                mensagem:
+                    "",
             };
         }
 
@@ -527,9 +943,11 @@ export default function PortariaPage() {
             inicioPermitido
         ) {
             return {
-                valido: false,
+                valido:
+                    false,
+
                 mensagem:
-                    "INGRESSO AINDA NÃO VÁLIDO",
+                    "AINDA NÃO VÁLIDO",
             };
         }
 
@@ -538,15 +956,20 @@ export default function PortariaPage() {
             fimPermitido
         ) {
             return {
-                valido: false,
+                valido:
+                    false,
+
                 mensagem:
-                    "INGRESSO EXPIRADO",
+                    "EXPIRADO",
             };
         }
 
         return {
-            valido: true,
-            mensagem: "",
+            valido:
+                true,
+
+            mensagem:
+                "",
         };
     }
 
@@ -557,7 +980,9 @@ export default function PortariaPage() {
     async function obterListaDePedidosAtiva(): Promise<
         PedidoPortaria[]
     > {
-        if (isOnline) {
+        if (
+            isOnline
+        ) {
             try {
                 const pedidos =
                     await listarPedidosAtivosPortaria();
@@ -566,51 +991,107 @@ export default function PortariaPage() {
                     await salvarPedidosLocalmente(
                         pedidos
                     );
-                } catch (error) {
+                } catch (
+                error
+                ) {
                     console.error(
-                        "PORTARIA: erro no cache:",
+                        "PORTARIA: erro no cache de pedidos:",
                         error
                     );
                 }
 
-                return pedidos as PedidoPortaria[];
-            } catch (error) {
+                return pedidos as
+                    PedidoPortaria[];
+            } catch (
+            error
+            ) {
                 console.error(
                     "PORTARIA: Firestore indisponível:",
                     error
                 );
-
-                try {
-                    return (
-                        await listarPedidosLocalmente()
-                    ) as PedidoPortaria[];
-                } catch {
-                    return [];
-                }
             }
         }
 
         try {
             return (
                 await listarPedidosLocalmente()
-            ) as PedidoPortaria[];
+            ) as
+                PedidoPortaria[];
         } catch {
             return [];
         }
     }
 
     /* ======================================
-       CONTADORES POR LOCAL
+       RESERVAS ATIVAS
+    ====================================== */
+
+    async function obterListaDeReservasAtiva(): Promise<
+        ReservaAgenciaPortaria[]
+    > {
+        if (
+            isOnline
+        ) {
+            try {
+                const reservas =
+                    await listarReservasAgenciasNuvem();
+
+                try {
+                    await salvarReservasAgenciasLocalmente(
+                        reservas
+                    );
+                } catch (
+                error
+                ) {
+                    console.error(
+                        "PORTARIA: erro no cache de reservas:",
+                        error
+                    );
+                }
+
+                return reservas;
+            } catch (
+            error
+            ) {
+                console.error(
+                    "PORTARIA: reservas Firestore indisponíveis:",
+                    error
+                );
+            }
+        }
+
+        try {
+            return (
+                await listarReservasAgenciasLocalmente()
+            ) as
+                ReservaAgenciaPortaria[];
+        } catch {
+            return [];
+        }
+    }
+
+    /* ======================================
+       CONTADORES
     ====================================== */
 
     async function atualizarContadores() {
-        if (!localValidacao) {
+        if (
+            !localValidacao
+        ) {
             return;
         }
 
         try {
-            const pedidos =
-                await obterListaDePedidosAtiva();
+            const [
+                pedidos,
+                reservas,
+            ] =
+                await Promise.all(
+                    [
+                        obterListaDePedidosAtiva(),
+                        obterListaDeReservasAtiva(),
+                    ]
+                );
 
             const hoje =
                 new Date();
@@ -633,81 +1114,133 @@ export default function PortariaPage() {
             let contadorTotal =
                 0;
 
+            function somar(
+                quantidade:
+                    number,
+
+                utilizado:
+                    boolean,
+
+                dataEntrada:
+                    string
+            ) {
+                if (
+                    !utilizado
+                ) {
+                    return;
+                }
+
+                contadorTotal +=
+                    quantidade;
+
+                if (
+                    !dataEntrada
+                ) {
+                    return;
+                }
+
+                const data =
+                    new Date(
+                        dataEntrada
+                    );
+
+                if (
+                    data.getDate() ===
+                    dia &&
+                    data.getMonth() ===
+                    mes &&
+                    data.getFullYear() ===
+                    ano
+                ) {
+                    contadorHoje +=
+                        quantidade;
+                }
+
+                if (
+                    data.getMonth() ===
+                    mes &&
+                    data.getFullYear() ===
+                    ano
+                ) {
+                    contadorMes +=
+                        quantidade;
+                }
+            }
+
+            /* PEDIDOS */
+
             pedidos.forEach(
                 (
-                    item: PedidoPortaria
+                    item
                 ) => {
-                    let utilizado =
-                        false;
-
-                    let dataEntrada =
-                        "";
-
                     if (
                         localValidacao ===
                         "principal"
                     ) {
-                        utilizado =
-                            item.statusOperacional ===
-                            "utilizado";
+                        somar(
+                            quantidadeDoPedido(
+                                item
+                            ),
 
-                        dataEntrada =
+                            item.statusOperacional ===
+                            "utilizado",
+
                             item.utilizadoEm ||
                             item.validadoEm ||
-                            "";
+                            ""
+                        );
                     } else {
-                        utilizado =
+                        somar(
+                            quantidadeDoPedido(
+                                item
+                            ),
+
                             item.cachoeiraMundoNovoValidado ===
-                            true;
+                            true,
 
-                        dataEntrada =
                             item.cachoeiraMundoNovoValidadoEm ||
-                            "";
-                    }
-
-                    if (!utilizado) {
-                        return;
-                    }
-
-                    const quantidade =
-                        quantidadeDoPedido(
-                            item
+                            ""
                         );
-
-                    contadorTotal +=
-                        quantidade;
-
-                    if (
-                        !dataEntrada
-                    ) {
-                        return;
                     }
+                }
+            );
 
-                    const data =
-                        new Date(
-                            dataEntrada
+            /* RESERVAS DE AGÊNCIA */
+
+            reservas.forEach(
+                (
+                    item
+                ) => {
+                    if (
+                        localValidacao ===
+                        "principal"
+                    ) {
+                        somar(
+                            quantidadeDaReserva(
+                                item
+                            ),
+
+                            item.statusOperacional ===
+                            "utilizado",
+
+                            limpar(
+                                item.utilizadoEm ||
+                                item.validadoEm
+                            )
                         );
+                    } else {
+                        somar(
+                            quantidadeDaReserva(
+                                item
+                            ),
 
-                    if (
-                        data.getDate() ===
-                        dia &&
-                        data.getMonth() ===
-                        mes &&
-                        data.getFullYear() ===
-                        ano
-                    ) {
-                        contadorHoje +=
-                            quantidade;
-                    }
+                            item.cachoeiraMundoNovoValidado ===
+                            true,
 
-                    if (
-                        data.getMonth() ===
-                        mes &&
-                        data.getFullYear() ===
-                        ano
-                    ) {
-                        contadorMes +=
-                            quantidade;
+                            limpar(
+                                item.cachoeiraMundoNovoValidadoEm
+                            )
+                        );
                     }
                 }
             );
@@ -723,7 +1256,9 @@ export default function PortariaPage() {
             setTotalUtilizados(
                 contadorTotal
             );
-        } catch (error) {
+        } catch (
+        error
+        ) {
             console.error(
                 "PORTARIA: erro nos contadores:",
                 error
@@ -736,46 +1271,78 @@ export default function PortariaPage() {
     ====================================== */
 
     function extrairQr(
-        texto: string
-    ) {
+        texto:
+            string
+    ): DadosQr {
         const valor =
-            limpar(texto);
+            limpar(
+                texto
+            );
 
         try {
             const dados =
-                JSON.parse(valor);
+                JSON.parse(
+                    valor
+                );
 
             return {
+                tipo:
+                    limpar(
+                        dados?.tipo
+                    ),
+
                 codigo:
                     limpar(
                         dados?.codigo ||
-                        dados?.codigoIngresso ||
-                        ""
+                        dados?.codigoIngresso
                     ),
 
                 pedidoId:
                     limpar(
-                        dados?.pedidoId ||
-                        ""
+                        dados?.pedidoId
+                    ),
+
+                codigoGrupo:
+                    limpar(
+                        dados?.codigoGrupo
+                    ),
+
+                reservaAgenciaId:
+                    limpar(
+                        dados?.reservaAgenciaId
                     ),
             };
         } catch {
             return {
+                tipo:
+                    "",
+
                 codigo:
                     valor,
 
                 pedidoId:
+                    "",
+
+                codigoGrupo:
+                    valor.startsWith(
+                        "GRP-"
+                    )
+                        ? valor
+                        : "",
+
+                reservaAgenciaId:
                     "",
             };
         }
     }
 
     /* ======================================
-       STATUS NO LOCAL
+       PEDIDO - UTILIZAÇÃO
     ====================================== */
 
-    function foiUtilizadoNesteLocal(
-        item: PedidoPortaria
+    function foiPedidoUtilizadoNesteLocal(
+        item:
+            PedidoPortaria
     ) {
         if (
             localValidacao ===
@@ -787,27 +1354,20 @@ export default function PortariaPage() {
             );
         }
 
-        if (
-            localValidacao ===
-            "cachoeira_mundo_novo"
-        ) {
-            return (
-                item.cachoeiraMundoNovoValidado ===
-                true
-            );
-        }
-
-        return false;
+        return (
+            item.cachoeiraMundoNovoValidado ===
+            true
+        );
     }
 
-    /* ======================================
-       DATA DA UTILIZAÇÃO LOCAL
-    ====================================== */
-
-    function dataUtilizacaoLocal(
-        item?: PedidoPortaria | null
+    function dataUtilizacaoPedido(
+        item?:
+            PedidoPortaria |
+            null
     ) {
-        if (!item) {
+        if (
+            !item
+        ) {
             return "";
         }
 
@@ -828,14 +1388,14 @@ export default function PortariaPage() {
         );
     }
 
-    /* ======================================
-       FUNCIONÁRIO DA UTILIZAÇÃO LOCAL
-    ====================================== */
-
-    function funcionarioUtilizacaoLocal(
-        item?: PedidoPortaria | null
+    function funcionarioUtilizacaoPedido(
+        item?:
+            PedidoPortaria |
+            null
     ) {
-        if (!item) {
+        if (
+            !item
+        ) {
             return "";
         }
 
@@ -856,13 +1416,95 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       VALIDAR PEDIDO
+       RESERVA - UTILIZAÇÃO
+    ====================================== */
+
+    function foiReservaUtilizadaNesteLocal(
+        item:
+            ReservaAgenciaPortaria
+    ) {
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            return (
+                item.statusOperacional ===
+                "utilizado"
+            );
+        }
+
+        return (
+            item.cachoeiraMundoNovoValidado ===
+            true
+        );
+    }
+
+    function dataUtilizacaoReserva(
+        item?:
+            ReservaAgenciaPortaria |
+            null
+    ) {
+        if (
+            !item
+        ) {
+            return "";
+        }
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            return limpar(
+                item.utilizadoEm ||
+                item.validadoEm
+            );
+        }
+
+        return limpar(
+            item.cachoeiraMundoNovoValidadoEm
+        );
+    }
+
+    function funcionarioUtilizacaoReserva(
+        item?:
+            ReservaAgenciaPortaria |
+            null
+    ) {
+        if (
+            !item
+        ) {
+            return "";
+        }
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            return limpar(
+                item.validadoPor
+            );
+        }
+
+        return limpar(
+            item.cachoeiraMundoNovoValidadoPor
+        );
+    }
+
+    /* ======================================
+       VALIDAR PEDIDO NORMAL
     ====================================== */
 
     function validarPedidoEncontrado(
-        encontrado: PedidoPortaria,
-        codigo?: string
+        encontrado:
+            PedidoPortaria,
+
+        codigo?:
+            string
     ) {
+        setReservaAgencia(
+            null
+        );
+
         setPedido(
             encontrado
         );
@@ -873,17 +1515,19 @@ export default function PortariaPage() {
             ""
         );
 
-        if (!localValidacao) {
+        if (
+            !localValidacao
+        ) {
             setMensagem(
                 "SELECIONE O LOCAL DE VALIDAÇÃO"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
 
             return;
         }
-
-        /* PAGAMENTO */
 
         if (
             encontrado.statusPagamento !==
@@ -893,12 +1537,12 @@ export default function PortariaPage() {
                 "INGRESSO NÃO PAGO"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
 
             return;
         }
-
-        /* BLOQUEADO */
 
         if (
             encontrado.statusOperacional ===
@@ -908,12 +1552,12 @@ export default function PortariaPage() {
                 "INGRESSO BLOQUEADO"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
 
             return;
         }
-
-        /* VALIDADE */
 
         const validade =
             verificarValidadeData(
@@ -928,14 +1572,14 @@ export default function PortariaPage() {
                 "INGRESSO FORA DO PERÍODO"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
 
             return;
         }
 
-        /* ==================================
-           PORTARIA PRINCIPAL
-        ================================== */
+        /* PORTARIA PRINCIPAL */
 
         if (
             localValidacao ===
@@ -949,7 +1593,9 @@ export default function PortariaPage() {
                     "INGRESSO JÁ UTILIZADO NA PORTARIA PRINCIPAL"
                 );
 
-                vibrar("erro");
+                vibrar(
+                    "erro"
+                );
 
                 return;
             }
@@ -965,77 +1611,247 @@ export default function PortariaPage() {
             return;
         }
 
-        /* ==================================
-           CACHOEIRA MUNDO NOVO
-        ================================== */
+        /* CACHOEIRA */
 
         if (
-            localValidacao ===
-            "cachoeira_mundo_novo"
+            encontrado.statusOperacional !==
+            "utilizado"
         ) {
-            /*
-             * Primeiro precisa ter
-             * passado na entrada principal.
-             */
-
-            if (
-                encontrado.statusOperacional !==
-                "utilizado"
-            ) {
-                setMensagem(
-                    "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"
-                );
-
-                vibrar(
-                    "erro"
-                );
-
-                return;
-            }
-
-            /*
-             * Já entrou uma vez
-             * na Cachoeira.
-             */
-
-            if (
-                encontrado.cachoeiraMundoNovoValidado ===
-                true
-            ) {
-                setMensagem(
-                    "ACESSO À CACHOEIRA JÁ UTILIZADO"
-                );
-
-                vibrar(
-                    "erro"
-                );
-
-                return;
-            }
-
             setMensagem(
-                "ACESSO À CACHOEIRA VÁLIDO"
+                "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"
             );
 
             vibrar(
-                "sucesso"
+                "erro"
             );
+
+            return;
         }
+
+        if (
+            encontrado.cachoeiraMundoNovoValidado ===
+            true
+        ) {
+            setMensagem(
+                "ACESSO À CACHOEIRA JÁ UTILIZADO"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        setMensagem(
+            "ACESSO À CACHOEIRA VÁLIDO"
+        );
+
+        vibrar(
+            "sucesso"
+        );
     }
 
     /* ======================================
-       BUSCAR INGRESSO
+       VALIDAR RESERVA DE AGÊNCIA
     ====================================== */
 
-    async function buscarIngresso(
-        textoQr: string
+    function validarReservaEncontrada(
+        encontrada:
+            ReservaAgenciaPortaria
     ) {
-        if (!localValidacao) {
+        setPedido(
+            null
+        );
+
+        setReservaAgencia(
+            encontrada
+        );
+
+        setCodigoManual(
+            encontrada.codigoGrupo ||
+            ""
+        );
+
+        if (
+            !localValidacao
+        ) {
             setMensagem(
                 "SELECIONE O LOCAL DE VALIDAÇÃO"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        if (
+            encontrada.statusOperacional ===
+            "bloqueado"
+        ) {
+            setMensagem(
+                "RESERVA BLOQUEADA"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        const validade =
+            verificarValidadeData(
+                encontrada.dataVisita
+            );
+
+        if (
+            !validade.valido
+        ) {
+            setMensagem(
+                validade.mensagem ||
+                "RESERVA FORA DO PERÍODO"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        /* ==================================
+           PORTARIA PRINCIPAL
+        ================================== */
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            if (
+                encontrada.statusOperacional ===
+                "utilizado"
+            ) {
+                setMensagem(
+                    "GRUPO JÁ UTILIZADO NA PORTARIA PRINCIPAL"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            const statusPagamento =
+                limpar(
+                    encontrada.statusPagamento
+                );
+
+            if (
+                statusPagamento ===
+                "a_pagar_na_chegada"
+            ) {
+                setMensagem(
+                    "RESERVA VÁLIDA - RECEBER PAGAMENTO"
+                );
+
+                vibrar(
+                    "sucesso"
+                );
+
+                return;
+            }
+
+            if (
+                statusPagamento ===
+                "pago"
+            ) {
+                setMensagem(
+                    "RESERVA DE AGÊNCIA VÁLIDA"
+                );
+
+                vibrar(
+                    "sucesso"
+                );
+
+                return;
+            }
+
+            setMensagem(
+                "PAGAMENTO DA RESERVA NÃO LIBERADO"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        /* ==================================
+           CACHOEIRA
+        ================================== */
+
+        if (
+            encontrada.statusOperacional !==
+            "utilizado"
+        ) {
+            setMensagem(
+                "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        if (
+            encontrada.cachoeiraMundoNovoValidado ===
+            true
+        ) {
+            setMensagem(
+                "GRUPO JÁ UTILIZOU O ACESSO À CACHOEIRA"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        setMensagem(
+            "ACESSO DO GRUPO À CACHOEIRA VÁLIDO"
+        );
+
+        vibrar(
+            "sucesso"
+        );
+    }
+
+    /* ======================================
+       BUSCAR
+    ====================================== */
+
+    async function buscarIngresso(
+        textoQr:
+            string
+    ) {
+        if (
+            !localValidacao
+        ) {
+            setMensagem(
+                "SELECIONE O LOCAL DE VALIDAÇÃO"
+            );
+
+            vibrar(
+                "erro"
+            );
 
             return;
         }
@@ -1045,77 +1861,192 @@ export default function PortariaPage() {
                 true
             );
 
-            setPedido(null);
+            setPedido(
+                null
+            );
+
+            setReservaAgencia(
+                null
+            );
 
             const dadosQr =
                 extrairQr(
                     textoQr
                 );
 
+            /* ==================================
+               QR EXPLÍCITO DE AGÊNCIA
+            ================================== */
+
+            const pareceReserva =
+                dadosQr.tipo ===
+                "reserva_agencia" ||
+                !!dadosQr.codigoGrupo ||
+                !!dadosQr.reservaAgenciaId ||
+                dadosQr.codigo.startsWith(
+                    "GRP-"
+                );
+
+            if (
+                pareceReserva
+            ) {
+                const reservas =
+                    await obterListaDeReservasAtiva();
+
+                const codigoBusca =
+                    dadosQr.codigoGrupo ||
+                    dadosQr.codigo;
+
+                const encontrada =
+                    reservas.find(
+                        (
+                            item
+                        ) => {
+                            return (
+                                limpar(
+                                    item.id
+                                ) ===
+                                dadosQr.reservaAgenciaId ||
+
+                                limpar(
+                                    item.codigoGrupo
+                                ) ===
+                                codigoBusca
+                            );
+                        }
+                    );
+
+                await pararCamera();
+
+                if (
+                    !encontrada
+                ) {
+                    setMensagem(
+                        "RESERVA DE AGÊNCIA NÃO ENCONTRADA"
+                    );
+
+                    vibrar(
+                        "erro"
+                    );
+
+                    return;
+                }
+
+                validarReservaEncontrada(
+                    encontrada
+                );
+
+                return;
+            }
+
+            /* ==================================
+               PRIMEIRO PROCURA INGRESSO NORMAL
+            ================================== */
+
             const pedidos =
                 await obterListaDePedidosAtiva();
 
-            const encontrado =
+            const encontradoPedido =
                 pedidos.find(
-                    (item) => {
+                    (
+                        item
+                    ) => {
                         const codigoIngresso =
                             limpar(
-                                item.codigoIngresso ||
-                                ""
+                                item.codigoIngresso
                             );
 
                         const qrCode =
                             limpar(
-                                item.qrCodeIngresso ||
-                                ""
+                                item.qrCodeIngresso
                             );
 
                         const id =
                             limpar(
-                                item.id ||
-                                ""
+                                item.id
                             );
 
                         return (
                             codigoIngresso ===
                             dadosQr.codigo ||
+
                             qrCode ===
                             dadosQr.codigo ||
+
                             id ===
                             dadosQr.codigo ||
+
                             id ===
                             dadosQr.pedidoId
                         );
                     }
                 );
 
-            await pararCamera();
+            if (
+                encontradoPedido
+            ) {
+                await pararCamera();
 
-            if (!encontrado) {
-                setMensagem(
-                    "INGRESSO NÃO ENCONTRADO"
+                validarPedidoEncontrado(
+                    encontradoPedido,
+                    dadosQr.codigo
                 );
-
-                vibrar("erro");
 
                 return;
             }
 
-            validarPedidoEncontrado(
-                encontrado,
-                dadosQr.codigo
+            /* ==================================
+               PROCURA RESERVA POR GRP DIGITADO
+            ================================== */
+
+            const reservas =
+                await obterListaDeReservasAtiva();
+
+            const encontradaReserva =
+                reservas.find(
+                    (
+                        item
+                    ) =>
+                        limpar(
+                            item.codigoGrupo
+                        ) ===
+                        dadosQr.codigo
+                );
+
+            await pararCamera();
+
+            if (
+                encontradaReserva
+            ) {
+                validarReservaEncontrada(
+                    encontradaReserva
+                );
+
+                return;
+            }
+
+            setMensagem(
+                "INGRESSO OU RESERVA NÃO ENCONTRADO"
             );
-        } catch (error) {
+
+            vibrar(
+                "erro"
+            );
+        } catch (
+        error
+        ) {
             console.error(
-                "PORTARIA: erro ao validar ingresso:",
+                "PORTARIA: erro ao validar:",
                 error
             );
 
             setMensagem(
-                "ERRO AO VALIDAR INGRESSO"
+                "ERRO AO VALIDAR"
             );
 
-            vibrar("erro");
+            vibrar(
+                "erro"
+            );
         } finally {
             setCarregando(
                 false
@@ -1128,7 +2059,9 @@ export default function PortariaPage() {
     ====================================== */
 
     async function iniciarCamera() {
-        if (!localValidacao) {
+        if (
+            !localValidacao
+        ) {
             setMensagem(
                 "SELECIONE O LOCAL DE VALIDAÇÃO"
             );
@@ -1140,7 +2073,13 @@ export default function PortariaPage() {
             return;
         }
 
-        setPedido(null);
+        setPedido(
+            null
+        );
+
+        setReservaAgencia(
+            null
+        );
 
         setMensagem(
             `Aponte a câmera para o QR Code - ${nomeLocal()}`
@@ -1166,14 +2105,20 @@ export default function PortariaPage() {
                             facingMode:
                                 "environment",
                         },
+
                         {
-                            fps: 10,
+                            fps:
+                                10,
 
                             qrbox: {
-                                width: 280,
-                                height: 280,
+                                width:
+                                    280,
+
+                                height:
+                                    280,
                             },
                         },
+
                         async (
                             texto
                         ) => {
@@ -1185,9 +2130,12 @@ export default function PortariaPage() {
                                 );
                             }
                         },
+
                         () => { }
                     );
-                } catch (error) {
+                } catch (
+                error
+                ) {
                     console.error(
                         "PORTARIA: erro câmera:",
                         error
@@ -1222,7 +2170,9 @@ export default function PortariaPage() {
                 leitorRef.current =
                     null;
             }
-        } catch (error) {
+        } catch (
+        error
+        ) {
             console.error(
                 "PORTARIA: erro ao parar câmera:",
                 error
@@ -1235,10 +2185,10 @@ export default function PortariaPage() {
     }
 
     /* ======================================
-       CONFIRMAR VALIDAÇÃO
+       CONFIRMAR PEDIDO NORMAL
     ====================================== */
 
-    async function confirmarEntrada() {
+    async function confirmarPedidoNormal() {
         if (
             !pedido ||
             !localValidacao
@@ -1265,22 +2215,6 @@ export default function PortariaPage() {
 
             return;
         }
-
-        if (!funcionario) {
-            setMensagem(
-                "SELECIONE O FUNCIONÁRIO"
-            );
-
-            vibrar(
-                "erro"
-            );
-
-            return;
-        }
-
-        /*
-         * Revalida antes de gravar.
-         */
 
         if (
             localValidacao ===
@@ -1334,116 +2268,327 @@ export default function PortariaPage() {
             }
         }
 
+        const agora =
+            new Date()
+                .toISOString();
+
+        let dadosUtilizacao:
+            Record<
+                string,
+                unknown
+            >;
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            dadosUtilizacao =
+            {
+                statusOperacional:
+                    "utilizado",
+
+                validadoPor:
+                    funcionario,
+
+                validadoEm:
+                    agora,
+
+                utilizadoEm:
+                    agora,
+            };
+        } else {
+            dadosUtilizacao =
+            {
+                cachoeiraMundoNovoValidado:
+                    true,
+
+                cachoeiraMundoNovoValidadoPor:
+                    funcionario,
+
+                cachoeiraMundoNovoValidadoEm:
+                    agora,
+            };
+        }
+
+        if (
+            isOnline
+        ) {
+            await atualizarPedido(
+                pedido.id,
+                dadosUtilizacao
+            );
+        } else {
+            await registrarValidacaoOffline(
+                pedido.id,
+                localValidacao,
+                dadosUtilizacao
+            );
+        }
+
+        setPedido({
+            ...pedido,
+            ...dadosUtilizacao,
+        } as
+            PedidoPortaria);
+
+        setMensagem(
+            localValidacao ===
+                "principal"
+                ? "ENTRADA PRINCIPAL CONFIRMADA"
+                : "ACESSO À CACHOEIRA CONFIRMADO"
+        );
+    }
+
+    /* ======================================
+       CONFIRMAR RESERVA DE AGÊNCIA
+    ====================================== */
+
+    async function confirmarReservaAgencia() {
+        if (
+            !reservaAgencia ||
+            !localValidacao
+        ) {
+            return;
+        }
+
+        const validade =
+            verificarValidadeData(
+                reservaAgencia.dataVisita
+            );
+
+        if (
+            !validade.valido
+        ) {
+            setMensagem(
+                validade.mensagem ||
+                "RESERVA INVÁLIDA"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        const agora =
+            new Date()
+                .toISOString();
+
+        let dadosUtilizacao:
+            Record<
+                string,
+                unknown
+            >;
+
+        /* ==================================
+           PORTARIA PRINCIPAL
+        ================================== */
+
+        if (
+            localValidacao ===
+            "principal"
+        ) {
+            if (
+                reservaAgencia.statusOperacional ===
+                "utilizado"
+            ) {
+                setMensagem(
+                    "GRUPO JÁ UTILIZADO NA PORTARIA PRINCIPAL"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            const statusPagamento =
+                limpar(
+                    reservaAgencia.statusPagamento
+                );
+
+            if (
+                statusPagamento !==
+                "a_pagar_na_chegada" &&
+                statusPagamento !==
+                "pago"
+            ) {
+                setMensagem(
+                    "PAGAMENTO DA RESERVA NÃO LIBERADO"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            dadosUtilizacao =
+            {
+                /*
+                 * A confirmação da portaria
+                 * também confirma o pagamento
+                 * da reserva feita para pagar
+                 * na chegada.
+                 */
+                statusPagamento:
+                    "pago",
+
+                formaPagamento:
+                    "pago_na_chegada",
+
+                pagamentoNaChegada:
+                    true,
+
+                pagamentoConfirmadoEm:
+                    agora,
+
+                pagamentoConfirmadoPor:
+                    funcionario,
+
+                statusOperacional:
+                    "utilizado",
+
+                validadoPor:
+                    funcionario,
+
+                validadoEm:
+                    agora,
+
+                utilizadoEm:
+                    agora,
+
+                quantidadeValidada:
+                    quantidadeDaReserva(
+                        reservaAgencia
+                    ),
+            };
+        } else {
+            /* ==================================
+               CACHOEIRA
+            ================================== */
+
+            if (
+                reservaAgencia.statusOperacional !==
+                "utilizado"
+            ) {
+                setMensagem(
+                    "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            if (
+                reservaAgencia.cachoeiraMundoNovoValidado ===
+                true
+            ) {
+                setMensagem(
+                    "GRUPO JÁ UTILIZOU O ACESSO À CACHOEIRA"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
+                return;
+            }
+
+            dadosUtilizacao =
+            {
+                cachoeiraMundoNovoValidado:
+                    true,
+
+                cachoeiraMundoNovoValidadoPor:
+                    funcionario,
+
+                cachoeiraMundoNovoValidadoEm:
+                    agora,
+            };
+        }
+
+        if (
+            isOnline
+        ) {
+            await updateDoc(
+                doc(
+                    db,
+                    "reservas_agencias",
+                    reservaAgencia.id
+                ),
+
+                dadosUtilizacao
+            );
+        } else {
+            await registrarValidacaoReservaOffline(
+                reservaAgencia.id,
+                localValidacao,
+                dadosUtilizacao
+            );
+        }
+
+        setReservaAgencia({
+            ...reservaAgencia,
+            ...dadosUtilizacao,
+        });
+
+        setMensagem(
+            localValidacao ===
+                "principal"
+                ? `PAGAMENTO E ENTRADA DE ${textoPessoas(
+                    quantidadeDaReserva(
+                        reservaAgencia
+                    )
+                )} CONFIRMADOS`
+                : "ACESSO DO GRUPO À CACHOEIRA CONFIRMADO"
+        );
+    }
+
+    /* ======================================
+       CONFIRMAR ENTRADA
+    ====================================== */
+
+    async function confirmarEntrada() {
+        if (
+            !localValidacao
+        ) {
+            return;
+        }
+
+        if (
+            !funcionario
+        ) {
+            setMensagem(
+                "SELECIONE O FUNCIONÁRIO"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
         try {
             setCarregando(
                 true
             );
 
-            const agora =
-                new Date().toISOString();
-
-            let dadosUtilizacao:
-                Record<
-                    string,
-                    unknown
-                >;
-
-            /* ==================================
-               PORTARIA PRINCIPAL
-            ================================== */
-
             if (
-                localValidacao ===
-                "principal"
+                reservaAgencia
             ) {
-                dadosUtilizacao =
-                {
-                    statusOperacional:
-                        "utilizado",
-
-                    validadoPor:
-                        funcionario,
-
-                    validadoEm:
-                        agora,
-
-                    utilizadoEm:
-                        agora,
-                };
-            } else {
-                /* ==================================
-                   CACHOEIRA MUNDO NOVO
-                ================================== */
-
-                dadosUtilizacao =
-                {
-                    cachoeiraMundoNovoValidado:
-                        true,
-
-                    cachoeiraMundoNovoValidadoPor:
-                        funcionario,
-
-                    cachoeiraMundoNovoValidadoEm:
-                        agora,
-                };
-            }
-
-            /* ==================================
-               ONLINE
-            ================================== */
-
-            if (isOnline) {
-                await atualizarPedido(
-                    pedido.id,
-                    dadosUtilizacao
-                );
-
-                try {
-                    const pedidosNuvem =
-                        await listarPedidosAtivosPortaria();
-
-                    await salvarPedidosLocalmente(
-                        pedidosNuvem
-                    );
-                } catch (error) {
-                    console.error(
-                        "PORTARIA: erro ao atualizar cache:",
-                        error
-                    );
-                }
-            } else {
-                /* ==================================
-                   OFFLINE
-                ================================== */
-
-                await registrarValidacaoOffline(
-                    pedido.id,
-                    localValidacao,
-                    dadosUtilizacao
-                );
-            }
-
-            const pedidoAtualizado =
-                {
-                    ...pedido,
-                    ...dadosUtilizacao,
-                } as PedidoPortaria;
-
-            setPedido(
-                pedidoAtualizado
-            );
-
-            if (
-                localValidacao ===
-                "principal"
+                await confirmarReservaAgencia();
+            } else if (
+                pedido
             ) {
-                setMensagem(
-                    "ENTRADA PRINCIPAL CONFIRMADA"
-                );
-            } else {
-                setMensagem(
-                    "ACESSO À CACHOEIRA CONFIRMADO"
-                );
+                await confirmarPedidoNormal();
             }
 
             vibrar(
@@ -1457,15 +2602,60 @@ export default function PortariaPage() {
                 setPendentesCount(
                     pendentes.length
                 );
-            } catch (error) {
+            } catch (
+            error
+            ) {
                 console.error(
                     "PORTARIA: erro fila:",
                     error
                 );
             }
 
+            /*
+             * Se estiver online,
+             * renova os caches para
+             * refletir a gravação.
+             */
+            if (
+                isOnline
+            ) {
+                try {
+                    const [
+                        pedidosNuvem,
+                        reservasNuvem,
+                    ] =
+                        await Promise.all(
+                            [
+                                listarPedidosAtivosPortaria(),
+                                listarReservasAgenciasNuvem(),
+                            ]
+                        );
+
+                    await Promise.all(
+                        [
+                            salvarPedidosLocalmente(
+                                pedidosNuvem
+                            ),
+
+                            salvarReservasAgenciasLocalmente(
+                                reservasNuvem
+                            ),
+                        ]
+                    );
+                } catch (
+                error
+                ) {
+                    console.error(
+                        "PORTARIA: erro ao atualizar cache após validação:",
+                        error
+                    );
+                }
+            }
+
             await atualizarContadores();
-        } catch (error) {
+        } catch (
+        error
+        ) {
             console.error(
                 "PORTARIA: erro ao confirmar:",
                 error
@@ -1489,61 +2679,121 @@ export default function PortariaPage() {
        ESTADO VISUAL
     ====================================== */
 
+    const itemAtualExiste =
+        !!pedido ||
+        !!reservaAgencia;
+
+    const dataVisitaAtual =
+        pedido?.dataVisita ||
+        limpar(
+            reservaAgencia?.dataVisita
+        );
+
     const validadeAtual =
         verificarValidadeData(
-            pedido?.dataVisita
+            dataVisitaAtual
         );
 
     const usado =
-        !!pedido &&
-        foiUtilizadoNesteLocal(
-            pedido
-        );
+        pedido
+            ? foiPedidoUtilizadoNesteLocal(
+                pedido
+            )
+            : reservaAgencia
+                ? foiReservaUtilizadaNesteLocal(
+                    reservaAgencia
+                )
+                : false;
 
     let valido =
-        !!pedido &&
-        pedido.statusPagamento ===
-        "pago" &&
-        pedido.statusOperacional !==
-        "bloqueado" &&
-        validadeAtual.valido &&
-        !usado;
+        false;
 
-    /*
-     * Na Cachoeira:
-     * só é válido se já passou
-     * pela Portaria Principal.
-     */
+    /* PEDIDO NORMAL */
 
     if (
-        valido &&
-        localValidacao ===
-        "cachoeira_mundo_novo"
+        pedido
     ) {
         valido =
-            pedido?.statusOperacional ===
-            "utilizado";
+            pedido.statusPagamento ===
+            "pago" &&
+            pedido.statusOperacional !==
+            "bloqueado" &&
+            validadeAtual.valido &&
+            !usado;
+
+        if (
+            valido &&
+            localValidacao ===
+            "cachoeira_mundo_novo"
+        ) {
+            valido =
+                pedido.statusOperacional ===
+                "utilizado";
+        }
+    }
+
+    /* RESERVA DE AGÊNCIA */
+
+    if (
+        reservaAgencia
+    ) {
+        const pagamentoAceito =
+            reservaAgencia.statusPagamento ===
+            "a_pagar_na_chegada" ||
+            reservaAgencia.statusPagamento ===
+            "pago";
+
+        valido =
+            reservaAgencia.statusOperacional !==
+            "bloqueado" &&
+            validadeAtual.valido &&
+            !usado &&
+            pagamentoAceito;
+
+        if (
+            valido &&
+            localValidacao ===
+            "cachoeira_mundo_novo"
+        ) {
+            valido =
+                reservaAgencia.statusOperacional ===
+                "utilizado";
+        }
     }
 
     const quantidadeAtual =
-        quantidadeDoPedido(
-            pedido
-        );
+        pedido
+            ? quantidadeDoPedido(
+                pedido
+            )
+            : reservaAgencia
+                ? quantidadeDaReserva(
+                    reservaAgencia
+                )
+                : 1;
 
     const usadoEm =
-        dataUtilizacaoLocal(
-            pedido
-        );
+        pedido
+            ? dataUtilizacaoPedido(
+                pedido
+            )
+            : dataUtilizacaoReserva(
+                reservaAgencia
+            );
 
     const validadoPor =
-        funcionarioUtilizacaoLocal(
-            pedido
-        );
+        pedido
+            ? funcionarioUtilizacaoPedido(
+                pedido
+            )
+            : funcionarioUtilizacaoReserva(
+                reservaAgencia
+            );
 
     const painelClass =
         valido
             ? "bg-green-600/95 border-green-300"
-            : pedido
+            : itemAtualExiste
                 ? "bg-red-600/95 border-red-300"
                 : "bg-slate-950/85 border-white/30";
 
@@ -1551,7 +2801,9 @@ export default function PortariaPage() {
        SPLASH
     ====================================== */
 
-    if (splash) {
+    if (
+        splash
+    ) {
         return (
             <main
                 className="flex min-h-screen items-center justify-center bg-cover bg-center px-6 text-white"
@@ -1604,6 +2856,7 @@ export default function PortariaPage() {
             <div className="absolute inset-0 bg-black/65" />
 
             <div className="relative z-10 mx-auto max-w-md">
+
                 {/* CABEÇALHO */}
 
                 <header className="mb-4 text-center">
@@ -1618,9 +2871,7 @@ export default function PortariaPage() {
                     </h1>
                 </header>
 
-                {/* ==================================
-                    LOCAL DA VALIDAÇÃO
-                ================================== */}
+                {/* LOCAL */}
 
                 <section className="mb-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
                     <p className="mb-3 text-center text-sm font-black uppercase tracking-wide text-slate-600">
@@ -1636,9 +2887,9 @@ export default function PortariaPage() {
                                 )
                             }
                             className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
-                                "principal"
-                                ? "border-green-700 bg-green-700 text-white"
-                                : "border-slate-200 bg-white text-slate-800"
+                                    "principal"
+                                    ? "border-green-700 bg-green-700 text-white"
+                                    : "border-slate-200 bg-white text-slate-800"
                                 }`}
                         >
                             🚪 PORTARIA PRINCIPAL
@@ -1652,9 +2903,9 @@ export default function PortariaPage() {
                                 )
                             }
                             className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
-                                "cachoeira_mundo_novo"
-                                ? "border-blue-700 bg-blue-700 text-white"
-                                : "border-slate-200 bg-white text-slate-800"
+                                    "cachoeira_mundo_novo"
+                                    ? "border-blue-700 bg-blue-700 text-white"
+                                    : "border-slate-200 bg-white text-slate-800"
                                 }`}
                         >
                             🌊 CACHOEIRA MUNDO NOVO
@@ -1669,17 +2920,16 @@ export default function PortariaPage() {
                     )}
                 </section>
 
-                {/* ==================================
-                    STATUS INTERNET
-                ================================== */}
+                {/* INTERNET */}
 
                 <section className="mb-4 rounded-2xl border border-white/10 bg-slate-900/90 p-4 text-sm shadow-lg">
                     <div className="flex items-center justify-between gap-2">
+
                         <div className="flex items-center gap-2">
                             <span
                                 className={`h-3.5 w-3.5 rounded-full ${isOnline
-                                    ? "animate-pulse bg-green-500"
-                                    : "bg-red-500"
+                                        ? "animate-pulse bg-green-500"
+                                        : "bg-red-500"
                                     }`}
                             />
 
@@ -1741,17 +2991,14 @@ export default function PortariaPage() {
                         <div className="mt-3 rounded-xl bg-red-950/50 p-3 text-center text-xs font-bold text-red-200">
                             ⚠️ OFFLINE
                             <br />
-                            Use apenas um
-                            aparelho por portaria
-                            enquanto estiver sem
-                            internet.
+                            Use apenas um aparelho por
+                            portaria enquanto estiver
+                            sem internet.
                         </div>
                     )}
                 </section>
 
-                {/* ==================================
-                    CONTADORES
-                ================================== */}
+                {/* CONTADORES */}
 
                 {localValidacao && (
                     <>
@@ -1800,9 +3047,7 @@ export default function PortariaPage() {
                     </>
                 )}
 
-                {/* ==================================
-                    FUNCIONÁRIO
-                ================================== */}
+                {/* FUNCIONÁRIO */}
 
                 <section className="mb-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
                     <p className="mb-2 text-sm font-black uppercase tracking-wide text-slate-600">
@@ -1813,9 +3058,11 @@ export default function PortariaPage() {
                         value={
                             funcionario
                         }
-                        onChange={(e) =>
+                        onChange={(
+                            event
+                        ) =>
                             setFuncionario(
-                                e.target.value
+                                event.target.value
                             )
                         }
                         className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-lg font-black"
@@ -1854,9 +3101,7 @@ export default function PortariaPage() {
                     )}
                 </section>
 
-                {/* ==================================
-                    RESULTADO
-                ================================== */}
+                {/* RESULTADO */}
 
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl backdrop-blur-sm ${painelClass}`}
@@ -1864,7 +3109,7 @@ export default function PortariaPage() {
                     <p className="text-7xl">
                         {valido
                             ? "✅"
-                            : pedido
+                            : itemAtualExiste
                                 ? "⛔"
                                 : localValidacao
                                     ? "📷"
@@ -1872,7 +3117,9 @@ export default function PortariaPage() {
                     </p>
 
                     <h2 className="mt-4 text-3xl font-black leading-tight">
-                        {mensagem}
+                        {
+                            mensagem
+                        }
                     </h2>
 
                     {/* QUANTIDADE */}
@@ -1890,7 +3137,9 @@ export default function PortariaPage() {
                             </p>
 
                             <p className="mt-3 text-sm font-black">
-                                {nomeLocal()}
+                                {
+                                    nomeLocal()
+                                }
                             </p>
                         </div>
                     )}
@@ -1919,10 +3168,15 @@ export default function PortariaPage() {
                             </div>
                         )}
 
-                    {/* DADOS DO PEDIDO */}
+                    {/* PEDIDO NORMAL */}
 
                     {pedido && (
                         <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-base font-bold">
+
+                            <p className="mb-3 rounded-xl bg-black/20 p-2 text-center font-black">
+                                🎟️ INGRESSO
+                            </p>
+
                             <p>
                                 Cliente:{" "}
                                 {
@@ -1970,12 +3224,9 @@ export default function PortariaPage() {
                                     : pedido.statusPagamento}
                             </p>
 
-                            {/* SITUAÇÃO PRINCIPAL */}
-
                             <div className="mt-4 rounded-xl bg-black/20 p-3">
                                 <p className="font-black">
-                                    🚪 Portaria
-                                    Principal
+                                    🚪 Portaria Principal
                                 </p>
 
                                 <p>
@@ -1991,12 +3242,9 @@ export default function PortariaPage() {
                                 </p>
                             </div>
 
-                            {/* SITUAÇÃO CACHOEIRA */}
-
                             <div className="mt-2 rounded-xl bg-black/20 p-3">
                                 <p className="font-black">
-                                    🌊 Cachoeira
-                                    Mundo Novo
+                                    🌊 Cachoeira Mundo Novo
                                 </p>
 
                                 <p>
@@ -2012,13 +3260,202 @@ export default function PortariaPage() {
                             </div>
                         </div>
                     )}
+
+                    {/* RESERVA DE AGÊNCIA */}
+
+                    {reservaAgencia && (
+                        <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-base font-bold">
+
+                            <p className="mb-3 rounded-xl bg-black/20 p-2 text-center font-black">
+                                🚌 GRUPO DE AGÊNCIA
+                            </p>
+
+                            <p>
+                                Agência:{" "}
+                                {
+                                    reservaAgencia.agenciaNome ||
+                                    "-"
+                                }
+                            </p>
+
+                            <p>
+                                Responsável:{" "}
+                                {
+                                    reservaAgencia.agenciaResponsavel ||
+                                    "-"
+                                }
+                            </p>
+
+                            <p>
+                                Código:{" "}
+                                {
+                                    reservaAgencia.codigoGrupo ||
+                                    "-"
+                                }
+                            </p>
+
+                            <p>
+                                Data:{" "}
+                                {formatarData(
+                                    limpar(
+                                        reservaAgencia.dataVisita
+                                    )
+                                )}
+                            </p>
+
+                            <p>
+                                Chegada prevista:{" "}
+                                {
+                                    reservaAgencia.horaPrevista ||
+                                    "Não informada"
+                                }
+                            </p>
+
+                            <p>
+                                Veículo:{" "}
+                                {
+                                    reservaAgencia.tipoVeiculo ||
+                                    "-"
+                                }
+                            </p>
+
+                            <div className="mt-3 rounded-xl bg-black/20 p-3">
+                                <p>
+                                    👨 Adultos:{" "}
+                                    <strong>
+                                        {
+                                            Number(
+                                                reservaAgencia.adultos ||
+                                                0
+                                            )
+                                        }
+                                    </strong>
+                                </p>
+
+                                <p>
+                                    👵 Idosos:{" "}
+                                    <strong>
+                                        {
+                                            Number(
+                                                reservaAgencia.idosos ||
+                                                0
+                                            )
+                                        }
+                                    </strong>
+                                </p>
+
+                                <p className="mt-2 text-xl font-black">
+                                    👥 TOTAL:{" "}
+                                    {
+                                        quantidadeDaReserva(
+                                            reservaAgencia
+                                        )
+                                    }{" "}
+                                    PESSOAS
+                                </p>
+                            </div>
+
+                            <div className="mt-3 rounded-xl bg-black/20 p-3">
+                                <p className="font-black">
+                                    🚡 Elevador Panorâmico
+                                </p>
+
+                                <p>
+                                    {reservaAgencia.elevador
+                                        ? `Sim - ${Number(
+                                            reservaAgencia.qtdElevador ||
+                                            0
+                                        )} pessoa(s)`
+                                        : "Não"}
+                                </p>
+                            </div>
+
+                            <div className="mt-3 rounded-xl bg-black/20 p-3">
+                                <p>
+                                    Valor:{" "}
+                                    <strong>
+                                        {formatarMoeda(
+                                            Number(
+                                                reservaAgencia.valorFinal ||
+                                                0
+                                            )
+                                        )}
+                                    </strong>
+                                </p>
+
+                                <p>
+                                    Pagamento:{" "}
+                                    <strong>
+                                        {reservaAgencia.statusPagamento ===
+                                            "pago"
+                                            ? "✅ PAGO"
+                                            : reservaAgencia.statusPagamento ===
+                                                "a_pagar_na_chegada"
+                                                ? "💰 A PAGAR NA CHEGADA"
+                                                : limpar(
+                                                    reservaAgencia.statusPagamento
+                                                )}
+                                    </strong>
+                                </p>
+                            </div>
+
+                            <div className="mt-3 rounded-xl bg-black/20 p-3">
+                                <p className="font-black">
+                                    🚪 Portaria Principal
+                                </p>
+
+                                <p>
+                                    {reservaAgencia.statusOperacional ===
+                                        "utilizado"
+                                        ? `✅ Grupo validado${reservaAgencia.utilizadoEm
+                                            ? ` em ${formatarDataHora(
+                                                limpar(
+                                                    reservaAgencia.utilizadoEm
+                                                )
+                                            )}`
+                                            : ""
+                                        }`
+                                        : "⏳ Grupo ainda não entrou"}
+                                </p>
+
+                                {reservaAgencia.validadoPor && (
+                                    <p>
+                                        Por:{" "}
+                                        {
+                                            limpar(
+                                                reservaAgencia.validadoPor
+                                            )
+                                        }
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="mt-2 rounded-xl bg-black/20 p-3">
+                                <p className="font-black">
+                                    🌊 Cachoeira Mundo Novo
+                                </p>
+
+                                <p>
+                                    {reservaAgencia.cachoeiraMundoNovoValidado
+                                        ? `✅ Grupo validado${reservaAgencia.cachoeiraMundoNovoValidadoEm
+                                            ? ` em ${formatarDataHora(
+                                                limpar(
+                                                    reservaAgencia.cachoeiraMundoNovoValidadoEm
+                                                )
+                                            )}`
+                                            : ""
+                                        }`
+                                        : "⏳ Ainda não validada"}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </section>
 
-                {/* ==================================
-                    QR / BUSCA
-                ================================== */}
+                {/* QR / BUSCA */}
 
                 <section className="mt-5 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
+
                     {!cameraAtiva ? (
                         <button
                             onClick={
@@ -2058,12 +3495,15 @@ export default function PortariaPage() {
                             value={
                                 codigoManual
                             }
-                            onChange={(e) =>
+                            onChange={(
+                                event
+                            ) =>
                                 setCodigoManual(
-                                    e.target.value.toUpperCase()
+                                    event.target.value
+                                        .toUpperCase()
                                 )
                             }
-                            placeholder="Código PMN"
+                            placeholder="Código PMN ou GRP"
                             disabled={
                                 !localValidacao
                             }
@@ -2086,7 +3526,7 @@ export default function PortariaPage() {
                                     !codigoManual.trim()
                                 ) {
                                     setMensagem(
-                                        "DIGITE O CÓDIGO DO INGRESSO"
+                                        "DIGITE O CÓDIGO"
                                     );
 
                                     vibrar(
@@ -2116,25 +3556,27 @@ export default function PortariaPage() {
                                 null
                             );
 
+                            setReservaAgencia(
+                                null
+                            );
+
                             setCodigoManual(
                                 ""
                             );
 
                             setMensagem(
                                 localValidacao
-                                    ? `${nomeLocal()} - Aguardando ingresso`
+                                    ? `${nomeLocal()} - Aguardando ingresso ou grupo`
                                     : "Selecione o local de validação"
                             );
                         }}
                         className="mt-4 w-full rounded-2xl border border-slate-300 px-5 py-4 font-bold text-slate-700"
                     >
-                        LIMPAR INGRESSO
+                        LIMPAR
                     </button>
                 </section>
 
-                {/* ==================================
-                    CONFIRMAR
-                ================================== */}
+                {/* CONFIRMAR */}
 
                 {valido && (
                     <button
@@ -2145,24 +3587,32 @@ export default function PortariaPage() {
                             carregando
                         }
                         className={`mt-5 w-full rounded-3xl px-5 py-6 text-xl font-black text-white shadow-xl disabled:opacity-60 ${localValidacao ===
-                            "principal"
-                            ? "bg-green-500"
-                            : "bg-blue-500"
+                                "principal"
+                                ? "bg-green-500"
+                                : "bg-blue-500"
                             }`}
                     >
-                        {localValidacao ===
-                            "principal"
-                            ? `✅ CONFIRMAR ENTRADA DE ${textoPessoas(
+                        {reservaAgencia &&
+                            localValidacao ===
+                            "principal" &&
+                            reservaAgencia.statusPagamento ===
+                            "a_pagar_na_chegada"
+                            ? `💰 CONFIRMAR PAGAMENTO E ENTRADA DE ${textoPessoas(
                                 quantidadeAtual
                             )}`
-                            : `🌊 CONFIRMAR ACESSO DE ${textoPessoas(
-                                quantidadeAtual
-                            )}`}
+                            : localValidacao ===
+                                "principal"
+                                ? `✅ CONFIRMAR ENTRADA DE ${textoPessoas(
+                                    quantidadeAtual
+                                )}`
+                                : `🌊 CONFIRMAR ACESSO DE ${textoPessoas(
+                                    quantidadeAtual
+                                )}`}
                     </button>
                 )}
 
                 {!valido &&
-                    pedido && (
+                    itemAtualExiste && (
                         <button
                             disabled
                             className="mt-5 w-full rounded-3xl bg-red-700 px-5 py-6 text-xl font-black text-white"
