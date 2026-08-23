@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import {
   criarXmlVendaCartao,
   enviarSoapIpg,
@@ -8,14 +9,22 @@ import {
   validarNumeroCartao,
   validarValidadeCartao,
 } from "@/lib/sicredi-ipg";
+
 import {
   atualizarPedido,
   buscarPedidoPorId,
 } from "@/lib/pedidos";
-import { finalizarPagamento } from "../../../../../lib/finalizar-pagamento";
+
+import {
+  finalizarPagamento,
+} from "../../../../../lib/finalizar-pagamento";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/* =========================================================
+   TIPOS
+   ========================================================= */
 
 type CorpoPagamento = {
   pedidoId?: string;
@@ -25,6 +34,10 @@ type CorpoPagamento = {
   cvv?: string;
   parcelas?: number;
 };
+
+/* =========================================================
+   RESPOSTA DE ERRO
+   ========================================================= */
 
 function respostaErro(
   mensagem: string,
@@ -38,11 +51,19 @@ function respostaErro(
       mensagem,
       ...(detalhes || {}),
     },
-    { status }
+    {
+      status,
+    }
   );
 }
 
-function obterUltimosDigitos(numeroCartao: string) {
+/* =========================================================
+   ÚLTIMOS 4 DÍGITOS
+   ========================================================= */
+
+function obterUltimosDigitos(
+  numeroCartao: string
+) {
   if (numeroCartao.length < 4) {
     return "";
   }
@@ -50,123 +71,233 @@ function obterUltimosDigitos(numeroCartao: string) {
   return numeroCartao.slice(-4);
 }
 
-export async function POST(req: NextRequest) {
+/* =========================================================
+   ROTA POST
+   ========================================================= */
+
+export async function POST(
+  req: NextRequest
+) {
   const inicio = Date.now();
 
   try {
+    /* =====================================================
+       CONFIGURAÇÕES DE SEGURANÇA
+       ===================================================== */
+
     const cartaoAtivo =
-      process.env.SICREDI_IPG_CARTAO_ATIVO === "true";
+      process.env.SICREDI_IPG_CARTAO_ATIVO ===
+      "true";
 
     const modoSimulacao =
-      process.env.SICREDI_IPG_MODO_SIMULACAO === "true";
+      process.env.SICREDI_IPG_MODO_SIMULACAO ===
+      "true";
 
     const valorTesteAtivo =
-      process.env.SICREDI_IPG_VALOR_TESTE === "true";
+      process.env.SICREDI_IPG_VALOR_TESTE ===
+      "true";
+
+    const ambienteProducao =
+      process.env.NODE_ENV ===
+      "production";
+
+    /* =====================================================
+       CARTÃO DESATIVADO
+       ===================================================== */
 
     if (!cartaoAtivo) {
       return respostaErro(
         "Pagamento com cartão está desativado para segurança.",
         503,
         {
-          codigo: "CARTAO_DESATIVADO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "CARTAO_DESATIVADO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
-    /*
-     * A simulação pode ser usada somente no computador local.
-     * Nunca deve aprovar pedidos falsos no site publicado.
-     */
+    /* =====================================================
+       BLOQUEIO DE SIMULAÇÃO EM PRODUÇÃO
+       ===================================================== */
+
     if (
       modoSimulacao &&
-      process.env.NODE_ENV === "production"
+      ambienteProducao
     ) {
       return respostaErro(
         "O modo de simulação não pode ser usado em produção.",
         403,
         {
-          codigo: "SIMULACAO_BLOQUEADA_PRODUCAO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "SIMULACAO_BLOQUEADA_PRODUCAO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
+    /* =====================================================
+       BLOQUEIO ABSOLUTO DO TESTE R$ 1 EM PRODUÇÃO
+
+       Esta é a trava principal.
+
+       SICREDI_IPG_VALOR_TESTE=true
+       jamais poderá efetuar uma transação
+       no site publicado.
+       ===================================================== */
+
+    if (
+      valorTesteAtivo &&
+      ambienteProducao
+    ) {
+      console.error(
+        "BLOQUEIO DE SEGURANÇA: tentativa de usar valor de teste em produção."
+      );
+
+      return respostaErro(
+        "O modo de teste de R$ 1,00 não pode ser utilizado em produção.",
+        403,
+        {
+          codigo:
+            "VALOR_TESTE_BLOQUEADO_PRODUCAO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
+        }
+      );
+    }
+
+    /* =====================================================
+       LER BODY
+       ===================================================== */
+
     let body: CorpoPagamento;
 
     try {
-      body = (await req.json()) as CorpoPagamento;
+      body =
+        (await req.json()) as CorpoPagamento;
     } catch {
       return respostaErro(
         "Os dados enviados para o pagamento são inválidos.",
         400,
         {
-          codigo: "CORPO_INVALIDO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "CORPO_INVALIDO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
-    const pedidoId = String(
-      body.pedidoId || ""
-    ).trim();
+    /* =====================================================
+       NORMALIZAR DADOS
+       ===================================================== */
 
-    const numeroCartao = somenteDigitos(
-      body.numeroCartao
-    );
+    const pedidoId =
+      String(
+        body.pedidoId ||
+        ""
+      ).trim();
 
-    const mesValidade = somenteDigitos(
-      body.mesValidade
-    );
+    const numeroCartao =
+      somenteDigitos(
+        body.numeroCartao
+      );
 
-    const anoValidade = somenteDigitos(
-      body.anoValidade
-    );
+    const mesValidade =
+      somenteDigitos(
+        body.mesValidade
+      );
 
-    const cvv = somenteDigitos(body.cvv);
+    const anoValidade =
+      somenteDigitos(
+        body.anoValidade
+      );
 
-    /*
-     * O Parque trabalhará somente com crédito à vista.
-     */
-    const parcelas = Number(body.parcelas || 1);
+    const cvv =
+      somenteDigitos(
+        body.cvv
+      );
+
+    const parcelas =
+      Number(
+        body.parcelas ||
+        1
+      );
+
+    /* =====================================================
+       VALIDAR PEDIDO
+       ===================================================== */
 
     if (!pedidoId) {
       return respostaErro(
         "Pedido não informado.",
         400,
         {
-          codigo: "PEDIDO_NAO_INFORMADO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "PEDIDO_NAO_INFORMADO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
-    /*
-     * Proteção do backend:
-     * mesmo que alguém altere a requisição no navegador,
-     * somente uma parcela será aceita.
-     */
+    /* =====================================================
+       PARCELAMENTO
+
+       Por enquanto somente crédito à vista.
+       ===================================================== */
+
     if (
-      !Number.isInteger(parcelas) ||
+      !Number.isInteger(
+        parcelas
+      ) ||
       parcelas !== 1
     ) {
       return respostaErro(
         "O pagamento com cartão está disponível somente no crédito à vista.",
         400,
         {
-          codigo: "PARCELAMENTO_NAO_PERMITIDO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "PARCELAMENTO_NAO_PERMITIDO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
-    if (!validarNumeroCartao(numeroCartao)) {
+    /* =====================================================
+       VALIDAR CARTÃO
+       ===================================================== */
+
+    if (
+      !validarNumeroCartao(
+        numeroCartao
+      )
+    ) {
       return respostaErro(
         "Número do cartão inválido.",
         400,
         {
-          codigo: "CARTAO_INVALIDO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "CARTAO_INVALIDO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
@@ -181,129 +312,241 @@ export async function POST(req: NextRequest) {
         "Validade do cartão inválida.",
         400,
         {
-          codigo: "VALIDADE_INVALIDA",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "VALIDADE_INVALIDA",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
-    if (!validarCvv(cvv)) {
+    if (
+      !validarCvv(
+        cvv
+      )
+    ) {
       return respostaErro(
         "Código de segurança inválido.",
         400,
         {
-          codigo: "CVV_INVALIDO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "CVV_INVALIDO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
+    /* =====================================================
+       BUSCAR PEDIDO
+       ===================================================== */
+
     const pedido: any =
-      await buscarPedidoPorId(pedidoId);
+      await buscarPedidoPorId(
+        pedidoId
+      );
 
     if (!pedido) {
       return respostaErro(
         "Pedido não encontrado.",
         404,
         {
-          codigo: "PEDIDO_NAO_ENCONTRADO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "PEDIDO_NAO_ENCONTRADO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
-    /*
-     * Impede uma segunda cobrança no mesmo pedido.
-     */
-    if (pedido.statusPagamento === "pago") {
+    /* =====================================================
+       PEDIDO JÁ PAGO
+       ===================================================== */
+
+    if (
+      pedido.statusPagamento ===
+      "pago"
+    ) {
       return NextResponse.json({
         ok: true,
         aprovado: true,
         jaPago: true,
-        mensagem: "Este pedido já está pago.",
+
+        mensagem:
+          "Este pedido já está pago.",
+
         pedidoId,
+
         codigoIngresso:
-          pedido.codigoIngresso || null,
-        tempoMs: Date.now() - inicio,
+          pedido.codigoIngresso ||
+          null,
+
+        tempoMs:
+          Date.now() -
+          inicio,
       });
     }
 
-    const valorPedido = Number(
-      pedido.valorTotal || 0
-    );
+    /* =====================================================
+       VALOR REAL DO PEDIDO
+       ===================================================== */
+
+    const valorPedido =
+      Number(
+        pedido.valorTotal ||
+        0
+      );
 
     if (
-      !Number.isFinite(valorPedido) ||
+      !Number.isFinite(
+        valorPedido
+      ) ||
       valorPedido <= 0
     ) {
       return respostaErro(
         "O pedido possui valor inválido.",
         400,
         {
-          codigo: "VALOR_PEDIDO_INVALIDO",
-          tempoMs: Date.now() - inicio,
+          codigo:
+            "VALOR_PEDIDO_INVALIDO",
+
+          tempoMs:
+            Date.now() -
+            inicio,
         }
       );
     }
 
-    /*
-     * Esta variável foi usada para o teste real de R$ 1,00.
-     *
-     * Para cobrar o valor oficial, ela deve estar como false.
-     */
+    /* =====================================================
+       VALOR ENVIADO AO SICREDI
+
+       TESTE LOCAL:
+       R$ 1,00
+
+       PRODUÇÃO:
+       valor verdadeiro do pedido
+       ===================================================== */
+
     const valorCobranca =
       valorTesteAtivo
         ? 1
         : valorPedido;
 
     const ultimosDigitos =
-      obterUltimosDigitos(numeroCartao);
+      obterUltimosDigitos(
+        numeroCartao
+      );
 
-    /*
-     * SIMULAÇÃO LOCAL
-     *
-     * Não envia cartão, CVV ou cobrança ao Sicredi.
-     * Apenas testa o fluxo de ingresso, QR Code, PDF e e-mail.
-     */
+    /* =====================================================
+       LOG SEGURO DO MODO DE TESTE
+
+       Não imprime cartão ou CVV.
+       ===================================================== */
+
+    if (valorTesteAtivo) {
+      console.log(
+        "=========================================="
+      );
+
+      console.log(
+        "TESTE REAL SICREDI IPG - R$ 1,00"
+      );
+
+      console.log({
+        pedidoId,
+
+        valorPedidoReal:
+          valorPedido,
+
+        valorEnviadoSicredi:
+          valorCobranca,
+
+        pedidoSeraFinalizado:
+          false,
+
+        ambiente:
+          process.env.NODE_ENV,
+      });
+
+      console.log(
+        "=========================================="
+      );
+    }
+
+    /* =====================================================
+       SIMULAÇÃO LOCAL
+
+       Não envia nenhuma cobrança.
+       ===================================================== */
+
     if (modoSimulacao) {
       const transactionId =
-        `SIM-${Date.now()}-${pedidoId.slice(0, 8)}`;
+        `SIM-${Date.now()}-${pedidoId.slice(
+          0,
+          8
+        )}`;
 
       const resultadoFinalizacao =
         await finalizarPagamento({
           pedidoId,
-          formaPagamento: "cartao",
-          valorPago: valorPedido,
-          cartaoTransacaoId: transactionId,
-          cartaoAutorizacao: "SIMULADO",
+
+          formaPagamento:
+            "cartao",
+
+          valorPago:
+            valorPedido,
+
+          cartaoTransacaoId:
+            transactionId,
+
+          cartaoAutorizacao:
+            "SIMULADO",
+
           cartaoStatus:
             "aprovado_simulacao",
+
           cartaoUltimosDigitos:
             ultimosDigitos,
-          cartaoParcelas: 1,
+
+          cartaoParcelas:
+            1,
         });
 
-      await atualizarPedido(pedidoId, {
-        formaPagamento: "cartao",
-        parcelas: 1,
+      await atualizarPedido(
+        pedidoId,
+        {
+          formaPagamento:
+            "cartao",
 
-        cartaoGateway:
-          "sicredi-ipg-simulacao",
+          parcelas:
+            1,
 
-        sicrediCartaoApprovalCode:
-          "SIMULADO",
+          cartaoGateway:
+            "sicredi-ipg-simulacao",
 
-        sicrediCartaoProcessorCode:
-          "00",
+          sicrediCartaoApprovalCode:
+            "SIMULADO",
 
-        sicrediCartaoProcessorMessage:
-          "Pagamento aprovado em simulação local.",
+          sicrediCartaoProcessorCode:
+            "00",
 
-        pagamentoSimulado: true,
+          sicrediCartaoProcessorMessage:
+            "Pagamento aprovado em simulação local.",
 
-        pagamentoSimuladoEm:
-          new Date().toISOString(),
-      });
+          pagamentoSimulado:
+            true,
+
+          pagamentoSimuladoEm:
+            new Date()
+              .toISOString(),
+        }
+      );
 
       return NextResponse.json({
         ok: true,
@@ -314,170 +557,428 @@ export async function POST(req: NextRequest) {
           "Pagamento aprovado em simulação local.",
 
         pedidoId,
+
         transactionId,
-        approvalCode: "SIMULADO",
+
+        approvalCode:
+          "SIMULADO",
 
         codigoIngresso:
-          resultadoFinalizacao.codigoIngresso ||
+          resultadoFinalizacao
+            .codigoIngresso ||
           null,
 
         emailEnviado:
-          resultadoFinalizacao.emailEnviado ||
+          resultadoFinalizacao
+            .emailEnviado ||
           false,
 
         statusFinalizacao:
-          resultadoFinalizacao.status,
+          resultadoFinalizacao
+            .status,
 
-        tempoMs: Date.now() - inicio,
+        tempoMs:
+          Date.now() -
+          inicio,
       });
     }
 
-    /*
-     * TRANSAÇÃO REAL
-     *
-     * Para funcionar:
-     *
-     * SICREDI_IPG_CARTAO_ATIVO=true
-     * SICREDI_IPG_MODO_SIMULACAO=false
-     * SICREDI_IPG_VALOR_TESTE=false
-     */
+    /* =====================================================
+       TRANSAÇÃO REAL IPG
+       ===================================================== */
+
     const configuracao =
       obterConfiguracaoIpg();
 
-    const xmlVenda = criarXmlVendaCartao(
-      configuracao,
+    const xmlVenda =
+      criarXmlVendaCartao(
+        configuracao,
+        {
+          numeroCartao,
+
+          mesValidade,
+
+          anoValidade,
+
+          cvv,
+
+          valor:
+            valorCobranca,
+
+          pedidoId,
+
+          nomeEstabelecimento:
+            "PARQUE MUNDO NOVO",
+        }
+      );
+
+    /*
+     * IMPORTANTE:
+     *
+     * Nunca imprimir xmlVenda.
+     *
+     * Ele contém cartão e CVV.
+     */
+
+    const respostaIpg =
+      await enviarSoapIpg(
+        xmlVenda
+      );
+
+    /* =====================================================
+       LOG SEGURO DA RESPOSTA
+       ===================================================== */
+
+    console.log(
+      "RESPOSTA CARTAO IPG:",
       {
-        numeroCartao,
-        mesValidade,
-        anoValidade,
-        cvv,
+        httpStatus:
+          respostaIpg.httpStatus,
 
-        valor: valorCobranca,
+        transactionResult:
+          respostaIpg
+            .transactionResult,
 
-        pedidoId,
+        processorResponseCode:
+          respostaIpg
+            .processorResponseCode,
 
-        nomeEstabelecimento:
-          "PARQUE MUNDO NOVO",
+        processorResponseMessage:
+          respostaIpg
+            .processorResponseMessage,
+
+        approvalCode:
+          respostaIpg
+            .approvalCode,
+
+        errorMessage:
+          respostaIpg
+            .errorMessage,
+
+        faultCode:
+          respostaIpg
+            .faultCode,
+
+        faultString:
+          respostaIpg
+            .faultString,
+
+        valorTesteAtivo,
+
+        valorEnviado:
+          valorCobranca,
       }
     );
 
-    /*
-     * Nunca mostrar xmlVenda no console.
-     * O XML contém o número do cartão e o CVV.
-     */
-    const respostaIpg =
-      await enviarSoapIpg(xmlVenda);
-
-    /*
-     * LOG SEGURO DA RESPOSTA DO IPG
-     *
-     * Não mostra número do cartão,
-     * CVV nem o XML completo.
-     */
-    console.log("RESPOSTA CARTAO IPG:", {
-      httpStatus:
-        respostaIpg.httpStatus,
-
-      transactionResult:
-        respostaIpg.transactionResult,
-
-      processorResponseCode:
-        respostaIpg.processorResponseCode,
-
-      processorResponseMessage:
-        respostaIpg.processorResponseMessage,
-
-      approvalCode:
-        respostaIpg.approvalCode,
-
-      errorMessage:
-        respostaIpg.errorMessage,
-
-      faultCode:
-        respostaIpg.faultCode,
-
-      faultString:
-        respostaIpg.faultString,
-    });
+    /* =====================================================
+       IDENTIFICADOR DA TRANSAÇÃO
+       ===================================================== */
 
     const identificadorTransacao =
       respostaIpg.orderId ||
-      respostaIpg.processorReferenceNumber ||
-      respostaIpg.processorTraceNumber ||
+      respostaIpg
+        .processorReferenceNumber ||
+      respostaIpg
+        .processorTraceNumber ||
       "";
 
-    /*
-     * PAGAMENTO APROVADO
-     */
-    if (respostaIpg.aprovado) {
+    /* =====================================================
+       APROVADO PELO SICREDI
+       ===================================================== */
+
+    if (
+      respostaIpg.aprovado
+    ) {
+      /* ===================================================
+         MODO TESTE R$ 1
+
+         MUITO IMPORTANTE:
+
+         NÃO chama finalizarPagamento.
+
+         Portanto:
+         - pedido continua pendente
+         - ingresso não é liberado
+         - QR não é liberado como pago
+         - e-mail de ingresso não é enviado
+         =================================================== */
+
+      if (valorTesteAtivo) {
+        await atualizarPedido(
+          pedidoId,
+          {
+            formaPagamento:
+              "cartao",
+
+            parcelas:
+              1,
+
+            cartaoGateway:
+              "sicredi-ipg",
+
+            cartaoStatus:
+              "aprovado_teste_1_real",
+
+            cartaoTransacaoId:
+              identificadorTransacao,
+
+            cartaoUltimosDigitos:
+              ultimosDigitos,
+
+            sicrediCartaoApprovalCode:
+              respostaIpg
+                .approvalCode ||
+              "",
+
+            sicrediCartaoProcessorCode:
+              respostaIpg
+                .processorResponseCode ||
+              "",
+
+            sicrediCartaoProcessorMessage:
+              respostaIpg
+                .processorResponseMessage ||
+              "",
+
+            sicrediCartaoReceiptNumber:
+              respostaIpg
+                .processorReceiptNumber ||
+              "",
+
+            sicrediCartaoTraceNumber:
+              respostaIpg
+                .processorTraceNumber ||
+              "",
+
+            sicrediCartaoReferenceNumber:
+              respostaIpg
+                .processorReferenceNumber ||
+              "",
+
+            sicrediCartaoTransactionTime:
+              respostaIpg
+                .transactionTime ||
+              "",
+
+            /* =============================
+               MARCAÇÕES EXCLUSIVAS DO TESTE
+               ============================= */
+
+            pagamentoTesteReal:
+              true,
+
+            pagamentoTesteValor:
+              1,
+
+            pagamentoTesteValorPedido:
+              valorPedido,
+
+            pagamentoTesteAprovado:
+              true,
+
+            pagamentoTesteFinalizouPedido:
+              false,
+
+            pagamentoTesteEm:
+              new Date()
+                .toISOString(),
+
+            pagamentoSimulado:
+              false,
+
+            /*
+             * NÃO ALTERAMOS:
+             *
+             * statusPagamento
+             * statusOperacional
+             * codigoIngresso
+             * qrCodeIngresso
+             */
+          }
+        );
+
+        console.log(
+          "TESTE R$ 1 APROVADO - PEDIDO NÃO FINALIZADO:",
+          {
+            pedidoId,
+
+            valorCobrado:
+              1,
+
+            valorRealPedido:
+              valorPedido,
+
+            transactionId:
+              identificadorTransacao ||
+              null,
+
+            pedidoFinalizado:
+              false,
+          }
+        );
+
+        return NextResponse.json({
+          ok: true,
+
+          aprovado:
+            true,
+
+          testeValor:
+            true,
+
+          testeReal:
+            true,
+
+          pedidoFinalizado:
+            false,
+
+          ingressoLiberado:
+            false,
+
+          emailEnviado:
+            false,
+
+          valorCobrado:
+            1,
+
+          valorRealPedido:
+            valorPedido,
+
+          mensagem:
+            "Teste real de R$ 1,00 aprovado pelo Sicredi. O pedido NÃO foi marcado como pago e nenhum ingresso foi liberado.",
+
+          pedidoId,
+
+          transactionId:
+            identificadorTransacao ||
+            null,
+
+          approvalCode:
+            respostaIpg
+              .approvalCode ||
+            null,
+
+          processorResponseCode:
+            respostaIpg
+              .processorResponseCode ||
+            null,
+
+          tempoMs:
+            Date.now() -
+            inicio,
+        });
+      }
+
+      /* ===================================================
+         PAGAMENTO REAL NORMAL
+
+         Só chega aqui se:
+         SICREDI_IPG_VALOR_TESTE=false
+         =================================================== */
+
       const resultadoFinalizacao =
         await finalizarPagamento({
           pedidoId,
-          formaPagamento: "cartao",
-          valorPago: valorPedido,
+
+          formaPagamento:
+            "cartao",
+
+          valorPago:
+            valorPedido,
 
           cartaoTransacaoId:
             identificadorTransacao,
 
           cartaoAutorizacao:
-            respostaIpg.approvalCode || "",
+            respostaIpg
+              .approvalCode ||
+            "",
 
-          cartaoStatus: "aprovado",
+          cartaoStatus:
+            "aprovado",
 
           cartaoUltimosDigitos:
             ultimosDigitos,
 
-          cartaoParcelas: 1,
+          cartaoParcelas:
+            1,
         });
 
-      await atualizarPedido(pedidoId, {
-        formaPagamento: "cartao",
-        parcelas: 1,
+      await atualizarPedido(
+        pedidoId,
+        {
+          formaPagamento:
+            "cartao",
 
-        cartaoGateway:
-          "sicredi-ipg",
+          parcelas:
+            1,
 
-        cartaoStatus: "aprovado",
+          cartaoGateway:
+            "sicredi-ipg",
 
-        cartaoTransacaoId:
-          identificadorTransacao,
+          cartaoStatus:
+            "aprovado",
 
-        cartaoUltimosDigitos:
-          ultimosDigitos,
+          cartaoTransacaoId:
+            identificadorTransacao,
 
-        sicrediCartaoApprovalCode:
-          respostaIpg.approvalCode || "",
+          cartaoUltimosDigitos:
+            ultimosDigitos,
 
-        sicrediCartaoProcessorCode:
-          respostaIpg.processorResponseCode ||
-          "",
+          sicrediCartaoApprovalCode:
+            respostaIpg
+              .approvalCode ||
+            "",
 
-        sicrediCartaoProcessorMessage:
-          respostaIpg.processorResponseMessage ||
-          "",
+          sicrediCartaoProcessorCode:
+            respostaIpg
+              .processorResponseCode ||
+            "",
 
-        sicrediCartaoReceiptNumber:
-          respostaIpg.processorReceiptNumber ||
-          "",
+          sicrediCartaoProcessorMessage:
+            respostaIpg
+              .processorResponseMessage ||
+            "",
 
-        sicrediCartaoTraceNumber:
-          respostaIpg.processorTraceNumber ||
-          "",
+          sicrediCartaoReceiptNumber:
+            respostaIpg
+              .processorReceiptNumber ||
+            "",
 
-        sicrediCartaoReferenceNumber:
-          respostaIpg.processorReferenceNumber ||
-          "",
+          sicrediCartaoTraceNumber:
+            respostaIpg
+              .processorTraceNumber ||
+            "",
 
-        sicrediCartaoTransactionTime:
-          respostaIpg.transactionTime || "",
+          sicrediCartaoReferenceNumber:
+            respostaIpg
+              .processorReferenceNumber ||
+            "",
 
-        pagamentoSimulado: false,
-      });
+          sicrediCartaoTransactionTime:
+            respostaIpg
+              .transactionTime ||
+            "",
+
+          pagamentoSimulado:
+            false,
+
+          pagamentoTesteReal:
+            false,
+        }
+      );
 
       return NextResponse.json({
         ok: true,
-        aprovado: true,
-        simulado: false,
+
+        aprovado:
+          true,
+
+        simulado:
+          false,
+
+        testeValor:
+          false,
 
         mensagem:
           "Pagamento aprovado e ingresso liberado.",
@@ -485,116 +986,194 @@ export async function POST(req: NextRequest) {
         pedidoId,
 
         transactionId:
-          identificadorTransacao || null,
+          identificadorTransacao ||
+          null,
 
         approvalCode:
-          respostaIpg.approvalCode || null,
+          respostaIpg
+            .approvalCode ||
+          null,
 
         codigoIngresso:
-          resultadoFinalizacao.codigoIngresso ||
+          resultadoFinalizacao
+            .codigoIngresso ||
           null,
 
         emailEnviado:
-          resultadoFinalizacao.emailEnviado ||
+          resultadoFinalizacao
+            .emailEnviado ||
           false,
 
         statusFinalizacao:
-          resultadoFinalizacao.status,
+          resultadoFinalizacao
+            .status,
 
-        tempoMs: Date.now() - inicio,
+        tempoMs:
+          Date.now() -
+          inicio,
       });
     }
 
-    /*
-     * PAGAMENTO RECUSADO OU NÃO APROVADO
-     */
+    /* =====================================================
+       PAGAMENTO RECUSADO / NÃO APROVADO
+       ===================================================== */
+
     const mensagemRecusa =
-      respostaIpg.processorResponseMessage ||
-      respostaIpg.errorMessage ||
-      respostaIpg.faultString ||
+      respostaIpg
+        .processorResponseMessage ||
+      respostaIpg
+        .errorMessage ||
+      respostaIpg
+        .faultString ||
       "Pagamento não aprovado.";
 
     const statusCartao =
       respostaIpg.fraude
         ? "analise_ou_fraude"
-        : "recusado";
+        : valorTesteAtivo
+          ? "teste_recusado"
+          : "recusado";
 
-    await atualizarPedido(pedidoId, {
-      formaPagamento: "cartao",
-      parcelas: 1,
+    await atualizarPedido(
+      pedidoId,
+      {
+        formaPagamento:
+          "cartao",
 
-      cartaoStatus: statusCartao,
-      cartaoGateway: "sicredi-ipg",
+        parcelas:
+          1,
 
-      cartaoTransacaoId:
-        identificadorTransacao,
+        cartaoStatus:
+          statusCartao,
 
-      cartaoUltimosDigitos:
-        ultimosDigitos,
+        cartaoGateway:
+          "sicredi-ipg",
 
-      sicrediCartaoProcessorCode:
-        respostaIpg.processorResponseCode ||
-        "",
+        cartaoTransacaoId:
+          identificadorTransacao,
 
-      sicrediCartaoProcessorMessage:
-        mensagemRecusa,
+        cartaoUltimosDigitos:
+          ultimosDigitos,
 
-      sicrediCartaoReceiptNumber:
-        respostaIpg.processorReceiptNumber ||
-        "",
+        sicrediCartaoProcessorCode:
+          respostaIpg
+            .processorResponseCode ||
+          "",
 
-      sicrediCartaoTraceNumber:
-        respostaIpg.processorTraceNumber ||
-        "",
+        sicrediCartaoProcessorMessage:
+          mensagemRecusa,
 
-      sicrediCartaoReferenceNumber:
-        respostaIpg.processorReferenceNumber ||
-        "",
+        sicrediCartaoReceiptNumber:
+          respostaIpg
+            .processorReceiptNumber ||
+          "",
 
-      sicrediCartaoTransactionTime:
-        respostaIpg.transactionTime || "",
+        sicrediCartaoTraceNumber:
+          respostaIpg
+            .processorTraceNumber ||
+          "",
 
-      cartaoUltimaTentativaEm:
-        new Date().toISOString(),
+        sicrediCartaoReferenceNumber:
+          respostaIpg
+            .processorReferenceNumber ||
+          "",
 
-      pagamentoSimulado: false,
-    });
+        sicrediCartaoTransactionTime:
+          respostaIpg
+            .transactionTime ||
+          "",
+
+        cartaoUltimaTentativaEm:
+          new Date()
+            .toISOString(),
+
+        pagamentoSimulado:
+          false,
+
+        pagamentoTesteReal:
+          valorTesteAtivo,
+
+        pagamentoTesteValor:
+          valorTesteAtivo
+            ? 1
+            : null,
+
+        pagamentoTesteAprovado:
+          valorTesteAtivo
+            ? false
+            : null,
+
+        pagamentoTesteEm:
+          valorTesteAtivo
+            ? new Date()
+              .toISOString()
+            : null,
+      }
+    );
 
     return NextResponse.json(
       {
-        ok: false,
-        aprovado: false,
-        simulado: false,
+        ok:
+          false,
+
+        aprovado:
+          false,
+
+        simulado:
+          false,
+
+        testeValor:
+          valorTesteAtivo,
 
         recusado:
-          Boolean(respostaIpg.recusado),
+          Boolean(
+            respostaIpg.recusado
+          ),
 
         fraude:
-          Boolean(respostaIpg.fraude),
+          Boolean(
+            respostaIpg.fraude
+          ),
 
         mensagem:
           mensagemRecusa,
 
         processorResponseCode:
-          respostaIpg.processorResponseCode ||
+          respostaIpg
+            .processorResponseCode ||
           null,
 
         transactionId:
-          identificadorTransacao || null,
+          identificadorTransacao ||
+          null,
 
-        tempoMs: Date.now() - inicio,
+        valorEnviado:
+          valorCobranca,
+
+        tempoMs:
+          Date.now() -
+          inicio,
       },
-      { status: 402 }
+      {
+        status:
+          402,
+      }
     );
-  } catch (error: unknown) {
-    const erro = error as {
-      code?: string;
-      message?: string;
-      cause?: {
+  } catch (
+  error: unknown
+  ) {
+    const erro =
+      error as {
         code?: string;
+
         message?: string;
+
+        cause?: {
+          code?: string;
+
+          message?: string;
+        };
       };
-    };
 
     const codigo =
       erro?.code ||
@@ -607,9 +1186,12 @@ export async function POST(req: NextRequest) {
       "Erro interno ao processar o cartão.";
 
     /*
-     * Não imprimir o erro completo.
-     * Algumas bibliotecas podem incluir dados da requisição.
+     * Nunca imprimir o objeto completo.
+     *
+     * Algumas bibliotecas podem carregar
+     * dados sensíveis da requisição.
      */
+
     console.error(
       "Erro na rota de cartão Sicredi:",
       {
@@ -620,16 +1202,25 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        ok: false,
-        aprovado: false,
+        ok:
+          false,
+
+        aprovado:
+          false,
 
         mensagem:
           "Não foi possível processar o cartão. Verifique os dados e tente novamente.",
 
         codigo,
-        tempoMs: Date.now() - inicio,
+
+        tempoMs:
+          Date.now() -
+          inicio,
       },
-      { status: 500 }
+      {
+        status:
+          500,
+      }
     );
   }
 }

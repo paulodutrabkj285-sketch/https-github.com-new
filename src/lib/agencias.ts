@@ -342,6 +342,14 @@ export async function criarAgencia(
                 cadasturSituacao:
                     "aguardando_verificacao",
 
+                /*
+                 * Mantido apenas como campo
+                 * administrativo do cadastro.
+                 *
+                 * A regra real do desconto
+                 * é calculada pela quantidade
+                 * de visitantes.
+                 */
                 descontoPadrao:
                     5,
 
@@ -703,8 +711,17 @@ export function agenciaPodeReservar(
 ========================================== */
 
 /*
- * 1 a 20 pessoas = 5%
- * acima de 20 = 10%
+ * REGRA OFICIAL DE DESCONTO
+ * PARA AGÊNCIAS / PARCEIROS
+ *
+ * 1 a 4 pessoas:
+ * SEM DESCONTO
+ *
+ * 5 a 20 pessoas:
+ * 5% DE DESCONTO
+ *
+ * 21 pessoas ou mais:
+ * 10% DE DESCONTO
  */
 
 export function calcularDescontoGrupo(
@@ -716,6 +733,10 @@ export function calcularDescontoGrupo(
             0
         );
 
+    /*
+     * Valor inválido ou
+     * nenhuma pessoa.
+     */
     if (
         !Number.isFinite(
             total
@@ -725,13 +746,31 @@ export function calcularDescontoGrupo(
         return 0;
     }
 
+    /*
+     * 1, 2, 3 ou 4 pessoas:
+     * SEM DESCONTO.
+     */
     if (
-        total > 20
+        total < 5
     ) {
-        return 10;
+        return 0;
     }
 
-    return 5;
+    /*
+     * De 5 até 20 pessoas:
+     * 5% DE DESCONTO.
+     */
+    if (
+        total <= 20
+    ) {
+        return 5;
+    }
+
+    /*
+     * A partir de 21 pessoas:
+     * 10% DE DESCONTO.
+     */
+    return 10;
 }
 
 /* ==========================================
