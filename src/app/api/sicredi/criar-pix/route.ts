@@ -1,268 +1,611 @@
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import axios from "axios";
-import { atualizarPedido, buscarPedidoPorId } from "@/lib/pedidos";
+import {
+    atualizarPedido,
+    buscarPedidoPorId,
+} from "@/lib/pedidos";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/* =========================================================
+   UTILITÁRIOS
+========================================================= */
 
 function somenteDigitos(valor: any) {
     return String(valor || "").replace(/\D/g, "");
 }
 
+/* =========================================================
+   CERTIFICADO SICREDI
+========================================================= */
+
 function criarHttpsAgent() {
-    const certBase64 = process.env.SICREDI_CERT_BASE64;
-    const keyBase64 = process.env.SICREDI_KEY_BASE64;
+    const certBase64 =
+        process.env.SICREDI_CERT_BASE64;
+
+    const keyBase64 =
+        process.env.SICREDI_KEY_BASE64;
 
     if (!certBase64 || !keyBase64) {
-        throw new Error("Certificado Sicredi não configurado.");
+        throw new Error(
+            "Certificado Sicredi não configurado."
+        );
     }
 
     return new https.Agent({
-        cert: Buffer.from(certBase64, "base64").toString("utf8"),
-        key: Buffer.from(keyBase64, "base64").toString("utf8"),
+        cert: Buffer.from(
+            certBase64,
+            "base64"
+        ).toString("utf8"),
+
+        key: Buffer.from(
+            keyBase64,
+            "base64"
+        ).toString("utf8"),
+
         rejectUnauthorized: true,
     });
 }
 
-async function obterToken() {
-    const baseUrl = process.env.SICREDI_BASE_URL;
-    const clientId = process.env.SICREDI_CLIENT_ID;
-    const clientSecret = process.env.SICREDI_CLIENT_SECRET;
+/* =========================================================
+   TOKEN SICREDI
+========================================================= */
 
-    if (!baseUrl || !clientId || !clientSecret) {
-        throw new Error("Credenciais Sicredi não configuradas.");
+async function obterToken() {
+    const baseUrl =
+        process.env.SICREDI_BASE_URL;
+
+    const clientId =
+        process.env.SICREDI_CLIENT_ID;
+
+    const clientSecret =
+        process.env.SICREDI_CLIENT_SECRET;
+
+    if (
+        !baseUrl ||
+        !clientId ||
+        !clientSecret
+    ) {
+        throw new Error(
+            "Credenciais Sicredi não configuradas."
+        );
     }
 
     const response = await axios.post(
         `${baseUrl}/oauth/token`,
+
         new URLSearchParams({
-            grant_type: "client_credentials",
+            grant_type:
+                "client_credentials",
         }).toString(),
+
         {
-            httpsAgent: criarHttpsAgent(),
+            httpsAgent:
+                criarHttpsAgent(),
+
             headers: {
                 Authorization:
                     "Basic " +
-                    Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
-                "Content-Type": "application/x-www-form-urlencoded",
+                    Buffer.from(
+                        `${clientId}:${clientSecret}`
+                    ).toString(
+                        "base64"
+                    ),
+
+                "Content-Type":
+                    "application/x-www-form-urlencoded",
             },
         }
     );
 
-    return response.data.access_token as string;
+    return response.data
+        .access_token as string;
 }
 
-function cpfValido(cpf: string) {
-    const numeros = somenteDigitos(cpf);
+/* =========================================================
+   VALIDAR CPF
+========================================================= */
 
-    if (numeros.length !== 11) return false;
-    if (/^(\d)\1{10}$/.test(numeros)) return false;
+function cpfValido(
+    cpf: string
+) {
+    const numeros =
+        somenteDigitos(cpf);
+
+    if (
+        numeros.length !== 11
+    ) {
+        return false;
+    }
+
+    if (
+        /^(\d)\1{10}$/.test(
+            numeros
+        )
+    ) {
+        return false;
+    }
 
     let soma = 0;
 
-    for (let i = 0; i < 9; i++) {
-        soma += Number(numeros[i]) * (10 - i);
+    for (
+        let i = 0;
+        i < 9;
+        i++
+    ) {
+        soma +=
+            Number(numeros[i]) *
+            (10 - i);
     }
 
-    let digito1 = 11 - (soma % 11);
-    if (digito1 >= 10) digito1 = 0;
+    let digito1 =
+        11 - (soma % 11);
 
-    if (digito1 !== Number(numeros[9])) return false;
+    if (
+        digito1 >= 10
+    ) {
+        digito1 = 0;
+    }
+
+    if (
+        digito1 !==
+        Number(numeros[9])
+    ) {
+        return false;
+    }
 
     soma = 0;
 
-    for (let i = 0; i < 10; i++) {
-        soma += Number(numeros[i]) * (11 - i);
+    for (
+        let i = 0;
+        i < 10;
+        i++
+    ) {
+        soma +=
+            Number(numeros[i]) *
+            (11 - i);
     }
 
-    let digito2 = 11 - (soma % 11);
-    if (digito2 >= 10) digito2 = 0;
+    let digito2 =
+        11 - (soma % 11);
 
-    return digito2 === Number(numeros[10]);
-}
-
-function normalizarChavePix(chave: string) {
-    const chaveLimpa = String(chave || "").trim();
-
-    if (chaveLimpa.includes("@")) {
-        return chaveLimpa.toLowerCase();
+    if (
+        digito2 >= 10
+    ) {
+        digito2 = 0;
     }
 
-    return chaveLimpa.replace(/\s/g, "");
-}
-
-async function consultarCobranca(txid: string, token: string) {
-    const baseUrl = process.env.SICREDI_BASE_URL!;
-
-    const response = await axios.get(
-        `${baseUrl}/api/v2/cob/${txid}`,
-        {
-            httpsAgent: criarHttpsAgent(),
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        }
+    return (
+        digito2 ===
+        Number(numeros[10])
     );
+}
+
+/* =========================================================
+   NORMALIZAR CHAVE PIX
+========================================================= */
+
+function normalizarChavePix(
+    chave: string
+) {
+    const chaveLimpa =
+        String(
+            chave || ""
+        ).trim();
+
+    if (
+        chaveLimpa.includes("@")
+    ) {
+        return chaveLimpa
+            .toLowerCase();
+    }
+
+    return chaveLimpa.replace(
+        /\s/g,
+        ""
+    );
+}
+
+/* =========================================================
+   CONSULTAR COBRANÇA EXISTENTE
+========================================================= */
+
+async function consultarCobranca(
+    txid: string,
+    token: string
+) {
+    const baseUrl =
+        process.env
+            .SICREDI_BASE_URL!;
+
+    const response =
+        await axios.get(
+            `${baseUrl}/api/v2/cob/${txid}`,
+            {
+                httpsAgent:
+                    criarHttpsAgent(),
+
+                headers: {
+                    Authorization:
+                        `Bearer ${token}`,
+                },
+            }
+        );
 
     return response.data;
 }
 
-function cobrancaAindaValida(cobranca: any) {
-    const criacao = cobranca?.calendario?.criacao;
-    const expiracao = Number(
-        cobranca?.calendario?.expiracao || 3600
-    );
+/* =========================================================
+   VERIFICAR VALIDADE DA COBRANÇA
+========================================================= */
 
-    if (!criacao) return false;
+function cobrancaAindaValida(
+    cobranca: any
+) {
+    const criacao =
+        cobranca?.calendario
+            ?.criacao;
 
-    const criadaEm = new Date(criacao).getTime();
+    const expiracao =
+        Number(
+            cobranca
+                ?.calendario
+                ?.expiracao ||
+            3600
+        );
 
-    if (!Number.isFinite(criadaEm)) {
+    if (!criacao) {
         return false;
     }
 
-    const expiraEm = criadaEm + expiracao * 1000;
+    const criadaEm =
+        new Date(
+            criacao
+        ).getTime();
 
-    return Date.now() < expiraEm;
+    if (
+        !Number.isFinite(
+            criadaEm
+        )
+    ) {
+        return false;
+    }
+
+    const expiraEm =
+        criadaEm +
+        expiracao * 1000;
+
+    return (
+        Date.now() <
+        expiraEm
+    );
 }
 
-export async function POST(req: NextRequest) {
-    try {
-        console.log("CRIAR PIX: início");
+/* =========================================================
+   CRIAR PIX
+========================================================= */
 
-        const body = await req.json();
+export async function POST(
+    req: NextRequest
+) {
+    try {
+        console.log(
+            "CRIAR PIX: início"
+        );
+
+        /* =================================================
+           LER DADOS ENVIADOS PELO NAVEGADOR
+
+           IMPORTANTE:
+           o navegador NÃO define o valor da cobrança.
+        ================================================= */
+
+        const body =
+            await req.json();
 
         const {
             pedidoId,
             nome,
             cpf,
             produto,
-            valorTotal,
         } = body;
+
+        /* =================================================
+           VALIDAR ID DO PEDIDO
+        ================================================= */
 
         if (!pedidoId) {
             return NextResponse.json(
                 {
                     ok: false,
-                    error: "Pedido não informado.",
+
+                    error:
+                        "Pedido não informado.",
                 },
-                { status: 400 }
+                {
+                    status: 400,
+
+                    headers: {
+                        "Cache-Control":
+                            "no-store",
+                    },
+                }
             );
         }
 
-        const pedidoSalvo: any =
-            await buscarPedidoPorId(pedidoId);
+        /* =================================================
+           BUSCAR PEDIDO DIRETAMENTE NO FIRESTORE
+
+           O Firestore é a fonte oficial dos dados
+           financeiros.
+        ================================================= */
+
+        const pedidoSalvo:
+            any =
+            await buscarPedidoPorId(
+                pedidoId
+            );
 
         if (!pedidoSalvo) {
             return NextResponse.json(
                 {
                     ok: false,
-                    error: "Pedido não encontrado.",
+
+                    error:
+                        "Pedido não encontrado.",
                 },
-                { status: 404 }
+                {
+                    status: 404,
+
+                    headers: {
+                        "Cache-Control":
+                            "no-store",
+                    },
+                }
             );
         }
 
-        /*
-         * Se o pedido já estiver pago,
-         * nunca criar uma nova cobrança.
-         */
-        if (pedidoSalvo.statusPagamento === "pago") {
-            return NextResponse.json({
-                ok: true,
-                pago: true,
-                status: "CONCLUIDA",
-                mensagem: "Este pedido já está pago.",
-                txid: pedidoSalvo.sicrediTxid || "",
-                pixCopiaCola:
-                    pedidoSalvo.sicrediPixCopiaCola || "",
-                location:
-                    pedidoSalvo.sicrediLocation || "",
-            });
-        }
+        /* =================================================
+           IMPEDIR COBRANÇA DUPLA
 
-        const nomeFinal = String(
-            nome ||
-            pedidoSalvo.nome ||
-            "Cliente"
-        ).trim();
-
-        const cpfFinal = somenteDigitos(
-            cpf ||
-            pedidoSalvo.cpf ||
-            ""
-        );
-
-        /*
-         * IMPORTANTE:
-         * usa preferencialmente o valor salvo
-         * no Firestore, não o valor enviado
-         * pelo navegador.
-         */
-        const valorNumerico = Number(
-            pedidoSalvo.valorTotal ??
-            valorTotal ??
-            0
-        );
+           Pedido pago nunca gera outro Pix.
+        ================================================= */
 
         if (
-            !Number.isFinite(valorNumerico) ||
+            pedidoSalvo
+                .statusPagamento ===
+            "pago"
+        ) {
+            return NextResponse.json(
+                {
+                    ok: true,
+
+                    pago: true,
+
+                    status:
+                        "CONCLUIDA",
+
+                    mensagem:
+                        "Este pedido já está pago.",
+
+                    txid:
+                        pedidoSalvo
+                            .sicrediTxid ||
+                        "",
+
+                    pixCopiaCola:
+                        pedidoSalvo
+                            .sicrediPixCopiaCola ||
+                        "",
+
+                    location:
+                        pedidoSalvo
+                            .sicrediLocation ||
+                        "",
+                },
+                {
+                    headers: {
+                        "Cache-Control":
+                            "no-store",
+                    },
+                }
+            );
+        }
+
+        /* =================================================
+           NOME DO PAGADOR
+        ================================================= */
+
+        const nomeFinal =
+            String(
+                nome ||
+                pedidoSalvo.nome ||
+                "Cliente"
+            ).trim();
+
+        /* =================================================
+           CPF DO PAGADOR
+        ================================================= */
+
+        const cpfFinal =
+            somenteDigitos(
+                cpf ||
+                pedidoSalvo.cpf ||
+                ""
+            );
+
+        /* =================================================
+           VALOR DO PIX — PROTEÇÃO PRINCIPAL
+
+           O valor vem EXCLUSIVAMENTE do pedido salvo
+           no Firestore.
+
+           NÃO existe mais fallback para valor enviado
+           pela URL ou pelo navegador.
+
+           Portanto:
+
+           ?valorTotal=1
+
+           ou qualquer modificação feita pela agência
+           no navegador NÃO altera a cobrança.
+        ================================================= */
+
+        const valorNumerico =
+            Number(
+                pedidoSalvo
+                    .valorTotal ??
+                0
+            );
+
+        /* =================================================
+           VALIDAR VALOR DO FIRESTORE
+        ================================================= */
+
+        if (
+            !Number.isFinite(
+                valorNumerico
+            ) ||
             valorNumerico <= 0
+        ) {
+            console.error(
+                "PIX BLOQUEADO: valor inválido no pedido.",
+                {
+                    pedidoId,
+
+                    valorPedido:
+                        pedidoSalvo
+                            .valorTotal ??
+                        null,
+                }
+            );
+
+            return NextResponse.json(
+                {
+                    ok: false,
+
+                    error:
+                        "Valor do pedido inválido.",
+                },
+                {
+                    status: 400,
+
+                    headers: {
+                        "Cache-Control":
+                            "no-store",
+                    },
+                }
+            );
+        }
+
+        /* =================================================
+           FORMATAR VALOR PARA SICREDI
+        ================================================= */
+
+        const valorFinal =
+            valorNumerico
+                .toFixed(2);
+
+        /* =================================================
+           VALIDAR CPF
+        ================================================= */
+
+        if (
+            !cpfValido(
+                cpfFinal
+            )
         ) {
             return NextResponse.json(
                 {
                     ok: false,
-                    error: "Valor do pedido inválido.",
-                },
-                { status: 400 }
-            );
-        }
 
-        const valorFinal =
-            valorNumerico.toFixed(2);
-
-        if (!cpfValido(cpfFinal)) {
-            return NextResponse.json(
-                {
-                    ok: false,
                     error:
                         "CPF inválido ou não encontrado no pedido.",
                 },
-                { status: 400 }
+                {
+                    status: 400,
+
+                    headers: {
+                        "Cache-Control":
+                            "no-store",
+                    },
+                }
             );
         }
 
+        /* =================================================
+           CONFIGURAÇÕES SICREDI
+        ================================================= */
+
         const baseUrl =
-            process.env.SICREDI_BASE_URL;
+            process.env
+                .SICREDI_BASE_URL;
 
-        const chavePix = normalizarChavePix(
-            process.env.SICREDI_PIX_KEY || ""
-        );
+        const chavePix =
+            normalizarChavePix(
+                process.env
+                    .SICREDI_PIX_KEY ||
+                ""
+            );
 
-        if (!baseUrl || !chavePix) {
+        if (
+            !baseUrl ||
+            !chavePix
+        ) {
             throw new Error(
                 "Variáveis Sicredi não configuradas."
             );
         }
 
-        const token = await obterToken();
+        /* =================================================
+           LOG SEGURO
 
-        /*
-         * ====================================================
-         * REUTILIZAR PIX EXISTENTE
-         * ====================================================
-         *
-         * Esta é a correção principal.
-         *
-         * Se já existe TXID para esse pedido,
-         * consultamos a cobrança antes de criar outra.
-         */
-        const txidExistente = String(
-            pedidoSalvo.sicrediTxid || ""
-        ).trim();
+           Não mostra:
+           - certificado
+           - chave privada
+           - client secret
+        ================================================= */
 
-        if (txidExistente) {
+        console.log(
+            "PIX PEDIDO VALIDADO:",
+            {
+                pedidoId,
+
+                valor:
+                    valorFinal,
+
+                statusPagamento:
+                    pedidoSalvo
+                        .statusPagamento ||
+                    "pendente",
+            }
+        );
+
+        /* =================================================
+           OBTER TOKEN
+        ================================================= */
+
+        const token =
+            await obterToken();
+
+        /* =================================================
+           REUTILIZAR PIX EXISTENTE
+
+           Se já existe TXID, consultar primeiro.
+        ================================================= */
+
+        const txidExistente =
+            String(
+                pedidoSalvo
+                    .sicrediTxid ||
+                ""
+            ).trim();
+
+        if (
+            txidExistente
+        ) {
             try {
                 const cobrancaExistente =
                     await consultarCobranca(
@@ -274,50 +617,77 @@ export async function POST(req: NextRequest) {
                     "PIX EXISTENTE CONSULTADO:",
                     {
                         pedidoId,
-                        txid: txidExistente,
+
+                        txid:
+                            txidExistente,
+
                         status:
-                            cobrancaExistente?.status ||
+                            cobrancaExistente
+                                ?.status ||
                             "",
                     }
                 );
 
                 const pixCopiaCola =
-                    cobrancaExistente?.pixCopiaECola ||
-                    pedidoSalvo.sicrediPixCopiaCola ||
+                    cobrancaExistente
+                        ?.pixCopiaECola ||
+                    pedidoSalvo
+                        .sicrediPixCopiaCola ||
                     "";
 
                 const location =
-                    cobrancaExistente?.location ||
-                    pedidoSalvo.sicrediLocation ||
+                    cobrancaExistente
+                        ?.location ||
+                    pedidoSalvo
+                        .sicrediLocation ||
                     "";
 
-                /*
-                 * Se o Sicredi já marcou como concluída,
-                 * não cria novo Pix.
-                 */
+                /* =========================================
+                   PIX JÁ CONCLUÍDO
+                ========================================= */
+
                 if (
-                    cobrancaExistente?.status ===
+                    cobrancaExistente
+                        ?.status ===
                     "CONCLUIDA"
                 ) {
-                    return NextResponse.json({
-                        ok: true,
-                        pago: true,
-                        txid: txidExistente,
-                        status: "CONCLUIDA",
-                        pixCopiaCola,
-                        location,
-                        mensagem:
-                            "Pagamento já confirmado pelo Sicredi.",
-                    });
+                    return NextResponse.json(
+                        {
+                            ok: true,
+
+                            pago: true,
+
+                            txid:
+                                txidExistente,
+
+                            status:
+                                "CONCLUIDA",
+
+                            pixCopiaCola,
+
+                            location,
+
+                            mensagem:
+                                "Pagamento já confirmado pelo Sicredi.",
+                        },
+                        {
+                            headers: {
+                                "Cache-Control":
+                                    "no-store",
+                            },
+                        }
+                    );
                 }
 
-                /*
-                 * Se a cobrança continua ATIVA
-                 * e ainda não expirou, devolvemos
-                 * EXATAMENTE o mesmo QR Code.
-                 */
+                /* =========================================
+                   PIX AINDA ATIVO
+
+                   Reutiliza o mesmo Pix.
+                ========================================= */
+
                 if (
-                    cobrancaExistente?.status ===
+                    cobrancaExistente
+                        ?.status ===
                     "ATIVA" &&
                     cobrancaAindaValida(
                         cobrancaExistente
@@ -327,64 +697,92 @@ export async function POST(req: NextRequest) {
                         "REUTILIZANDO PIX EXISTENTE:",
                         {
                             pedidoId,
-                            txid: txidExistente,
+
+                            txid:
+                                txidExistente,
                         }
                     );
 
-                    return NextResponse.json({
-                        ok: true,
-                        reutilizado: true,
-                        txid: txidExistente,
-                        status: "ATIVA",
-                        pixCopiaCola,
-                        location,
-                    });
+                    return NextResponse.json(
+                        {
+                            ok: true,
+
+                            reutilizado:
+                                true,
+
+                            txid:
+                                txidExistente,
+
+                            status:
+                                "ATIVA",
+
+                            pixCopiaCola,
+
+                            location,
+                        },
+                        {
+                            headers: {
+                                "Cache-Control":
+                                    "no-store",
+                            },
+                        }
+                    );
                 }
 
                 console.log(
                     "PIX ANTERIOR EXPIRADO OU NÃO REUTILIZÁVEL:",
                     {
                         pedidoId,
-                        txid: txidExistente,
+
+                        txid:
+                            txidExistente,
+
                         status:
-                            cobrancaExistente?.status ||
+                            cobrancaExistente
+                                ?.status ||
                             "",
                     }
                 );
-            } catch (erroConsulta: any) {
+            } catch (
+            erroConsulta: any
+            ) {
                 /*
-                 * Se a cobrança não existir mais,
-                 * podemos criar uma nova.
-                 *
-                 * Porém deixamos isso registrado
-                 * para diagnóstico.
+                 * Se não foi possível consultar
+                 * a cobrança anterior,
+                 * registramos o erro.
                  */
+
                 console.error(
                     "ERRO AO CONSULTAR PIX EXISTENTE:",
                     {
                         pedidoId,
-                        txid: txidExistente,
+
+                        txid:
+                            txidExistente,
+
                         status:
-                            erroConsulta?.response?.status ||
+                            erroConsulta
+                                ?.response
+                                ?.status ||
                             null,
+
                         erro:
-                            erroConsulta?.response?.data ||
-                            erroConsulta?.message,
+                            erroConsulta
+                                ?.response
+                                ?.data ||
+                            erroConsulta
+                                ?.message,
                     }
                 );
             }
         }
 
-        /*
-         * ====================================================
-         * CRIAR NOVA COBRANÇA
-         * ====================================================
-         *
-         * Só chega aqui quando:
-         * - não havia TXID;
-         * - ou cobrança anterior expirou;
-         * - ou cobrança anterior não existe mais.
-         */
+        /* =================================================
+           CRIAR NOVA COBRANÇA
+
+           VALOR:
+           exclusivamente pedidoSalvo.valorTotal
+        ================================================= */
 
         const payload = {
             calendario: {
@@ -392,46 +790,82 @@ export async function POST(req: NextRequest) {
             },
 
             devedor: {
-                cpf: cpfFinal,
-                nome: nomeFinal,
+                cpf:
+                    cpfFinal,
+
+                nome:
+                    nomeFinal,
             },
 
             valor: {
-                original: valorFinal,
+                original:
+                    valorFinal,
             },
 
-            chave: chavePix,
+            chave:
+                chavePix,
 
             solicitacaoPagador:
                 String(
                     produto ||
-                    pedidoSalvo.produto ||
+                    pedidoSalvo
+                        .produto ||
                     "Ingresso Parque Mundo Novo"
                 ),
         };
 
-        const response = await axios.post(
-            `${baseUrl}/api/v2/cob`,
-            payload,
-            {
-                httpsAgent: criarHttpsAgent(),
+        /* =================================================
+           ENVIAR PARA SICREDI
+        ================================================= */
 
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type":
-                        "application/json",
-                },
+        const response =
+            await axios.post(
+                `${baseUrl}/api/v2/cob`,
+
+                payload,
+
+                {
+                    httpsAgent:
+                        criarHttpsAgent(),
+
+                    headers: {
+                        Authorization:
+                            `Bearer ${token}`,
+
+                        "Content-Type":
+                            "application/json",
+                    },
+                }
+            );
+
+        const data =
+            response.data;
+
+        /* =================================================
+           LOG SEGURO
+        ================================================= */
+
+        console.log(
+            "NOVO PIX CRIADO:",
+            {
+                pedidoId,
+
+                txid:
+                    data?.txid ||
+                    "",
+
+                status:
+                    data?.status ||
+                    "",
+
+                valor:
+                    valorFinal,
             }
         );
 
-        const data = response.data;
-
-        console.log("NOVO PIX CRIADO:", {
-            pedidoId,
-            txid: data?.txid || "",
-            status: data?.status || "",
-            valor: valorFinal,
-        });
+        /* =================================================
+           PIX COPIA E COLA
+        ================================================= */
 
         const pixCopiaCola =
             data?.pixCopiaECola ||
@@ -440,54 +874,101 @@ export async function POST(req: NextRequest) {
             data?.emv ||
             "";
 
-        await atualizarPedido(pedidoId, {
-            statusPagamento: "pendente",
+        /* =================================================
+           SALVAR DADOS DO PIX NO FIRESTORE
+        ================================================= */
 
-            sicrediTxid:
-                data?.txid || "",
+        await atualizarPedido(
+            pedidoId,
+            {
+                statusPagamento:
+                    "pendente",
 
-            sicrediStatus:
-                data?.status || "ATIVA",
+                sicrediTxid:
+                    data?.txid ||
+                    "",
 
-            sicrediPixCopiaCola:
+                sicrediStatus:
+                    data?.status ||
+                    "ATIVA",
+
+                sicrediPixCopiaCola:
+                    pixCopiaCola,
+
+                sicrediLocation:
+                    data?.location ||
+                    "",
+
+                sicrediPixCriadoEm:
+                    new Date()
+                        .toISOString(),
+            }
+        );
+
+        /* =================================================
+           RESPOSTA PARA CHECKOUT
+        ================================================= */
+
+        return NextResponse.json(
+            {
+                ok: true,
+
+                reutilizado:
+                    false,
+
+                txid:
+                    data?.txid ||
+                    "",
+
+                status:
+                    data?.status ||
+                    "",
+
                 pixCopiaCola,
 
-            sicrediLocation:
-                data?.location || "",
-
-            sicrediPixCriadoEm:
-                new Date().toISOString(),
-        });
-
-        return NextResponse.json({
-            ok: true,
-            reutilizado: false,
-            txid: data?.txid || "",
-            status: data?.status || "",
-            pixCopiaCola,
-            location:
-                data?.location || "",
-        });
-    } catch (error: any) {
+                location:
+                    data?.location ||
+                    "",
+            },
+            {
+                headers: {
+                    "Cache-Control":
+                        "no-store",
+                },
+            }
+        );
+    } catch (
+    error: any
+    ) {
         console.error(
             "ERRO SICREDI CRIAR PIX:",
-            error?.response?.data ||
+            error?.response
+                ?.data ||
             error?.message
         );
 
         return NextResponse.json(
             {
                 ok: false,
+
                 error:
                     "Erro ao criar Pix Sicredi.",
+
                 details:
-                    error?.response?.data ||
+                    error?.response
+                        ?.data ||
                     error?.message,
             },
             {
                 status:
-                    error?.response?.status ||
+                    error?.response
+                        ?.status ||
                     500,
+
+                headers: {
+                    "Cache-Control":
+                        "no-store",
+                },
             }
         );
     }
