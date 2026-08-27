@@ -43,6 +43,12 @@ type Pedido = {
 
     emailIngressoReenviado?: boolean;
     emailIngressoReenviadoEm?: string;
+
+    whatsappIngressoEnviado?: boolean;
+    whatsappIngressoEnviadoEm?: string;
+
+    whatsappIngressoReenviado?: boolean;
+    whatsappIngressoReenviadoEm?: string;
 };
 
 type StatusEnvio = {
@@ -72,8 +78,21 @@ export default function EnvioIngressosPage() {
             >
         >({});
 
+    const [statusWhatsapp, setStatusWhatsapp] =
+        useState<
+            Record<
+                string,
+                StatusEnvio
+            >
+        >({});
+
     const [processandoId, setProcessandoId] =
         useState("");
+
+    const [
+        processandoWhatsappId,
+        setProcessandoWhatsappId,
+    ] = useState("");
 
     /* ==========================================
        CARREGAR PEDIDOS
@@ -310,7 +329,7 @@ export default function EnvioIngressosPage() {
                             "processando",
 
                         mensagem:
-                            "Enviando ingresso...",
+                            "Enviando ingresso por e-mail...",
                     },
                 })
             );
@@ -363,10 +382,6 @@ export default function EnvioIngressosPage() {
                 })
             );
 
-            /*
-             * Atualiza os dados exibidos
-             * após o envio.
-             */
             await carregarPedidos();
         } catch (
         error: any
@@ -397,6 +412,172 @@ export default function EnvioIngressosPage() {
             );
         } finally {
             setProcessandoId(
+                ""
+            );
+        }
+    }
+
+    /* ==========================================
+       REENVIAR WHATSAPP
+    ========================================== */
+
+    async function reenviarWhatsapp(
+        pedido: Pedido
+    ) {
+        if (
+            pedido.statusPagamento !==
+            "pago"
+        ) {
+            alert(
+                "Somente pedidos pagos podem ser enviados pelo WhatsApp."
+            );
+
+            return;
+        }
+
+        if (!pedido.telefone) {
+            alert(
+                "Este pedido não possui telefone cadastrado."
+            );
+
+            return;
+        }
+
+        const confirmou =
+            window.confirm(
+                `Enviar o ingresso ${pedido.codigoIngresso || ""} pelo WhatsApp para:\n\n${pedido.telefone}?`
+            );
+
+        if (!confirmou) {
+            return;
+        }
+
+        try {
+            setProcessandoWhatsappId(
+                pedido.id
+            );
+
+            setStatusWhatsapp(
+                (anterior) => ({
+                    ...anterior,
+
+                    [pedido.id]: {
+                        tipo:
+                            "processando",
+
+                        mensagem:
+                            "Enviando ingresso pelo WhatsApp...",
+                    },
+                })
+            );
+
+            /*
+             * A rota recebe somente o pedidoId.
+             *
+             * O backend deve:
+             *
+             * 1. Buscar o pedido no Firestore
+             * 2. Confirmar statusPagamento = pago
+             * 3. Gerar/localizar o PDF
+             * 4. Enviar pelo respond.io
+             * 5. Utilizar o template:
+             *
+             * ingresso_parque_mundo_novo
+             *
+             * 6. Preencher:
+             *
+             * {{1}} = nome
+             * {{2}} = data da visita
+             * {{3}} = código do ingresso
+             */
+
+            const response =
+                await fetch(
+                    "/api/reenviar-ingresso-whatsapp",
+                    {
+                        method:
+                            "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+
+                        body:
+                            JSON.stringify({
+                                pedidoId:
+                                    pedido.id,
+                            }),
+                    }
+                );
+
+            let resultado: any =
+                null;
+
+            try {
+                resultado =
+                    await response.json();
+            } catch {
+                throw new Error(
+                    "O servidor não retornou uma resposta JSON válida."
+                );
+            }
+
+            if (
+                !response.ok ||
+                !resultado?.ok
+            ) {
+                throw new Error(
+                    resultado?.error ||
+                    resultado?.mensagem ||
+                    "Erro ao enviar ingresso pelo WhatsApp."
+                );
+            }
+
+            setStatusWhatsapp(
+                (anterior) => ({
+                    ...anterior,
+
+                    [pedido.id]: {
+                        tipo:
+                            "sucesso",
+
+                        mensagem:
+                            `Ingresso enviado pelo WhatsApp para ${pedido.telefone}`,
+                    },
+                })
+            );
+
+            await carregarPedidos();
+        } catch (
+        error: any
+        ) {
+            const mensagem =
+                String(
+                    error?.message ||
+                    error ||
+                    "Erro ao enviar pelo WhatsApp."
+                );
+
+            console.error(
+                "Erro no envio WhatsApp:",
+                error
+            );
+
+            setStatusWhatsapp(
+                (anterior) => ({
+                    ...anterior,
+
+                    [pedido.id]: {
+                        tipo:
+                            "erro",
+
+                        mensagem,
+                    },
+                })
+            );
+        } finally {
+            setProcessandoWhatsappId(
                 ""
             );
         }
@@ -524,9 +705,8 @@ export default function EnvioIngressosPage() {
                             >
                                 Pesquise pedidos
                                 pagos e reenvie o
-                                ingresso diretamente
-                                para o e-mail do
-                                cliente.
+                                ingresso por e-mail
+                                ou WhatsApp.
                             </p>
                         </div>
                     </div>
@@ -657,8 +837,17 @@ export default function EnvioIngressosPage() {
                                         pedido.id
                                         ];
 
+                                    const statusWA =
+                                        statusWhatsapp[
+                                        pedido.id
+                                        ];
+
                                     const processando =
                                         processandoId ===
+                                        pedido.id;
+
+                                    const processandoWA =
+                                        processandoWhatsappId ===
                                         pedido.id;
 
                                     return (
@@ -796,7 +985,8 @@ export default function EnvioIngressosPage() {
                                                             {Number(
                                                                 pedido.quantidade ||
                                                                 0
-                                                            ) === 1
+                                                            ) ===
+                                                                1
                                                                 ? "pessoa"
                                                                 : "pessoas"}
                                                         </p>
@@ -863,11 +1053,11 @@ export default function EnvioIngressosPage() {
                                                         <p
                                                             style={{
                                                                 margin:
-                                                                    0,
+                                                                    "0 0 6px 0",
                                                             }}
                                                         >
                                                             <strong>
-                                                                Último envio:
+                                                                Último envio por e-mail:
                                                             </strong>{" "}
                                                             {pedido.emailIngressoReenviadoEm
                                                                 ? formatarDataHora(
@@ -876,6 +1066,26 @@ export default function EnvioIngressosPage() {
                                                                 : pedido.emailIngressoEnviadoEm
                                                                     ? formatarDataHora(
                                                                         pedido.emailIngressoEnviadoEm
+                                                                    )
+                                                                    : "Nenhum envio registrado"}
+                                                        </p>
+
+                                                        <p
+                                                            style={{
+                                                                margin:
+                                                                    0,
+                                                            }}
+                                                        >
+                                                            <strong>
+                                                                Último envio por WhatsApp:
+                                                            </strong>{" "}
+                                                            {pedido.whatsappIngressoReenviadoEm
+                                                                ? formatarDataHora(
+                                                                    pedido.whatsappIngressoReenviadoEm
+                                                                )
+                                                                : pedido.whatsappIngressoEnviadoEm
+                                                                    ? formatarDataHora(
+                                                                        pedido.whatsappIngressoEnviadoEm
                                                                     )
                                                                     : "Nenhum envio registrado"}
                                                         </p>
@@ -920,12 +1130,52 @@ export default function EnvioIngressosPage() {
                                                             }
                                                         </div>
                                                     )}
+
+                                                    {statusWA && (
+                                                        <div
+                                                            style={{
+                                                                marginTop:
+                                                                    "14px",
+
+                                                                borderRadius:
+                                                                    "12px",
+
+                                                                padding:
+                                                                    "12px",
+
+                                                                fontWeight:
+                                                                    "bold",
+
+                                                                background:
+                                                                    statusWA.tipo ===
+                                                                        "sucesso"
+                                                                        ? "#dcfce7"
+                                                                        : statusWA.tipo ===
+                                                                            "erro"
+                                                                            ? "#fee2e2"
+                                                                            : "#fef9c3",
+
+                                                                color:
+                                                                    statusWA.tipo ===
+                                                                        "sucesso"
+                                                                        ? "#166534"
+                                                                        : statusWA.tipo ===
+                                                                            "erro"
+                                                                            ? "#991b1b"
+                                                                            : "#854d0e",
+                                                            }}
+                                                        >
+                                                            {
+                                                                statusWA.mensagem
+                                                            }
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div
                                                     style={{
                                                         minWidth:
-                                                            "220px",
+                                                            "250px",
                                                     }}
                                                 >
                                                     <button
@@ -977,8 +1227,15 @@ export default function EnvioIngressosPage() {
                                                     </button>
 
                                                     <button
-                                                        disabled
-                                                        title="Disponível após integração com WhatsApp Business"
+                                                        onClick={() =>
+                                                            reenviarWhatsapp(
+                                                                pedido
+                                                            )
+                                                        }
+                                                        disabled={
+                                                            processandoWA ||
+                                                            !pedido.telefone
+                                                        }
                                                         style={{
                                                             width:
                                                                 "100%",
@@ -996,10 +1253,13 @@ export default function EnvioIngressosPage() {
                                                                 "16px",
 
                                                             background:
-                                                                "#d1d5db",
+                                                                processandoWA ||
+                                                                    !pedido.telefone
+                                                                    ? "#94a3b8"
+                                                                    : "#16a34a",
 
                                                             color:
-                                                                "#64748b",
+                                                                "#ffffff",
 
                                                             fontWeight:
                                                                 "bold",
@@ -1008,11 +1268,15 @@ export default function EnvioIngressosPage() {
                                                                 "16px",
 
                                                             cursor:
-                                                                "not-allowed",
+                                                                processandoWA ||
+                                                                    !pedido.telefone
+                                                                    ? "not-allowed"
+                                                                    : "pointer",
                                                         }}
                                                     >
-                                                        💬 WHATSAPP
-                                                        EM BREVE
+                                                        {processandoWA
+                                                            ? "ENVIANDO WHATSAPP..."
+                                                            : "💬 REENVIAR POR WHATSAPP"}
                                                     </button>
                                                 </div>
                                             </div>

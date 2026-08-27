@@ -1252,3 +1252,404 @@ export async function enviarLembreteCompraPendente({
     rejected: rejeitados,
   };
 }
+/* =========================================================
+   WHATSAPP - ENVIO DE INGRESSO VIA RESPOND.IO
+========================================================= */
+
+type EnviarIngressoWhatsappParams = {
+  telefone: string;
+  nome: string;
+  dataVisita: string;
+  codigoIngresso: string;
+  pdfUrl: string;
+  pedidoId: string;
+};
+
+export async function enviarIngressoPorWhatsapp({
+  telefone,
+  nome,
+  dataVisita,
+  codigoIngresso,
+  pdfUrl,
+  pedidoId,
+}: EnviarIngressoWhatsappParams) {
+
+  /* =====================================================
+     VARIÁVEIS DE AMBIENTE
+  ===================================================== */
+
+  const token =
+    String(
+      process.env.RESPOND_IO_TOKEN ||
+      ""
+    ).trim();
+
+  const payloadBaseRaw =
+    String(
+      process.env.RESPOND_IO_TEMPLATE_PAYLOAD ||
+      ""
+    ).trim();
+
+  if (!token) {
+    throw new Error(
+      "RESPOND_IO_TOKEN não configurado."
+    );
+  }
+
+  if (!payloadBaseRaw) {
+    throw new Error(
+      "RESPOND_IO_TEMPLATE_PAYLOAD não configurado."
+    );
+  }
+
+  /* =====================================================
+     VALIDAR DADOS
+  ===================================================== */
+
+  const telefoneLimpo =
+    String(
+      telefone || ""
+    ).replace(
+      /\D/g,
+      ""
+    );
+
+  if (!telefoneLimpo) {
+    throw new Error(
+      "Telefone não informado para envio pelo WhatsApp."
+    );
+  }
+
+  if (!pdfUrl) {
+    throw new Error(
+      "URL do PDF do ingresso não informada."
+    );
+  }
+
+  /* =====================================================
+     LER PAYLOAD SALVO NA VERCEL
+  ===================================================== */
+
+  let payloadBase: any;
+
+  try {
+    payloadBase =
+      JSON.parse(
+        payloadBaseRaw
+      );
+  } catch (error) {
+    console.error(
+      "ERRO AO LER RESPOND_IO_TEMPLATE_PAYLOAD:",
+      error
+    );
+
+    throw new Error(
+      "RESPOND_IO_TEMPLATE_PAYLOAD contém JSON inválido."
+    );
+  }
+
+  /* =====================================================
+     CLONAR PAYLOAD
+  ===================================================== */
+
+  const payload =
+    JSON.parse(
+      JSON.stringify(
+        payloadBase
+      )
+    );
+
+  /* =====================================================
+     GARANTIR ESTRUTURA
+  ===================================================== */
+
+  if (
+    !payload?.message ||
+    payload.message.type !==
+    "whatsapp_template"
+  ) {
+    throw new Error(
+      "Payload do respond.io não possui message.type whatsapp_template."
+    );
+  }
+
+  if (
+    !payload?.message?.template
+  ) {
+    throw new Error(
+      "Payload do respond.io não possui template."
+    );
+  }
+
+  const components =
+    payload.message.template
+      .components;
+
+  if (
+    !Array.isArray(
+      components
+    )
+  ) {
+    throw new Error(
+      "Template do respond.io não possui components."
+    );
+  }
+
+  /* =====================================================
+     HEADER - PDF
+  ===================================================== */
+
+  const header =
+    components.find(
+      (component: any) =>
+        component?.type ===
+        "header"
+    );
+
+  if (!header) {
+    throw new Error(
+      "Header do template não encontrado."
+    );
+  }
+
+  if (
+    !Array.isArray(
+      header.parameters
+    ) ||
+    !header.parameters[0]
+  ) {
+    throw new Error(
+      "Parâmetro do documento no header não encontrado."
+    );
+  }
+
+  header.parameters[0] = {
+    type:
+      "document",
+
+    document: {
+      link:
+        pdfUrl,
+
+      caption:
+        `Ingresso ${codigoIngresso}`,
+    },
+  };
+
+  /* =====================================================
+     BODY
+  ===================================================== */
+
+  const body =
+    components.find(
+      (component: any) =>
+        component?.type ===
+        "body"
+    );
+
+  if (!body) {
+    throw new Error(
+      "Body do template não encontrado."
+    );
+  }
+
+  /*
+   * Template aprovado:
+   *
+   * {{1}} = nome
+   * {{2}} = data da visita
+   * {{3}} = código do ingresso
+   */
+
+  body.parameters = [
+    {
+      type:
+        "text",
+
+      text:
+        String(
+          nome ||
+          "Cliente"
+        ),
+    },
+    {
+      type:
+        "text",
+
+      text:
+        String(
+          dataVisita ||
+          ""
+        ),
+    },
+    {
+      type:
+        "text",
+
+      text:
+        String(
+          codigoIngresso ||
+          ""
+        ),
+    },
+  ];
+
+  /* =====================================================
+     LOG DO PAYLOAD
+  ===================================================== */
+
+  console.log(
+    "RESPOND.IO - ENVIANDO TEMPLATE:",
+    {
+      pedidoId,
+
+      telefone:
+        telefoneLimpo,
+
+      nome,
+
+      dataVisita,
+
+      codigoIngresso,
+
+      pdfUrl,
+
+      template:
+        payload.message
+          ?.template
+          ?.name,
+
+      channelId:
+        payload.channelId,
+    }
+  );
+
+  /* =====================================================
+     ENDPOINT RESPOND.IO
+  ===================================================== */
+
+  const endpoint =
+    `https://api.respond.io/v2/contact/phone:${encodeURIComponent(
+      telefoneLimpo
+    )}/message`;
+
+  /* =====================================================
+     ENVIAR
+  ===================================================== */
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        method:
+          "POST",
+
+        headers: {
+          Authorization:
+            `Bearer ${token}`,
+
+          "Content-Type":
+            "application/json",
+        },
+
+        body:
+          JSON.stringify(
+            payload
+          ),
+      }
+    );
+
+  /* =====================================================
+     LER RESPOSTA
+  ===================================================== */
+
+  const responseText =
+    await response.text();
+
+  let responseData: any =
+    null;
+
+  if (responseText) {
+    try {
+      responseData =
+        JSON.parse(
+          responseText
+        );
+    } catch {
+      responseData =
+        responseText;
+    }
+  }
+
+  /* =====================================================
+     ERRO RESPOND.IO
+  ===================================================== */
+
+  if (!response.ok) {
+
+    console.error(
+      "RESPOND.IO - ERRO:",
+      {
+        status:
+          response.status,
+
+        statusText:
+          response.statusText,
+
+        pedidoId,
+
+        telefone:
+          telefoneLimpo,
+
+        resposta:
+          responseData,
+      }
+    );
+
+    const detalhe =
+      typeof responseData ===
+        "string"
+        ? responseData
+        : JSON.stringify(
+          responseData
+        );
+
+    throw new Error(
+      `Erro respond.io (${response.status}): ${detalhe}`
+    );
+  }
+
+  /* =====================================================
+     SUCESSO
+  ===================================================== */
+
+  console.log(
+    "RESPOND.IO - SUCESSO:",
+    {
+      pedidoId,
+
+      telefone:
+        telefoneLimpo,
+
+      codigoIngresso,
+
+      resposta:
+        responseData,
+    }
+  );
+
+  return {
+    ok:
+      true,
+
+    pedidoId,
+
+    telefone:
+      telefoneLimpo,
+
+    codigoIngresso,
+
+    response:
+      responseData,
+  };
+}
