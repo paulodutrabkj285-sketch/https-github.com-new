@@ -1,21 +1,36 @@
 import nodemailer from "nodemailer";
+
 import { gerarPdfIngresso } from "@/lib/pdf";
 
 type EnviarIngressoEmailParams = {
   para: string;
+
   nome: string;
+
   produto: string;
+
   quantidade: number;
+
   codigoIngresso: string;
+
   pedidoId: string;
+
   dataVisita?: string;
+
+  // WhatsApp
+  telefone?: string;
+  whatsappPdfUrl?: string;
 };
 
 type EnviarLembreteParams = {
   para: string;
+
   nome: string;
+
   produto: string;
+
   pedidoId: string;
+
   valorTotal: number;
 };
 
@@ -23,18 +38,317 @@ const linkMaps =
   "https://maps.google.com/maps?vet=10CAAQoqAOahcKEwiA3azy-YeVAxUAAAAAHQAAAAAQBg..i&pvq=CgwvZy8xcHYyZl9kaGIiFwoRcGFycXVlIG11bmRvIG5vdm8QAhgD&lqi=ChlwYXJxdWUgbXVuZG8gbm92byB1cnViaWNpSOrj_qbolYCACFopEAAQARACGAAYARgCGAMiGXBhcnF1ZSBtdW5kbyBub3ZvIHVydWJpY2mSAQpmYWlyZ3JvdW5k&fvr=1&cs=0&um=1&ie=UTF-8&fb=1&gl=br&sa=X&ftid=0x952046a2f62d7365:0x34bd4695f0794ad2";
 
 const telefoneParque = "(49) 99129-9991";
+
 const emailIngressos = "ingressosparquemundonovo@gmail.com";
+
+type EnviarIngressoWhatsAppParams = {
+  telefone: string;
+  nome: string;
+  dataVisita?: string;
+  codigoIngresso: string;
+  pdfUrl: string;
+};
+
+function normalizarTelefoneWhatsApp(telefone: string) {
+  const somenteNumeros = String(telefone || "").replace(/\D/g, "");
+
+  if (!somenteNumeros) {
+    throw new Error("Telefone do WhatsApp não informado.");
+  }
+
+  // Se vier com 10 ou 11 dígitos, assume Brasil e adiciona DDI 55.
+  if (somenteNumeros.length === 10 || somenteNumeros.length === 11) {
+    return `55${somenteNumeros}`;
+  }
+
+  // Se já vier com DDI 55, mantém.
+  if (
+    (somenteNumeros.length === 12 || somenteNumeros.length === 13) &&
+    somenteNumeros.startsWith("55")
+  ) {
+    return somenteNumeros;
+  }
+
+  throw new Error(
+    `Telefone inválido para WhatsApp: ${telefone}. Informe DDD + número.`
+  );
+}
+
+async function enviarIngressoPorWhatsApp({
+  telefone,
+  nome,
+  dataVisita,
+  codigoIngresso,
+  pdfUrl,
+}: EnviarIngressoWhatsAppParams) {
+  const token = process.env.RESPOND_IO_TOKEN?.trim();
+
+  if (!token) {
+    console.warn(
+      "RESPOND_IO_TOKEN não configurado. Envio por WhatsApp ignorado."
+    );
+
+    return {
+      enviado: false,
+      motivo: "token_ausente",
+    };
+  }
+
+  if (!pdfUrl || !/^https:\/\/.+/i.test(pdfUrl)) {
+    console.warn(
+      "URL HTTPS do PDF não informada. Envio por WhatsApp ignorado."
+    );
+
+    return {
+      enviado: false,
+      motivo: "pdf_url_ausente",
+    };
+  }
+
+  const telefoneNormalizado =
+    normalizarTelefoneWhatsApp(telefone);
+
+  const dataFormatada =
+    formatarData(dataVisita) || "Não informada";
+
+  const payloadBaseRaw =
+    process.env.RESPOND_IO_TEMPLATE_PAYLOAD?.trim();
+
+  if (!payloadBaseRaw) {
+    console.warn(
+      "RESPOND_IO_TEMPLATE_PAYLOAD não configurado. " +
+      "Envio por WhatsApp ignorado."
+    );
+
+    return {
+      enviado: false,
+      motivo: "template_payload_ausente",
+    };
+  }
+
+  let payload: any;
+
+  try {
+    payload = JSON.parse(payloadBaseRaw);
+  } catch {
+    throw new Error(
+      "RESPOND_IO_TEMPLATE_PAYLOAD não contém um JSON válido."
+    );
+  }
+
+  if (!payload.message) {
+    throw new Error(
+      "Payload do respond.io inválido: propriedade message não encontrada."
+    );
+  }
+
+  if (payload.message.type !== "whatsapp_template") {
+    throw new Error(
+      `Payload do respond.io inválido. Tipo recebido: ${payload.message.type || "não informado"
+      }`
+    );
+  }
+
+  const template = payload.message.template;
+
+  if (!template) {
+    throw new Error(
+      "Payload do respond.io inválido: template não encontrado."
+    );
+  }
+
+  if (template.name !== "ingresso_parque_mundo_novo") {
+    console.warn(
+      "Nome inesperado do template do WhatsApp:",
+      template.name
+    );
+  }
+
+  const components = Array.isArray(template.components)
+    ? template.components
+    : [];
+
+  /*
+   * HEADER DO TEMPLATE
+   *
+   * Aqui colocamos o PDF real do ingresso.
+   */
+  const header = components.find(
+    (component: any) =>
+      String(component?.type || "").toLowerCase() === "header"
+  );
+
+  if (!header) {
+    throw new Error(
+      "Template do WhatsApp não possui componente HEADER."
+    );
+  }
+
+  if (
+    !Array.isArray(header.parameters) ||
+    header.parameters.length === 0
+  ) {
+    throw new Error(
+      "HEADER do template não possui parâmetro para o PDF."
+    );
+  }
+
+  const parametroDocumento =
+    header.parameters.find(
+      (parameter: any) =>
+        String(parameter?.type || "").toLowerCase() === "document"
+    ) || header.parameters[0];
+
+  parametroDocumento.type = "document";
+
+  parametroDocumento.document = {
+    ...(parametroDocumento.document || {}),
+    link: pdfUrl,
+    caption:
+      parametroDocumento.document?.caption ||
+      `Ingresso ${codigoIngresso} - Parque Mundo Novo`,
+  };
+
+  /*
+   * BODY DO TEMPLATE
+   *
+   * {{1}} = Nome
+   * {{2}} = Data da visita
+   * {{3}} = Código do ingresso
+   */
+  const body = components.find(
+    (component: any) =>
+      String(component?.type || "").toLowerCase() === "body"
+  );
+
+  if (!body) {
+    throw new Error(
+      "Template do WhatsApp não possui componente BODY."
+    );
+  }
+
+  body.parameters = [
+    {
+      type: "text",
+      text: nome?.trim() || "Cliente",
+    },
+    {
+      type: "text",
+      text: dataFormatada,
+    },
+    {
+      type: "text",
+      text: codigoIngresso,
+    },
+  ];
+
+  /*
+   * O payload copiado pelo respond.io também contém o texto
+   * com {{1}}, {{2}} e {{3}}.
+   *
+   * Mantemos esse texto e substituímos os placeholders.
+   */
+  if (typeof body.text === "string") {
+    body.text = body.text
+      .replaceAll("{{1}}", nome?.trim() || "Cliente")
+      .replaceAll("{{2}}", dataFormatada)
+      .replaceAll("{{3}}", codigoIngresso);
+  }
+
+  if (!payload.channelId) {
+    console.warn(
+      "channelId não encontrado no payload do respond.io."
+    );
+  }
+
+  const endpoint =
+    `https://api.respond.io/v2/contact/phone:${encodeURIComponent(
+      telefoneNormalizado
+    )}/message`;
+
+  console.log("ENVIANDO INGRESSO PELO WHATSAPP", {
+    telefone: telefoneNormalizado,
+    codigoIngresso,
+    dataVisita: dataFormatada,
+    template: template.name,
+    channelId: payload.channelId || null,
+    pdfUrl,
+  });
+
+  const resposta = await fetch(endpoint, {
+    method: "POST",
+
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+
+    body: JSON.stringify(payload),
+  });
+
+  const respostaTexto = await resposta.text();
+
+  let respostaJson: unknown = null;
+
+  if (respostaTexto) {
+    try {
+      respostaJson = JSON.parse(respostaTexto);
+    } catch {
+      respostaJson = respostaTexto;
+    }
+  }
+
+  if (!resposta.ok) {
+    console.error(
+      "ERRO RESPOND.IO AO ENVIAR INGRESSO",
+      {
+        telefone: telefoneNormalizado,
+        codigoIngresso,
+        status: resposta.status,
+        resposta: respostaTexto,
+      }
+    );
+
+    throw new Error(
+      `Falha ao enviar ingresso pelo WhatsApp/respond.io. ` +
+      `HTTP ${resposta.status}: ${respostaTexto || "sem resposta"
+      }`
+    );
+  }
+
+  console.log(
+    "WHATSAPP DE INGRESSO ENVIADO",
+    {
+      telefone: telefoneNormalizado,
+      codigoIngresso,
+      status: resposta.status,
+      resposta: respostaJson,
+    }
+  );
+
+  return {
+    enviado: true,
+    telefone: telefoneNormalizado,
+    resposta: respostaJson,
+  };
+}
 
 function criarTransporter() {
   const host = process.env.EMAIL_HOST?.trim();
+
   const port = Number(process.env.EMAIL_PORT || 587);
+
   const user = process.env.EMAIL_USER?.trim();
+
   const pass = process.env.EMAIL_PASS;
 
   const variaveisAusentes: string[] = [];
 
   if (!host) variaveisAusentes.push("EMAIL_HOST");
+
   if (!user) variaveisAusentes.push("EMAIL_USER");
+
   if (!pass) variaveisAusentes.push("EMAIL_PASS");
 
   if (variaveisAusentes.length > 0) {
@@ -53,19 +367,27 @@ function criarTransporter() {
 
   const transporter = nodemailer.createTransport({
     host,
+
     port,
+
     secure: port === 465,
+
     auth: {
       user,
+
       pass,
     },
+
     connectionTimeout: 30000,
+
     greetingTimeout: 30000,
+
     socketTimeout: 45000,
   });
 
   return {
     user,
+
     transporter,
   };
 }
@@ -113,14 +435,25 @@ function validarDestinatario(email: string) {
 
 export async function enviarIngressoPorEmail({
   para,
+
   nome,
+
   produto,
+
   quantidade,
+
   codigoIngresso,
+
   pedidoId,
+
   dataVisita,
+
+  telefone,
+
+  whatsappPdfUrl,
 }: EnviarIngressoEmailParams) {
   const emailDestino = validarDestinatario(para);
+
   const config = criarTransporter();
 
   const nomeSeguro = escaparHtml(nome || "Cliente");
@@ -130,6 +463,7 @@ export async function enviarIngressoPorEmail({
   );
 
   const codigoSeguro = escaparHtml(codigoIngresso);
+
   const pedidoSeguro = escaparHtml(pedidoId);
 
   const quantidadeValida = Number(quantidade || 1);
@@ -139,10 +473,15 @@ export async function enviarIngressoPorEmail({
 
   const pdfBuffer = await gerarPdfIngresso({
     nome,
+
     produto,
+
     quantidade: quantidadeValida,
+
     codigoIngresso,
+
     pedidoId,
+
     dataVisita,
   });
 
@@ -157,7 +496,6 @@ export async function enviarIngressoPorEmail({
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto; background: #f4f8f4; padding: 24px;">
-
       <div style="background: #064e3b; color: white; padding: 26px; border-radius: 18px; text-align: center;">
         <h1 style="margin: 0; font-size: 28px;">
           Parque Mundo Novo
@@ -169,7 +507,6 @@ export async function enviarIngressoPorEmail({
       </div>
 
       <div style="background: white; padding: 24px; border-radius: 18px; margin-top: 20px;">
-
         <h2 style="color: #166534; margin-top: 0;">
           Olá, ${nomeSeguro}!
         </h2>
@@ -180,6 +517,7 @@ export async function enviarIngressoPorEmail({
 
         <div style="background: #dcfce7; border: 1px solid #86efac; color: #14532d; padding: 16px; border-radius: 14px; margin: 20px 0; text-align: center;">
           <strong>Código do ingresso:</strong>
+
           <br />
 
           <span style="font-size: 30px; font-weight: bold;">
@@ -216,13 +554,11 @@ export async function enviarIngressoPorEmail({
         </p>
 
         <div style="background:#eff6ff; border:1px solid #93c5fd; color:#1e3a8a; padding:18px; border-radius:14px; margin-top:20px;">
-
           <h3 style="margin-top:0;">
             ℹ️ Informações importantes
           </h3>
 
           <ul style="padding-left:20px; line-height:1.8; margin-bottom:0;">
-
             <li>
               Apresente o QR Code na entrada do parque.
             </li>
@@ -246,18 +582,15 @@ export async function enviarIngressoPorEmail({
               O ingresso de entrada do parque não dá direito
               ao acesso ao Elevador Panorâmico.
             </li>
-
           </ul>
         </div>
 
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 24px;">
-
           <h3 style="margin-top: 0;">
             📌 Informações principais
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-
             <li>
               Funcionamento todos os dias,
               das <strong>08h00 às 17h30</strong>.
@@ -303,36 +636,30 @@ export async function enviarIngressoPorEmail({
               A apresentação do documento original
               é obrigatória na portaria.
             </li>
-
           </ul>
         </div>
 
         <div style="background: #eff6ff; border: 1px solid #93c5fd; color: #1e3a8a; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             🎫 O que está incluso no ingresso do Parque
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-
             <li>Acesso às áreas abertas para visitação.</li>
             <li>Mirantes.</li>
             <li>Cachoeiras abertas ao público.</li>
             <li>Trilhas liberadas para visitação.</li>
             <li>Áreas de contemplação e lazer.</li>
             <li>Área Kids, quando disponível.</li>
-
           </ul>
         </div>
 
         <div style="background: #fef2f2; border: 1px solid #fca5a5; color: #7f1d1d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             ⚠️ Atrações e serviços cobrados separadamente
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-
             <li>Elevador Panorâmico.</li>
             <li>Tirolesa.</li>
             <li>Tirolesa Infantil.</li>
@@ -344,18 +671,15 @@ export async function enviarIngressoPorEmail({
               Produtos e serviços adicionais oferecidos
               por parceiros dentro do parque.
             </li>
-
           </ul>
         </div>
 
         <div style="background: #f0fdf4; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             🏕️ Informações sobre o Camping
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-
             <li>
               O camping pertence ao Parque Mundo Novo
               e possui voucher próprio com cobrança por diária.
@@ -394,12 +718,9 @@ export async function enviarIngressoPorEmail({
               O camping aceita motorhomes,
               conforme disponibilidade e orientação da equipe local.
             </li>
-
           </ul>
         </div>
-
-        <div style="background: #fff7ed; border: 1px solid #fdba74; color: #7c2d12; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
+                <div style="background: #fff7ed; border: 1px solid #fdba74; color: #7c2d12; padding: 18px; border-radius: 14px; margin-top: 20px;">
           <h3 style="margin-top: 0;">
             🔄 Política de compra e cancelamento
           </h3>
@@ -418,11 +739,9 @@ export async function enviarIngressoPorEmail({
             Após o prazo de 7 dias ou após a utilização do ingresso,
             não será possível solicitar reembolso.
           </p>
-
         </div>
 
         <div style="background: #fffbeb; border: 1px solid #facc15; color: #713f12; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             🚗 Estacionamento e cuidado com pertences
           </h3>
@@ -433,7 +752,6 @@ export async function enviarIngressoPorEmail({
           </p>
 
           <ul style="padding-left: 20px; line-height: 1.7;">
-
             <li>Mantenha o veículo sempre trancado.</li>
 
             <li>
@@ -449,7 +767,6 @@ export async function enviarIngressoPorEmail({
               Certifique-se de que o veículo esteja
               devidamente fechado.
             </li>
-
           </ul>
 
           <p style="line-height: 1.7; font-weight: bold; margin-bottom: 0;">
@@ -458,11 +775,9 @@ export async function enviarIngressoPorEmail({
             ou danificados no interior dos veículos,
             no estacionamento ou nas áreas de circulação do parque.
           </p>
-
         </div>
 
         <div style="background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             🎢 Serviços terceirizados
           </h3>
@@ -474,14 +789,12 @@ export async function enviarIngressoPorEmail({
           </p>
 
           <ul style="padding-left: 20px; line-height: 1.7;">
-
             <li>Tirolesa.</li>
             <li>Tirolesa Infantil.</li>
             <li>Salto de Pêndulo.</li>
             <li>Restaurante.</li>
             <li>Bistrô.</li>
             <li>Café El Torrador.</li>
-
           </ul>
 
           <p style="line-height: 1.7;">
@@ -500,17 +813,14 @@ export async function enviarIngressoPorEmail({
             ventos fortes, neblina intensa
             ou outras condições climáticas adversas.
           </p>
-
         </div>
 
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             🍽️ Estrutura disponível no parque
           </h3>
 
           <ul style="padding-left: 20px; line-height: 1.7; margin-bottom: 0;">
-
             <li>Cachoeira Mundo Novo.</li>
             <li>Cascata do Avencal.</li>
             <li>Elevador Panorâmico.</li>
@@ -524,12 +834,10 @@ export async function enviarIngressoPorEmail({
             <li>Bistrô.</li>
             <li>Café El Torrador.</li>
             <li>Estacionamento próprio.</li>
-
           </ul>
         </div>
 
         <div style="background: #064e3b; color: white; padding: 20px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             🌿 Preserve a natureza
           </h3>
@@ -541,7 +849,6 @@ export async function enviarIngressoPorEmail({
           </p>
 
           <ul style="padding-left: 20px; line-height: 1.7;">
-
             <li>Respeite a fauna e a flora.</li>
 
             <li>
@@ -564,7 +871,6 @@ export async function enviarIngressoPorEmail({
             <li>
               Não faça fogo em locais não autorizados.
             </li>
-
           </ul>
 
           <p style="line-height: 1.7; font-weight: bold; margin-bottom: 0;">
@@ -573,11 +879,9 @@ export async function enviarIngressoPorEmail({
             Deixe apenas suas pegadas e o respeito
             por este lugar tão especial.
           </p>
-
         </div>
 
         <div style="background: #ecfdf5; border: 1px solid #86efac; color: #14532d; padding: 18px; border-radius: 14px; margin-top: 20px;">
-
           <h3 style="margin-top: 0;">
             📍 Localização e atendimento
           </h3>
@@ -613,14 +917,12 @@ export async function enviarIngressoPorEmail({
           >
             📍 Como chegar pelo Google Maps
           </a>
-
         </div>
 
         <p style="font-size: 13px; color: #666; margin-top: 24px;">
           Apresente o PDF com QR Code na entrada do Parque Mundo Novo.
           Este ingresso só poderá ser utilizado uma vez.
         </p>
-
       </div>
     </div>
   `;
@@ -629,8 +931,7 @@ export async function enviarIngressoPorEmail({
     await config.transporter.sendMail({
       from: `"Parque Mundo Novo" <${config.user}>`,
 
-      // IMPORTANTE:
-      // O ingresso vai para o e-mail cadastrado pelo cliente.
+      // O ingresso continua indo para o e-mail cadastrado pelo cliente.
       to: emailDestino,
 
       subject: assunto,
@@ -639,8 +940,7 @@ export async function enviarIngressoPorEmail({
 
       attachments: [
         {
-          filename:
-            `Ingresso-${codigoIngresso}.pdf`,
+          filename: `Ingresso-${codigoIngresso}.pdf`,
 
           content: pdfBuffer,
 
@@ -670,30 +970,106 @@ export async function enviarIngressoPorEmail({
     "E-MAIL DE INGRESSO ACEITO PELO SERVIDOR",
     {
       para: emailDestino,
+
       messageId:
         resultadoEnvio.messageId || null,
+
       accepted: aceitos,
+
       rejected: rejeitados,
+
       response:
         resultadoEnvio.response || null,
+
       pdfBytes: pdfBuffer.length,
     }
   );
 
+  /*
+   * Depois que o e-mail for enviado com sucesso,
+   * tentamos enviar também o ingresso pelo WhatsApp.
+   *
+   * IMPORTANTE:
+   * se o WhatsApp falhar, a compra NÃO será invalidada
+   * e o e-mail NÃO será reenviado.
+   */
+  let whatsapp: unknown = null;
+
+  if (telefone && whatsappPdfUrl) {
+    try {
+      whatsapp = await enviarIngressoPorWhatsApp({
+        telefone,
+
+        nome,
+
+        dataVisita,
+
+        codigoIngresso,
+
+        pdfUrl: whatsappPdfUrl,
+      });
+    } catch (erroWhatsApp) {
+      console.error(
+        "ERRO AO ENVIAR INGRESSO PELO WHATSAPP",
+        {
+          pedidoId,
+
+          codigoIngresso,
+
+          telefone,
+
+          erro:
+            erroWhatsApp instanceof Error
+              ? erroWhatsApp.message
+              : String(erroWhatsApp),
+        }
+      );
+
+      whatsapp = {
+        enviado: false,
+
+        erro:
+          erroWhatsApp instanceof Error
+            ? erroWhatsApp.message
+            : String(erroWhatsApp),
+      };
+    }
+  } else {
+    console.log(
+      "WHATSAPP DE INGRESSO NÃO DISPARADO",
+      {
+        pedidoId,
+
+        temTelefone: Boolean(telefone),
+
+        temPdfUrl: Boolean(whatsappPdfUrl),
+      }
+    );
+  }
+
   return {
     enviado: true,
+
     messageId:
       resultadoEnvio.messageId || null,
+
     accepted: aceitos,
+
     rejected: rejeitados,
+
+    whatsapp,
   };
 }
 
 export async function enviarLembreteCompraPendente({
   para,
+
   nome,
+
   produto,
+
   pedidoId,
+
   valorTotal,
 }: EnviarLembreteParams) {
   const emailDestino =
@@ -724,15 +1100,14 @@ export async function enviarLembreteCompraPendente({
       "pt-BR",
       {
         style: "currency",
+
         currency: "BRL",
       }
     );
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; background:#f4f8f4; padding:24px;">
-
       <div style="background:#064e3b; color:white; padding:24px; border-radius:18px; text-align:center;">
-
         <h1 style="margin:0;">
           Parque Mundo Novo
         </h1>
@@ -740,11 +1115,9 @@ export async function enviarLembreteCompraPendente({
         <p style="margin-top:8px;">
           Você iniciou uma compra conosco
         </p>
-
       </div>
 
       <div style="background:white; padding:24px; border-radius:18px; margin-top:20px;">
-
         <h2 style="color:#166534;">
           Olá, ${nomeSeguro}!
         </h2>
@@ -757,7 +1130,6 @@ export async function enviarLembreteCompraPendente({
         </p>
 
         <div style="background:#ecfdf5; border:1px solid #86efac; color:#14532d; padding:16px; border-radius:14px; margin:20px 0;">
-
           <p>
             <strong>Produto:</strong>
             ${produtoSeguro}
@@ -772,7 +1144,6 @@ export async function enviarLembreteCompraPendente({
             <strong>Pedido:</strong>
             ${pedidoSeguro}
           </p>
-
         </div>
 
         <a
@@ -784,13 +1155,11 @@ export async function enviarLembreteCompraPendente({
         </a>
 
         <div style="background:#f0fdf4; border:1px solid #86efac; color:#14532d; padding:16px; border-radius:14px; margin-top:22px;">
-
           <h3 style="margin-top:0;">
             Informações rápidas
           </h3>
 
           <ul style="padding-left:20px; line-height:1.7; margin-bottom:0;">
-
             <li>
               Funcionamento todos os dias,
               das <strong>08h às 17h30</strong>.
@@ -811,9 +1180,7 @@ export async function enviarLembreteCompraPendente({
             <li>
               E-mail: ${emailIngressos}.
             </li>
-
           </ul>
-
         </div>
 
         <p style="margin-top:24px; font-size:13px; color:#666;">
@@ -821,7 +1188,6 @@ export async function enviarLembreteCompraPendente({
           Funcionamento todos os dias
           das 08h às 17h30.
         </p>
-
       </div>
     </div>
   `;
@@ -862,10 +1228,14 @@ export async function enviarLembreteCompraPendente({
     "LEMBRETE DE COMPRA ACEITO PELO SERVIDOR",
     {
       para: emailDestino,
+
       messageId:
         resultadoEnvio.messageId || null,
+
       accepted: aceitos,
+
       rejected: rejeitados,
+
       response:
         resultadoEnvio.response || null,
     }
@@ -873,9 +1243,12 @@ export async function enviarLembreteCompraPendente({
 
   return {
     enviado: true,
+
     messageId:
       resultadoEnvio.messageId || null,
+
     accepted: aceitos,
+
     rejected: rejeitados,
   };
 }

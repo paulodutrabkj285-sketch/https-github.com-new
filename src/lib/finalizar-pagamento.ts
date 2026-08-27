@@ -31,6 +31,7 @@ type FinalizarPagamentoParams = {
 
 type FinalizarPagamentoResultado = {
     ok: boolean;
+
     pedidoId: string;
 
     status:
@@ -40,7 +41,9 @@ type FinalizarPagamentoResultado = {
     | "pedido_nao_encontrado";
 
     codigoIngresso?: string;
+
     emailEnviado?: boolean;
+
     reservaAgenciaAtualizada?: boolean;
 
     mensagem: string;
@@ -48,36 +51,86 @@ type FinalizarPagamentoResultado = {
 
 /* =========================================================
    VALOR PARA CENTAVOS
-   ========================================================= */
+========================================================= */
 
-function converterParaCentavos(valor: unknown) {
-    const numero = Number(valor || 0);
+function converterParaCentavos(
+    valor: unknown
+) {
+    const numero = Number(
+        valor || 0
+    );
 
-    if (!Number.isFinite(numero)) {
+    if (
+        !Number.isFinite(numero)
+    ) {
         return 0;
     }
 
-    return Math.round(numero * 100);
+    return Math.round(
+        numero * 100
+    );
 }
 
 /* =========================================================
    CÓDIGO DO INGRESSO
-   ========================================================= */
+========================================================= */
 
-function gerarCodigoIngresso(pedidoId: string) {
+function gerarCodigoIngresso(
+    pedidoId: string
+) {
     return `PMN-${pedidoId}`;
 }
 
 /* =========================================================
-   IDENTIFICAR PEDIDO DE AGÊNCIA / PARCEIRO
-   ========================================================= */
+   URL PÚBLICA DO PDF PARA O WHATSAPP
+========================================================= */
 
-function pedidoEhDeParceiro(pedido: any) {
+function gerarUrlPublicaPdf({
+    pedidoId,
+    codigoIngresso,
+}: {
+    pedidoId: string;
+    codigoIngresso: string;
+}) {
+    const baseUrl =
+        process.env
+            .NEXT_PUBLIC_SITE_URL
+            ?.trim() ||
+        "https://www.parquemundonovooficial.com.br";
+
+    const url = new URL(
+        "/api/pdf-ingresso",
+        baseUrl
+    );
+
+    url.searchParams.set(
+        "pedidoId",
+        pedidoId
+    );
+
+    url.searchParams.set(
+        "codigo",
+        codigoIngresso
+    );
+
+    return url.toString();
+}
+
+/* =========================================================
+   IDENTIFICAR PEDIDO DE AGÊNCIA / PARCEIRO
+========================================================= */
+
+function pedidoEhDeParceiro(
+    pedido: any
+) {
     return (
-        String(pedido?.origem || "").trim() === "parceiro" &&
+        String(
+            pedido?.origem || ""
+        ).trim() === "parceiro" &&
         Boolean(
             String(
-                pedido?.reservaAgenciaId || ""
+                pedido?.reservaAgenciaId ||
+                ""
             ).trim()
         )
     );
@@ -85,7 +138,7 @@ function pedidoEhDeParceiro(pedido: any) {
 
 /* =========================================================
    ATUALIZAR RESERVA DA AGÊNCIA COMO PAGA
-   ========================================================= */
+========================================================= */
 
 async function confirmarPagamentoReservaAgencia({
     pedido,
@@ -95,29 +148,43 @@ async function confirmarPagamentoReservaAgencia({
     dataConfirmacao,
 }: {
     pedido: any;
+
     pedidoId: string;
-    formaPagamento: FormaPagamento;
+
+    formaPagamento:
+    FormaPagamento;
+
     valorPago?: number;
+
     dataConfirmacao: string;
 }) {
-    if (!pedidoEhDeParceiro(pedido)) {
+    if (
+        !pedidoEhDeParceiro(
+            pedido
+        )
+    ) {
         return false;
     }
 
-    const reservaAgenciaId = String(
-        pedido.reservaAgenciaId || ""
-    ).trim();
+    const reservaAgenciaId =
+        String(
+            pedido.reservaAgenciaId ||
+            ""
+        ).trim();
 
-    if (!reservaAgenciaId) {
+    if (
+        !reservaAgenciaId
+    ) {
         return false;
     }
 
     try {
-        const reservaRef = doc(
-            db,
-            "reservas_agencias",
-            reservaAgenciaId
-        );
+        const reservaRef =
+            doc(
+                db,
+                "reservas_agencias",
+                reservaAgenciaId
+            );
 
         await updateDoc(
             reservaRef,
@@ -141,12 +208,16 @@ async function confirmarPagamentoReservaAgencia({
                 pagamentoConfirmadoEm:
                     dataConfirmacao,
 
-                ...(valorPago !== undefined
-                    ? {
-                        valorPago:
-                            Number(valorPago),
-                    }
-                    : {}),
+                ...(
+                    valorPago !== undefined
+                        ? {
+                            valorPago:
+                                Number(
+                                    valorPago
+                                ),
+                        }
+                        : {}
+                ),
 
                 updatedAt:
                     new Date(),
@@ -163,42 +234,39 @@ async function confirmarPagamentoReservaAgencia({
             "FINALIZAÇÃO: RESERVA DA AGÊNCIA ATUALIZADA COMO PAGA",
             {
                 pedidoId,
+
                 reservaAgenciaId,
+
                 codigoGrupo:
-                    pedido.codigoGrupo || null,
+                    pedido.codigoGrupo ||
+                    null,
+
                 formaPagamento,
             }
         );
 
         return true;
-    } catch (error: any) {
-        const mensagemErro = String(
-            error?.message ||
-            error ||
-            "Erro desconhecido."
-        );
+    } catch (
+    error: any
+    ) {
+        const mensagemErro =
+            String(
+                error?.message ||
+                error ||
+                "Erro desconhecido."
+            );
 
         console.error(
             "FINALIZAÇÃO: ERRO AO ATUALIZAR RESERVA DA AGÊNCIA",
             {
                 pedidoId,
+
                 reservaAgenciaId,
-                erro: mensagemErro,
+
+                erro:
+                    mensagemErro,
             }
         );
-
-        /*
-         * ATENÇÃO:
-         *
-         * Não desfazemos um pagamento confirmado
-         * apenas porque a sincronização da reserva
-         * falhou.
-         *
-         * O pedido continua PAGO.
-         *
-         * A falha fica registrada no pedido para
-         * reconciliação administrativa.
-         */
 
         try {
             await atualizarPedido(
@@ -211,7 +279,8 @@ async function confirmarPagamentoReservaAgencia({
                         mensagemErro,
 
                     reservaAgenciaErroEm:
-                        new Date().toISOString(),
+                        new Date()
+                            .toISOString(),
                 }
             );
         } catch (
@@ -229,7 +298,7 @@ async function confirmarPagamentoReservaAgencia({
 
 /* =========================================================
    MARCAR RESERVA COM VALOR DIVERGENTE
-   ========================================================= */
+========================================================= */
 
 async function marcarValorDivergenteReservaAgencia({
     pedido,
@@ -238,28 +307,41 @@ async function marcarValorDivergenteReservaAgencia({
     valorPago,
 }: {
     pedido: any;
+
     pedidoId: string;
-    formaPagamento: FormaPagamento;
+
+    formaPagamento:
+    FormaPagamento;
+
     valorPago: number;
 }) {
-    if (!pedidoEhDeParceiro(pedido)) {
+    if (
+        !pedidoEhDeParceiro(
+            pedido
+        )
+    ) {
         return;
     }
 
-    const reservaAgenciaId = String(
-        pedido.reservaAgenciaId || ""
-    ).trim();
+    const reservaAgenciaId =
+        String(
+            pedido.reservaAgenciaId ||
+            ""
+        ).trim();
 
-    if (!reservaAgenciaId) {
+    if (
+        !reservaAgenciaId
+    ) {
         return;
     }
 
     try {
-        const reservaRef = doc(
-            db,
-            "reservas_agencias",
-            reservaAgenciaId
-        );
+        const reservaRef =
+            doc(
+                db,
+                "reservas_agencias",
+                reservaAgenciaId
+            );
 
         await updateDoc(
             reservaRef,
@@ -273,7 +355,9 @@ async function marcarValorDivergenteReservaAgencia({
                 formaPagamento,
 
                 valorPago:
-                    Number(valorPago),
+                    Number(
+                        valorPago
+                    ),
 
                 pedidoId,
 
@@ -281,13 +365,16 @@ async function marcarValorDivergenteReservaAgencia({
                     false,
 
                 valorDivergenteRegistradoEm:
-                    new Date().toISOString(),
+                    new Date()
+                        .toISOString(),
 
                 updatedAt:
                     new Date(),
             }
         );
-    } catch (error) {
+    } catch (
+    error
+    ) {
         console.error(
             "FINALIZAÇÃO: ERRO AO MARCAR VALOR DIVERGENTE NA RESERVA",
             error
@@ -297,15 +384,17 @@ async function marcarValorDivergenteReservaAgencia({
 
 /* =========================================================
    FINALIZAR PAGAMENTO
-   ========================================================= */
+========================================================= */
 
 export async function finalizarPagamento({
     pedidoId,
     formaPagamento,
     valorPago,
+
     pixEndToEndId,
     pixHorario,
     sicrediTxid,
+
     cartaoTransacaoId,
     cartaoAutorizacao,
     cartaoStatus,
@@ -313,8 +402,9 @@ export async function finalizarPagamento({
     cartaoUltimosDigitos,
     cartaoParcelas,
 }: FinalizarPagamentoParams): Promise<FinalizarPagamentoResultado> {
-
-    if (!pedidoId) {
+    if (
+        !pedidoId
+    ) {
         throw new Error(
             "O ID do pedido não foi informado."
         );
@@ -325,7 +415,9 @@ export async function finalizarPagamento({
             pedidoId
         );
 
-    if (!pedido) {
+    if (
+        !pedido
+    ) {
         console.error(
             "FINALIZAÇÃO: PEDIDO NÃO ENCONTRADO",
             {
@@ -336,6 +428,7 @@ export async function finalizarPagamento({
 
         return {
             ok: false,
+
             pedidoId,
 
             status:
@@ -349,34 +442,23 @@ export async function finalizarPagamento({
     const codigoIngresso =
         pedido.codigoIngresso ||
         gerarCodigoIngresso(
-            pedido.id || pedidoId
+            pedido.id ||
+            pedidoId
         );
 
     /* =====================================================
        PEDIDO JÁ PAGO
-       ===================================================== */
+    ===================================================== */
 
     if (
         pedido.statusPagamento ===
         "pago"
     ) {
-        /*
-         * Mesmo que o pedido já esteja pago,
-         * fazemos novamente a sincronização da
-         * reserva da agência.
-         *
-         * Isso é importante para:
-         *
-         * - webhook duplicado;
-         * - falha anterior no Firestore;
-         * - reconciliação;
-         * - recuperação automática.
-         */
-
         const reservaAgenciaAtualizada =
             await confirmarPagamentoReservaAgencia(
                 {
                     pedido,
+
                     pedidoId,
 
                     formaPagamento:
@@ -398,7 +480,8 @@ export async function finalizarPagamento({
 
                     dataConfirmacao:
                         pedido.pagamentoConfirmadoEm ||
-                        new Date().toISOString(),
+                        new Date()
+                            .toISOString(),
                 }
             );
 
@@ -414,7 +497,9 @@ export async function finalizarPagamento({
             emailEnviado =
                 await tentarEnviarEmail({
                     pedido,
+
                     pedidoId,
+
                     codigoIngresso,
                 });
         }
@@ -423,15 +508,20 @@ export async function finalizarPagamento({
             "FINALIZAÇÃO: PEDIDO JÁ ESTAVA PAGO",
             {
                 pedidoId,
+
                 formaPagamento,
+
                 codigoIngresso,
+
                 emailEnviado,
+
                 reservaAgenciaAtualizada,
             }
         );
 
         return {
             ok: true,
+
             pedidoId,
 
             status:
@@ -450,10 +540,11 @@ export async function finalizarPagamento({
 
     /* =====================================================
        CONFERÊNCIA DO VALOR
-       ===================================================== */
+    ===================================================== */
 
     if (
-        valorPago !== undefined
+        valorPago !==
+        undefined
     ) {
         const valorPedidoCentavos =
             converterParaCentavos(
@@ -492,62 +583,70 @@ export async function finalizarPagamento({
                             : cartaoStatus ||
                             "VALOR_DIVERGENTE",
 
-                    ...(formaPagamento ===
-                        "pix"
-                        ? {
-                            pixEndToEndId:
-                                pixEndToEndId ||
-                                "",
+                    ...(
+                        formaPagamento ===
+                            "pix"
+                            ? {
+                                pixEndToEndId:
+                                    pixEndToEndId ||
+                                    "",
 
-                            pixHorario:
-                                pixHorario ||
-                                "",
+                                pixHorario:
+                                    pixHorario ||
+                                    "",
 
-                            sicrediTxid:
-                                sicrediTxid ||
-                                pedido.sicrediTxid ||
-                                "",
-                        }
-                        : {
-                            cartaoTransacaoId:
-                                cartaoTransacaoId ||
-                                "",
+                                sicrediTxid:
+                                    sicrediTxid ||
+                                    pedido.sicrediTxid ||
+                                    "",
+                            }
+                            : {
+                                cartaoTransacaoId:
+                                    cartaoTransacaoId ||
+                                    "",
 
-                            cartaoAutorizacao:
-                                cartaoAutorizacao ||
-                                "",
+                                cartaoAutorizacao:
+                                    cartaoAutorizacao ||
+                                    "",
 
-                            cartaoStatus:
-                                cartaoStatus ||
-                                "VALOR_DIVERGENTE",
+                                cartaoStatus:
+                                    cartaoStatus ||
+                                    "VALOR_DIVERGENTE",
 
-                            cartaoBandeira:
-                                cartaoBandeira ||
-                                "",
+                                cartaoBandeira:
+                                    cartaoBandeira ||
+                                    "",
 
-                            cartaoUltimosDigitos:
-                                cartaoUltimosDigitos ||
-                                "",
+                                cartaoUltimosDigitos:
+                                    cartaoUltimosDigitos ||
+                                    "",
 
-                            cartaoParcelas:
-                                Number(
-                                    cartaoParcelas ||
-                                    1
-                                ),
-                        }),
+                                cartaoParcelas:
+                                    Number(
+                                        cartaoParcelas ||
+                                        1
+                                    ),
+                            }
+                    ),
 
                     valorDivergenteRegistradoEm:
-                        new Date().toISOString(),
+                        new Date()
+                            .toISOString(),
                 }
             );
 
             await marcarValorDivergenteReservaAgencia(
                 {
                     pedido,
+
                     pedidoId,
+
                     formaPagamento,
+
                     valorPago:
-                        Number(valorPago),
+                        Number(
+                            valorPago
+                        ),
                 }
             );
 
@@ -555,6 +654,7 @@ export async function finalizarPagamento({
                 "FINALIZAÇÃO: VALOR DIVERGENTE",
                 {
                     pedidoId,
+
                     formaPagamento,
 
                     valorPedido:
@@ -566,6 +666,7 @@ export async function finalizarPagamento({
 
             return {
                 ok: false,
+
                 pedidoId,
 
                 status:
@@ -579,10 +680,11 @@ export async function finalizarPagamento({
 
     /* =====================================================
        PAGAMENTO CONFIRMADO
-       ===================================================== */
+    ===================================================== */
 
     const dataConfirmacao =
-        new Date().toISOString();
+        new Date()
+            .toISOString();
 
     const dadosPagamento:
         Record<
@@ -610,7 +712,8 @@ export async function finalizarPagamento({
     };
 
     if (
-        valorPago !== undefined
+        valorPago !==
+        undefined
     ) {
         dadosPagamento.valorPago =
             Number(
@@ -620,7 +723,7 @@ export async function finalizarPagamento({
 
     /* =====================================================
        PIX
-       ===================================================== */
+    ===================================================== */
 
     if (
         formaPagamento ===
@@ -648,7 +751,7 @@ export async function finalizarPagamento({
 
     /* =====================================================
        CARTÃO
-       ===================================================== */
+    ===================================================== */
 
     if (
         formaPagamento ===
@@ -690,7 +793,7 @@ export async function finalizarPagamento({
 
     /* =====================================================
        ATUALIZA PEDIDO
-       ===================================================== */
+    ===================================================== */
 
     await atualizarPedido(
         pedidoId,
@@ -701,12 +804,17 @@ export async function finalizarPagamento({
         "FINALIZAÇÃO: PAGAMENTO CONFIRMADO",
         {
             pedidoId,
+
             formaPagamento,
+
             valorPago,
+
             codigoIngresso,
+
             origem:
                 pedido.origem ||
                 "site",
+
             reservaAgenciaId:
                 pedido.reservaAgenciaId ||
                 null,
@@ -715,23 +823,22 @@ export async function finalizarPagamento({
 
     /* =====================================================
        SINCRONIZA RESERVA DA AGÊNCIA
-       ===================================================== */
+    ===================================================== */
 
     const reservaAgenciaAtualizada =
         await confirmarPagamentoReservaAgencia(
             {
                 pedido,
+
                 pedidoId,
+
                 formaPagamento,
+
                 valorPago,
+
                 dataConfirmacao,
             }
         );
-
-    /*
-     * Registra no próprio pedido se a
-     * reserva vinculada foi sincronizada.
-     */
 
     if (
         pedidoEhDeParceiro(
@@ -762,19 +869,21 @@ export async function finalizarPagamento({
     }
 
     /* =====================================================
-       E-MAIL
-       ===================================================== */
+       E-MAIL + WHATSAPP
+    ===================================================== */
 
     const emailEnviado =
         await tentarEnviarEmail({
             pedido,
+
             pedidoId,
+
             codigoIngresso,
         });
 
     /* =====================================================
        RESULTADO
-       ===================================================== */
+    ===================================================== */
 
     return {
         ok: true,
@@ -800,8 +909,8 @@ export async function finalizarPagamento({
 }
 
 /* =========================================================
-   ENVIO DO E-MAIL
-   ========================================================= */
+   ENVIO DO E-MAIL + WHATSAPP
+========================================================= */
 
 async function tentarEnviarEmail({
     pedido,
@@ -809,7 +918,9 @@ async function tentarEnviarEmail({
     codigoIngresso,
 }: {
     pedido: any;
+
     pedidoId: string;
+
     codigoIngresso: string;
 }) {
     if (
@@ -835,7 +946,8 @@ async function tentarEnviarEmail({
                     "Pedido sem endereço de e-mail.",
 
                 emailIngressoErroEm:
-                    new Date().toISOString(),
+                    new Date()
+                        .toISOString(),
             }
         );
 
@@ -843,34 +955,85 @@ async function tentarEnviarEmail({
     }
 
     try {
-        await enviarIngressoPorEmail({
-            para:
-                pedido.email,
+        const telefone =
+            String(
+                pedido.telefone ||
+                pedido.celular ||
+                pedido.whatsapp ||
+                ""
+            ).trim();
 
-            nome:
-                pedido.nome ||
-                "Cliente",
+        const whatsappPdfUrl =
+            gerarUrlPublicaPdf({
+                pedidoId,
+                codigoIngresso,
+            });
 
-            produto:
-                pedido.produto ||
-                "Ingresso Parque Mundo Novo",
+        console.log(
+            "FINALIZAÇÃO: PREPARANDO ENVIO",
+            {
+                pedidoId,
 
-            quantidade:
-                Number(
-                    pedido.quantidade ||
-                    pedido.quantidadePessoas ||
-                    1
-                ),
+                email:
+                    pedido.email,
 
-            codigoIngresso,
+                telefone:
+                    telefone ||
+                    null,
 
-            pedidoId,
+                whatsappPdfUrl,
+            }
+        );
 
-            dataVisita:
-                pedido.dataVisita ||
-                pedido.dataEntrada ||
-                "",
-        });
+        const resultadoEnvio =
+            await enviarIngressoPorEmail(
+                {
+                    para:
+                        pedido.email,
+
+                    nome:
+                        pedido.nome ||
+                        "Cliente",
+
+                    produto:
+                        pedido.produto ||
+                        "Ingresso Parque Mundo Novo",
+
+                    quantidade:
+                        Number(
+                            pedido.quantidade ||
+                            pedido.quantidadePessoas ||
+                            1
+                        ),
+
+                    codigoIngresso,
+
+                    pedidoId,
+
+                    dataVisita:
+                        pedido.dataVisita ||
+                        pedido.dataEntrada ||
+                        "",
+
+                    telefone,
+
+                    whatsappPdfUrl,
+                }
+            );
+
+        const whatsappResultado =
+            (resultadoEnvio as any)
+                ?.whatsapp;
+
+        const whatsappEnviado =
+            Boolean(
+                whatsappResultado
+                    ?.enviado
+            );
+
+        const agora =
+            new Date()
+                .toISOString();
 
         await atualizarPedido(
             pedidoId,
@@ -879,22 +1042,64 @@ async function tentarEnviarEmail({
                     true,
 
                 emailIngressoEnviadoEm:
-                    new Date().toISOString(),
+                    agora,
 
                 emailIngressoErro:
                     "",
 
                 emailIngressoErroEm:
                     "",
+
+                whatsappIngressoEnviado:
+                    whatsappEnviado,
+
+                whatsappIngressoEnviadoEm:
+                    whatsappEnviado
+                        ? agora
+                        : "",
+
+                whatsappIngressoErro:
+                    whatsappEnviado
+                        ? ""
+                        : String(
+                            whatsappResultado
+                                ?.erro ||
+                            whatsappResultado
+                                ?.motivo ||
+                            (
+                                telefone
+                                    ? "WhatsApp não enviado."
+                                    : "Pedido sem telefone para WhatsApp."
+                            )
+                        ),
+
+                whatsappIngressoErroEm:
+                    whatsappEnviado
+                        ? ""
+                        : agora,
             }
         );
 
         console.log(
-            "FINALIZAÇÃO: E-MAIL DO INGRESSO ENVIADO",
+            "FINALIZAÇÃO: INGRESSO PROCESSADO",
             {
                 pedidoId,
+
                 email:
                     pedido.email,
+
+                telefone:
+                    telefone ||
+                    null,
+
+                emailEnviado:
+                    true,
+
+                whatsappEnviado,
+
+                whatsappResultado:
+                    whatsappResultado ||
+                    null,
             }
         );
 
@@ -910,9 +1115,10 @@ async function tentarEnviarEmail({
             );
 
         console.error(
-            "FINALIZAÇÃO: ERRO AO ENVIAR E-MAIL",
+            "FINALIZAÇÃO: ERRO AO ENVIAR INGRESSO",
             {
                 pedidoId,
+
                 erro:
                     mensagemErro,
             }
@@ -928,13 +1134,14 @@ async function tentarEnviarEmail({
                     mensagemErro,
 
                 emailIngressoErroEm:
-                    new Date().toISOString(),
+                    new Date()
+                        .toISOString(),
             }
         );
 
         /*
-         * O pagamento continua válido mesmo
-         * se o envio do e-mail falhar.
+         * O pagamento continua válido
+         * mesmo se o envio do ingresso falhar.
          */
 
         return false;
