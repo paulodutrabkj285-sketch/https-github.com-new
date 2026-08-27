@@ -435,17 +435,88 @@ export default function EnvioIngressosPage() {
             return;
         }
 
-        if (!pedido.telefone) {
+        /*
+         * Abre uma caixa permitindo escolher
+         * o telefone que receberá o ingresso.
+         *
+         * O telefone original do cliente aparece
+         * preenchido por padrão.
+         *
+         * Alterar aqui NÃO altera o Firestore.
+         */
+
+        const telefoneDigitado =
+            window.prompt(
+                `Digite o WhatsApp que receberá o ingresso ${pedido.codigoIngresso || ""}.\n\nUse DDD + número.\nExemplo: 48999999999`,
+                pedido.telefone ||
+                ""
+            );
+
+        /*
+         * Usuário clicou em CANCELAR.
+         */
+
+        if (
+            telefoneDigitado ===
+            null
+        ) {
+            return;
+        }
+
+        /*
+         * Remove espaços, parênteses,
+         * hífens, + etc.
+         */
+
+        const telefoneDestino =
+            String(
+                telefoneDigitado
+            ).replace(
+                /\D/g,
+                ""
+            );
+
+        /*
+         * Validação básica.
+         *
+         * Brasil:
+         * DDD + telefone normalmente terá
+         * 10 ou 11 números sem o 55.
+         */
+
+        if (
+            telefoneDestino.length <
+            10
+        ) {
             alert(
-                "Este pedido não possui telefone cadastrado."
+                "Digite um telefone válido com DDD.\n\nExemplo: 48999999999"
             );
 
             return;
         }
 
+        /*
+         * Evita número exageradamente grande.
+         */
+
+        if (
+            telefoneDestino.length >
+            13
+        ) {
+            alert(
+                "O telefone informado parece inválido."
+            );
+
+            return;
+        }
+
+        /*
+         * Confirma para evitar envio acidental.
+         */
+
         const confirmou =
             window.confirm(
-                `Enviar o ingresso ${pedido.codigoIngresso || ""} pelo WhatsApp para:\n\n${pedido.telefone}?`
+                `Confirmar envio?\n\nIngresso: ${pedido.codigoIngresso || "-"}\nCliente: ${pedido.nome || "-"}\nWhatsApp de destino: ${telefoneDestino}\n\nO telefone original do pedido NÃO será alterado.`
             );
 
         if (!confirmou) {
@@ -466,29 +537,20 @@ export default function EnvioIngressosPage() {
                             "processando",
 
                         mensagem:
-                            "Enviando ingresso pelo WhatsApp...",
+                            `Enviando ingresso pelo WhatsApp para ${telefoneDestino}...`,
                     },
                 })
             );
 
             /*
-             * A rota recebe somente o pedidoId.
+             * Enviamos:
              *
-             * O backend deve:
+             * pedidoId
+             * +
+             * telefoneDestino
              *
-             * 1. Buscar o pedido no Firestore
-             * 2. Confirmar statusPagamento = pago
-             * 3. Gerar/localizar o PDF
-             * 4. Enviar pelo respond.io
-             * 5. Utilizar o template:
-             *
-             * ingresso_parque_mundo_novo
-             *
-             * 6. Preencher:
-             *
-             * {{1}} = nome
-             * {{2}} = data da visita
-             * {{3}} = código do ingresso
+             * A API continua buscando todos
+             * os dados do ingresso no Firestore.
              */
 
             const response =
@@ -507,6 +569,8 @@ export default function EnvioIngressosPage() {
                             JSON.stringify({
                                 pedidoId:
                                     pedido.id,
+
+                                telefoneDestino,
                             }),
                     }
                 );
@@ -534,6 +598,19 @@ export default function EnvioIngressosPage() {
                 );
             }
 
+            /*
+             * Mostramos o número REAL utilizado
+             * pela API, caso ela tenha acrescentado
+             * o código 55 automaticamente.
+             */
+
+            const numeroEnviado =
+                resultado?.pedido
+                    ?.telefone ||
+                resultado?.whatsapp
+                    ?.telefone ||
+                telefoneDestino;
+
             setStatusWhatsapp(
                 (anterior) => ({
                     ...anterior,
@@ -543,7 +620,7 @@ export default function EnvioIngressosPage() {
                             "sucesso",
 
                         mensagem:
-                            `Ingresso enviado pelo WhatsApp para ${pedido.telefone}`,
+                            `Ingresso enviado pelo WhatsApp para ${numeroEnviado}`,
                     },
                 })
             );
@@ -1233,8 +1310,7 @@ export default function EnvioIngressosPage() {
                                                             )
                                                         }
                                                         disabled={
-                                                            processandoWA ||
-                                                            !pedido.telefone
+                                                            processandoWA
                                                         }
                                                         style={{
                                                             width:
@@ -1253,8 +1329,7 @@ export default function EnvioIngressosPage() {
                                                                 "16px",
 
                                                             background:
-                                                                processandoWA ||
-                                                                    !pedido.telefone
+                                                                processandoWA
                                                                     ? "#94a3b8"
                                                                     : "#16a34a",
 
@@ -1268,8 +1343,7 @@ export default function EnvioIngressosPage() {
                                                                 "16px",
 
                                                             cursor:
-                                                                processandoWA ||
-                                                                    !pedido.telefone
+                                                                processandoWA
                                                                     ? "not-allowed"
                                                                     : "pointer",
                                                         }}

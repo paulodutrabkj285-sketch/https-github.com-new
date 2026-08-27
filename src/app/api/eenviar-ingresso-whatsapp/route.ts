@@ -84,6 +84,7 @@ function normalizarTelefone(
      * Remove zero inicial
      *
      * Ex:
+     *
      * 049999999999
      */
 
@@ -136,6 +137,21 @@ export async function POST(
         const pedidoId =
             String(
                 body?.pedidoId ||
+                ""
+            ).trim();
+
+        /*
+         * NOVO:
+         *
+         * O painel pode mandar um telefone diferente
+         * apenas para este envio.
+         *
+         * Isso NÃO altera o telefone salvo no pedido.
+         */
+
+        const telefoneDestinoInformado =
+            String(
+                body?.telefoneDestino ||
                 ""
             ).trim();
 
@@ -206,8 +222,12 @@ export async function POST(
                     pedido.nome ||
                     null,
 
-                telefone:
+                telefonePedido:
                     pedido.telefone ||
+                    null,
+
+                telefoneDestinoInformado:
+                    telefoneDestinoInformado ||
                     null,
 
                 produto:
@@ -274,14 +294,34 @@ export async function POST(
         }
 
         /* =================================================
-           TELEFONE
+           TELEFONE ORIGINAL DO PEDIDO
         ================================================= */
 
-        const telefoneOriginal =
+        const telefonePedido =
             String(
                 pedido.telefone ||
                 ""
             ).trim();
+
+        /* =================================================
+           TELEFONE QUE RECEBERÁ O WHATSAPP
+        ================================================= */
+
+        /*
+         * Se telefoneDestino foi informado pelo painel,
+         * usamos ele.
+         *
+         * Caso contrário, usamos normalmente o telefone
+         * original cadastrado no pedido.
+         *
+         * IMPORTANTE:
+         *
+         * Em nenhum momento atualizamos pedido.telefone.
+         */
+
+        const telefoneOriginal =
+            telefoneDestinoInformado ||
+            telefonePedido;
 
         if (
             !telefoneOriginal
@@ -292,7 +332,7 @@ export async function POST(
                         false,
 
                     error:
-                        "Pedido sem telefone cadastrado.",
+                        "Nenhum telefone foi informado para o envio.",
                 },
                 {
                     status:
@@ -313,7 +353,7 @@ export async function POST(
                         false,
 
                     error:
-                        "Não foi possível identificar um telefone válido para o pedido.",
+                        "Não foi possível identificar um telefone válido para o envio.",
                 },
                 {
                     status:
@@ -361,12 +401,12 @@ export async function POST(
         ================================================= */
 
         /*
-         * Essa rota já foi criada anteriormente:
+         * Essa rota já existe:
          *
          * /api/pdf-ingresso
          *
          * O respond.io precisa conseguir acessar
-         * o documento por uma URL HTTPS pública.
+         * o documento através de uma URL HTTPS pública.
          */
 
         const origem =
@@ -389,7 +429,14 @@ export async function POST(
                 pedidoId:
                     pedido.id,
 
-                telefoneOriginal,
+                telefonePedido,
+
+                telefoneDestinoInformado:
+                    telefoneDestinoInformado ||
+                    null,
+
+                telefoneUsadoAntesNormalizacao:
+                    telefoneOriginal,
 
                 telefone,
 
@@ -448,6 +495,13 @@ export async function POST(
                 whatsappIngressoReenviadoEm:
                     agora,
 
+                /*
+                 * Aqui registramos para qual número
+                 * o ingresso foi realmente enviado.
+                 *
+                 * NÃO alteramos pedido.telefone.
+                 */
+
                 whatsappIngressoEnviadoPara:
                     telefone,
 
@@ -479,9 +533,26 @@ export async function POST(
 
                     nome,
 
+                    /*
+                     * Telefone que recebeu
+                     */
+
                     telefone,
 
-                    telefoneOriginal,
+                    /*
+                     * Telefone cadastrado originalmente
+                     */
+
+                    telefonePedido,
+
+                    /*
+                     * Mostra se foi utilizado número
+                     * informado manualmente.
+                     */
+
+                    telefoneDestinoInformado:
+                        telefoneDestinoInformado ||
+                        null,
 
                     dataVisita,
 
@@ -508,6 +579,8 @@ export async function POST(
 
                     enviadoEm:
                         agora,
+
+                    telefone,
 
                     pdfUrl,
                 },
