@@ -22,38 +22,162 @@ export default function CampingPage() {
 
   const valorPorPessoa = useMemo(() => {
     if (diarias <= 1) return valorPrimeiraDiaria;
-    return valorPrimeiraDiaria + (diarias - 1) * valorDemaisDiarias;
+
+    return (
+      valorPrimeiraDiaria +
+      (diarias - 1) * valorDemaisDiarias
+    );
   }, [diarias]);
 
   const valorTotal = useMemo(() => {
     return valorPorPessoa * quantidadePessoas;
   }, [valorPorPessoa, quantidadePessoas]);
 
-  const valorPorPessoaFormatado = valorPorPessoa.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  const valorPorPessoaFormatado =
+    valorPorPessoa.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
 
-  const valorTotalFormatado = valorTotal.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  const valorTotalFormatado =
+    valorTotal.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
 
   function limparCpf(valor: string) {
     return valor.replace(/\D/g, "");
   }
 
+  function normalizarEmail(valor: string) {
+    return String(valor || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  }
+
+  function emailTemFormatoValido(valor: string) {
+    const emailNormalizado = normalizarEmail(valor);
+
+    const regexEmail =
+      /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+    return regexEmail.test(emailNormalizado);
+  }
+
+  function sugerirCorrecaoEmail(valor: string) {
+    const emailNormalizado = normalizarEmail(valor);
+    const partes = emailNormalizado.split("@");
+
+    if (partes.length !== 2) {
+      return null;
+    }
+
+    const usuario = partes[0];
+    const dominio = partes[1];
+
+    const correcoes: Record<string, string> = {
+      // Gmail
+      "gmai.com": "gmail.com",
+      "gmial.com": "gmail.com",
+      "gamil.com": "gmail.com",
+      "gmail.con": "gmail.com",
+      "gmail.co": "gmail.com",
+      "gmail.cm": "gmail.com",
+      "gmail.om": "gmail.com",
+      "gmail.cim": "gmail.com",
+      "gmail.comm": "gmail.com",
+      "gmail.com.br": "gmail.com",
+
+      // Hotmail
+      "hotmai.com": "hotmail.com",
+      "hotmal.com": "hotmail.com",
+      "hotamil.com": "hotmail.com",
+      "hotmail.con": "hotmail.com",
+      "hotmail.co": "hotmail.com",
+      "hotmail.cm": "hotmail.com",
+      "hotmail.om": "hotmail.com",
+
+      // Outlook
+      "outlok.com": "outlook.com",
+      "outloo.com": "outlook.com",
+      "outlook.con": "outlook.com",
+      "outlook.co": "outlook.com",
+      "outlook.cm": "outlook.com",
+
+      // Yahoo
+      "yaho.com": "yahoo.com",
+      "yahho.com": "yahoo.com",
+      "yahoo.con": "yahoo.com",
+      "yahoo.co": "yahoo.com",
+      "yahoo.cm": "yahoo.com",
+
+      // iCloud
+      "iclod.com": "icloud.com",
+      "icoud.com": "icloud.com",
+      "icloud.con": "icloud.com",
+      "icloud.co": "icloud.com",
+      "icloud.cm": "icloud.com",
+    };
+
+    const dominioCorreto = correcoes[dominio];
+
+    if (!dominioCorreto) {
+      return null;
+    }
+
+    return `${usuario}@${dominioCorreto}`;
+  }
+
   async function continuarParaResumo() {
     const cpfLimpo = limparCpf(cpf);
+    const emailNormalizado = normalizarEmail(email);
 
-    if (!nome || !cpfLimpo || !telefone || !email || !dataEntrada) {
-      alert("Preencha todos os campos antes de continuar.");
+    if (
+      !nome.trim() ||
+      !cpfLimpo ||
+      !telefone.trim() ||
+      !emailNormalizado ||
+      !dataEntrada
+    ) {
+      alert(
+        "Preencha todos os campos antes de continuar."
+      );
       return;
     }
 
     if (cpfLimpo.length !== 11) {
-      alert("CPF inválido. Digite os 11 números do CPF.");
+      alert(
+        "CPF inválido. Digite os 11 números do CPF."
+      );
       return;
+    }
+
+    if (!emailTemFormatoValido(emailNormalizado)) {
+      alert(
+        "E-mail inválido.\n\nConfira o endereço informado antes de continuar."
+      );
+      return;
+    }
+
+    const emailSugerido =
+      sugerirCorrecaoEmail(emailNormalizado);
+
+    if (emailSugerido) {
+      alert(
+        `Confira seu e-mail antes de continuar.\n\n` +
+        `Você informou:\n${emailNormalizado}\n\n` +
+        `Você quis dizer:\n${emailSugerido}\n\n` +
+        `Corrija o e-mail para continuar.`
+      );
+
+      setEmail(emailSugerido);
+
+      return;
+    }
+
+    if (email !== emailNormalizado) {
+      setEmail(emailNormalizado);
     }
 
     try {
@@ -62,14 +186,26 @@ export default function CampingPage() {
       const pedidoId = await criarPedido({
         produto: "Camping",
         tipo: "camping",
-        nome,
+        nome: nome.trim(),
         cpf: cpfLimpo,
-        telefone,
-        email,
+        telefone: telefone.trim(),
+        email: emailNormalizado,
         dataEntrada,
         noites: diarias,
+
+        /*
+         * IMPORTANTE:
+         * mantém quantidadePessoas como número real
+         * de pessoas da reserva.
+         */
         quantidadePessoas,
+
+        /*
+         * Mantemos quantidade = 1 conforme a
+         * estrutura atual do Camping.
+         */
         quantidade: 1,
+
         valorUnitario: valorPorPessoa,
         valorTotal,
 
@@ -89,24 +225,34 @@ export default function CampingPage() {
         pedidoId,
         produto: "Camping",
         tipo: "camping",
-        nome,
+        nome: nome.trim(),
         cpf: cpfLimpo,
-        telefone,
-        email,
+        telefone: telefone.trim(),
+        email: emailNormalizado,
         dataEntrada,
         diarias: String(diarias),
         noites: String(diarias),
-        quantidadePessoas: String(quantidadePessoas),
+        quantidadePessoas:
+          String(quantidadePessoas),
         tipoCamping,
         quantidade: "1",
-        valorUnitario: String(valorPorPessoa),
+        valorUnitario:
+          String(valorPorPessoa),
         valorTotal: String(valorTotal),
       });
 
-      router.push(`/checkout/resumo?${params.toString()}`);
+      router.push(
+        `/checkout/resumo?${params.toString()}`
+      );
     } catch (error) {
-      console.error("Erro ao salvar pedido:", error);
-      alert("Não foi possível salvar o pedido.");
+      console.error(
+        "Erro ao salvar pedido:",
+        error
+      );
+
+      alert(
+        "Não foi possível salvar o pedido."
+      );
     } finally {
       setSalvando(false);
     }
@@ -116,7 +262,8 @@ export default function CampingPage() {
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
       style={{
-        backgroundImage: "url('/fotos/camping.png')",
+        backgroundImage:
+          "url('/fotos/camping.png')",
       }}
     >
       <div className="absolute inset-0 bg-black/45" />
@@ -138,21 +285,24 @@ export default function CampingPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
-                Reserve sua experiência de camping no Parque Mundo Novo.
+                Reserve sua experiência de camping no
+                Parque Mundo Novo.
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code da reserva será liberado após confirmação do
-                pagamento.
+                O QR Code da reserva será liberado após
+                confirmação do pagamento.
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🔒 Compra segura via Pix, com confirmação automática.
+                  🔒 Compra segura via Pix, com confirmação
+                  automática.
                 </div>
 
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🏕️ Voucher digital com QR Code para o check-in.
+                  🏕️ Voucher digital com QR Code para o
+                  check-in.
                 </div>
               </div>
             </div>
@@ -166,31 +316,37 @@ export default function CampingPage() {
             </h2>
 
             <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
-              <p className="mb-2 font-black">🏕️ Informações importantes</p>
+              <p className="mb-2 font-black">
+                🏕️ Informações importantes
+              </p>
 
               <ul className="list-disc space-y-2 pl-5">
                 <li>
-                  O camping pertence ao Parque Mundo Novo e utiliza voucher
-                  próprio.
+                  O camping pertence ao Parque Mundo Novo e
+                  utiliza voucher próprio.
                 </li>
 
                 <li>
-                  A diária inclui acesso ao parque durante o período contratado.
+                  A diária inclui acesso ao parque durante o
+                  período contratado.
                 </li>
 
                 <li>
-                  O voucher deverá ser apresentado no check-in juntamente com um
-                  documento oficial com foto.
+                  O voucher deverá ser apresentado no
+                  check-in juntamente com um documento
+                  oficial com foto.
                 </li>
 
                 <li>
-                  Permanências superiores às diárias contratadas deverão ser
-                  regularizadas diretamente na recepção do parque.
+                  Permanências superiores às diárias
+                  contratadas deverão ser regularizadas
+                  diretamente na recepção do parque.
                 </li>
 
                 <li>
-                  Motorhomes são aceitos conforme disponibilidade e orientação da
-                  equipe do parque.
+                  Motorhomes são aceitos conforme
+                  disponibilidade e orientação da equipe do
+                  parque.
                 </li>
               </ul>
             </div>
@@ -200,7 +356,9 @@ export default function CampingPage() {
                 <input
                   type="text"
                   value={nome}
-                  onChange={(e) => setNome(e.target.value)}
+                  onChange={(e) =>
+                    setNome(e.target.value)
+                  }
                   placeholder="Digite seu nome"
                   className={inputClass}
                 />
@@ -210,7 +368,9 @@ export default function CampingPage() {
                 <input
                   type="text"
                   value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
+                  onChange={(e) =>
+                    setCpf(e.target.value)
+                  }
                   placeholder="Digite seu CPF"
                   className={inputClass}
                 />
@@ -220,7 +380,9 @@ export default function CampingPage() {
                 <input
                   type="text"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(e) =>
+                    setTelefone(e.target.value)
+                  }
                   placeholder="Digite seu telefone"
                   className={inputClass}
                 />
@@ -230,17 +392,40 @@ export default function CampingPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) =>
+                    setEmail(
+                      e.target.value.toLowerCase()
+                    )
+                  }
+                  onBlur={() =>
+                    setEmail(
+                      normalizarEmail(email)
+                    )
+                  }
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  inputMode="email"
+                  autoComplete="email"
                   placeholder="Digite seu e-mail"
                   className={inputClass}
                 />
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Confira o e-mail. O voucher também será
+                  enviado para este endereço.
+                </p>
               </Campo>
 
               <Campo label="Data de entrada">
                 <input
                   type="date"
                   value={dataEntrada}
-                  onChange={(e) => setDataEntrada(e.target.value)}
+                  onChange={(e) =>
+                    setDataEntrada(
+                      e.target.value
+                    )
+                  }
                   className={inputClass}
                 />
               </Campo>
@@ -248,7 +433,11 @@ export default function CampingPage() {
               <Campo label="Tipo de camping">
                 <select
                   value={tipoCamping}
-                  onChange={(e) => setTipoCamping(e.target.value)}
+                  onChange={(e) =>
+                    setTipoCamping(
+                      e.target.value
+                    )
+                  }
                   className={inputClass}
                 >
                   <option>Barraca</option>
@@ -261,7 +450,13 @@ export default function CampingPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setQuantidadePessoas((q) => Math.max(1, q - 1))
+                      setQuantidadePessoas(
+                        (q) =>
+                          Math.max(
+                            1,
+                            q - 1
+                          )
+                      )
                     }
                     className={contadorClass}
                   >
@@ -274,7 +469,11 @@ export default function CampingPage() {
 
                   <button
                     type="button"
-                    onClick={() => setQuantidadePessoas((q) => q + 1)}
+                    onClick={() =>
+                      setQuantidadePessoas(
+                        (q) => q + 1
+                      )
+                    }
                     className={contadorClass}
                   >
                     +
@@ -286,7 +485,14 @@ export default function CampingPage() {
                 <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
                   <button
                     type="button"
-                    onClick={() => setDiarias((q) => Math.max(1, q - 1))}
+                    onClick={() =>
+                      setDiarias((q) =>
+                        Math.max(
+                          1,
+                          q - 1
+                        )
+                      )
+                    }
                     className={contadorClass}
                   >
                     -
@@ -298,7 +504,11 @@ export default function CampingPage() {
 
                   <button
                     type="button"
-                    onClick={() => setDiarias((q) => q + 1)}
+                    onClick={() =>
+                      setDiarias(
+                        (q) => q + 1
+                      )
+                    }
                     className={contadorClass}
                   >
                     +
@@ -319,27 +529,36 @@ export default function CampingPage() {
               </p>
 
               <p>
-                <strong>Tipo:</strong> {tipoCamping}
+                <strong>Tipo:</strong>{" "}
+                {tipoCamping}
               </p>
 
               <p>
-                <strong>Entrada:</strong> {dataEntrada || "Não informada"}
+                <strong>Entrada:</strong>{" "}
+                {dataEntrada ||
+                  "Não informada"}
               </p>
 
               <p>
-                <strong>Pessoas:</strong> {quantidadePessoas}
+                <strong>Pessoas:</strong>{" "}
+                {quantidadePessoas}
               </p>
 
               <p>
-                <strong>Diárias:</strong> {diarias}
+                <strong>Diárias:</strong>{" "}
+                {diarias}
               </p>
 
               <p>
-                <strong>Valor por pessoa:</strong> {valorPorPessoaFormatado}
+                <strong>
+                  Valor por pessoa:
+                </strong>{" "}
+                {valorPorPessoaFormatado}
               </p>
 
               <p className="text-sm text-gray-500">
-                1ª diária R$ 100,00 + demais R$ 80,00 por pessoa.
+                1ª diária R$ 100,00 + demais R$ 80,00
+                por pessoa.
               </p>
             </div>
 
@@ -361,14 +580,15 @@ export default function CampingPage() {
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              A reserva será liberada somente após confirmação automática do
-              pagamento.
+              A reserva será liberada somente após
+              confirmação automática do pagamento.
             </p>
 
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
-              Ao prosseguir com a compra, você declara estar ciente das regras
-              de utilização, da política de cancelamento e das informações
-              específicas da reserva de camping.
+              Ao prosseguir com a compra, você declara estar
+              ciente das regras de utilização, da política
+              de cancelamento e das informações específicas
+              da reserva de camping.
             </p>
           </aside>
         </section>
@@ -386,7 +606,10 @@ function Campo({
 }) {
   return (
     <div>
-      <label className="mb-2 block font-semibold text-gray-700">{label}</label>
+      <label className="mb-2 block font-semibold text-gray-700">
+        {label}
+      </label>
+
       {children}
     </div>
   );

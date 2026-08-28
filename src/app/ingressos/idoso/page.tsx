@@ -35,17 +35,186 @@ export default function IdosoPage() {
     return valor.replace(/\D/g, "");
   }
 
+  /*
+   * Normaliza o e-mail:
+   * - remove espaços
+   * - converte para letras minúsculas
+   */
+  function normalizarEmail(valor: string) {
+    return String(valor || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "");
+  }
+
+  /*
+   * Verifica se o e-mail possui um formato básico válido.
+   *
+   * Exemplos válidos:
+   * nome@gmail.com
+   * nome.sobrenome@hotmail.com
+   */
+  function emailTemFormatoValido(valor: string) {
+    const emailNormalizado = normalizarEmail(valor);
+
+    const regexEmail =
+      /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+    return regexEmail.test(emailNormalizado);
+  }
+
+  /*
+   * Domínios digitados incorretamente com frequência.
+   *
+   * O sistema NÃO altera silenciosamente.
+   * Ele mostra uma sugestão para o cliente corrigir.
+   */
+  function sugerirCorrecaoEmail(valor: string) {
+    const emailNormalizado = normalizarEmail(valor);
+
+    const partes = emailNormalizado.split("@");
+
+    if (partes.length !== 2) {
+      return null;
+    }
+
+    const usuario = partes[0];
+    const dominio = partes[1];
+
+    const correcoes: Record<string, string> = {
+      // Gmail
+      "gmai.com": "gmail.com",
+      "gmial.com": "gmail.com",
+      "gamil.com": "gmail.com",
+      "gmail.con": "gmail.com",
+      "gmail.co": "gmail.com",
+      "gmail.cm": "gmail.com",
+      "gmail.om": "gmail.com",
+      "gmail.cim": "gmail.com",
+      "gmail.comm": "gmail.com",
+      "gmail.com.br": "gmail.com",
+
+      // Hotmail
+      "hotmai.com": "hotmail.com",
+      "hotmal.com": "hotmail.com",
+      "hotamil.com": "hotmail.com",
+      "hotmail.con": "hotmail.com",
+      "hotmail.co": "hotmail.com",
+      "hotmail.cm": "hotmail.com",
+      "hotmail.om": "hotmail.com",
+
+      // Outlook
+      "outlok.com": "outlook.com",
+      "outloo.com": "outlook.com",
+      "outlook.con": "outlook.com",
+      "outlook.co": "outlook.com",
+      "outlook.cm": "outlook.com",
+
+      // Yahoo
+      "yaho.com": "yahoo.com",
+      "yahho.com": "yahoo.com",
+      "yahoo.con": "yahoo.com",
+      "yahoo.co": "yahoo.com",
+      "yahoo.cm": "yahoo.com",
+
+      // iCloud
+      "iclod.com": "icloud.com",
+      "icoud.com": "icloud.com",
+      "icloud.con": "icloud.com",
+      "icloud.co": "icloud.com",
+      "icloud.cm": "icloud.com",
+    };
+
+    const dominioCorreto = correcoes[dominio];
+
+    if (!dominioCorreto) {
+      return null;
+    }
+
+    return `${usuario}@${dominioCorreto}`;
+  }
+
   async function continuarParaResumo() {
     const cpfLimpo = limparCpf(cpf);
 
-    if (!nome || !cpfLimpo || !telefone || !email || !dataVisita) {
-      alert("Preencha todos os campos antes de continuar.");
+    /*
+     * Antes de salvar, normalizamos o e-mail.
+     *
+     * Exemplo:
+     * PauloDutra@GMAIL.COM
+     *
+     * vira:
+     * paulodutra@gmail.com
+     */
+    const emailNormalizado = normalizarEmail(email);
+
+    if (
+      !nome.trim() ||
+      !cpfLimpo ||
+      !telefone.trim() ||
+      !emailNormalizado ||
+      !dataVisita
+    ) {
+      alert(
+        "Preencha todos os campos antes de continuar."
+      );
       return;
     }
 
     if (cpfLimpo.length !== 11) {
-      alert("CPF inválido. Digite os 11 números do CPF.");
+      alert(
+        "CPF inválido. Digite os 11 números do CPF."
+      );
       return;
+    }
+
+    /*
+     * Validação básica do formato.
+     */
+    if (!emailTemFormatoValido(emailNormalizado)) {
+      alert(
+        "E-mail inválido.\n\nConfira o endereço informado antes de continuar."
+      );
+      return;
+    }
+
+    /*
+     * Procura erros comuns no domínio.
+     *
+     * Exemplo:
+     * paulo@gmai.com
+     *
+     * Sugestão:
+     * paulo@gmail.com
+     */
+    const emailSugerido =
+      sugerirCorrecaoEmail(emailNormalizado);
+
+    if (emailSugerido) {
+      alert(
+        `Confira seu e-mail antes de continuar.\n\n` +
+        `Você informou:\n${emailNormalizado}\n\n` +
+        `Você quis dizer:\n${emailSugerido}\n\n` +
+        `Corrija o e-mail para continuar.`
+      );
+
+      /*
+       * Já colocamos a sugestão no campo.
+       *
+       * O cliente ainda precisa clicar novamente
+       * em "Continuar para pagamento".
+       */
+      setEmail(emailSugerido);
+
+      return;
+    }
+
+    /*
+     * Atualiza visualmente o campo caso a pessoa
+     * tenha utilizado letras maiúsculas.
+     */
+    if (email !== emailNormalizado) {
+      setEmail(emailNormalizado);
     }
 
     try {
@@ -54,10 +223,15 @@ export default function IdosoPage() {
       const pedidoId = await criarPedido({
         produto: "Meia Entrada Idoso",
         tipo: "idoso",
-        nome,
+        nome: nome.trim(),
         cpf: cpfLimpo,
-        telefone,
-        email,
+        telefone: telefone.trim(),
+
+        /*
+         * Salva sempre o e-mail normalizado.
+         */
+        email: emailNormalizado,
+
         dataVisita,
         quantidade,
         valorUnitario,
@@ -76,20 +250,34 @@ export default function IdosoPage() {
         pedidoId,
         produto: "Meia Entrada Idoso",
         tipo: "idoso",
-        nome,
+        nome: nome.trim(),
         cpf: cpfLimpo,
-        telefone,
-        email,
+        telefone: telefone.trim(),
+
+        /*
+         * Também manda o e-mail normalizado
+         * para a página de resumo.
+         */
+        email: emailNormalizado,
+
         dataVisita,
         quantidade: String(quantidade),
         valorUnitario: String(valorUnitario),
         valorTotal: String(valorTotal),
       });
 
-      router.push(`/checkout/resumo?${params.toString()}`);
+      router.push(
+        `/checkout/resumo?${params.toString()}`
+      );
     } catch (error) {
-      console.error("Erro ao salvar pedido:", error);
-      alert("Não foi possível salvar o pedido.");
+      console.error(
+        "Erro ao salvar pedido:",
+        error
+      );
+
+      alert(
+        "Não foi possível salvar o pedido."
+      );
     } finally {
       setSalvando(false);
     }
@@ -99,7 +287,8 @@ export default function IdosoPage() {
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
       style={{
-        backgroundImage: "url('/fotos/idoso-cachoeira.png')",
+        backgroundImage:
+          "url('/fotos/idoso-cachoeira.png')",
       }}
     >
       <div className="absolute inset-0 bg-black/45" />
@@ -121,22 +310,24 @@ export default function IdosoPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
-                Preencha os dados abaixo para adquirir a meia entrada para
-                idosos.
+                Preencha os dados abaixo para adquirir a
+                meia entrada para idosos.
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code do ingresso será liberado após confirmação do
-                pagamento.
+                O QR Code do ingresso será liberado após
+                confirmação do pagamento.
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🔒 Compra segura via Pix, com confirmação automática.
+                  🔒 Compra segura via Pix, com confirmação
+                  automática.
                 </div>
 
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🎟️ Ingresso digital com QR Code para validação na portaria.
+                  🎟️ Ingresso digital com QR Code para
+                  validação na portaria.
                 </div>
               </div>
             </div>
@@ -150,24 +341,31 @@ export default function IdosoPage() {
             </h2>
 
             <div className="mb-6 rounded-2xl border border-yellow-300 bg-yellow-100 p-4 text-sm leading-relaxed text-yellow-950">
-              <p className="mb-2 font-black">📌 Informações importantes</p>
+              <p className="mb-2 font-black">
+                📌 Informações importantes
+              </p>
 
               <ul className="list-disc space-y-2 pl-5">
-                <li>A meia entrada é pessoal e intransferível.</li>
-
                 <li>
-                  O documento que comprova o direito ao benefício deverá estar
-                  no mesmo nome informado na compra.
+                  A meia entrada é pessoal e
+                  intransferível.
                 </li>
 
                 <li>
-                  A apresentação do documento original é obrigatória na entrada
-                  do parque.
+                  O documento que comprova o direito ao
+                  benefício deverá estar no mesmo nome
+                  informado na compra.
                 </li>
 
                 <li>
-                  Caso o benefício não possa ser comprovado, será necessário
-                  complementar o valor do ingresso conforme a política vigente do
+                  A apresentação do documento original é
+                  obrigatória na entrada do parque.
+                </li>
+
+                <li>
+                  Caso o benefício não possa ser comprovado,
+                  será necessário complementar o valor do
+                  ingresso conforme a política vigente do
                   parque.
                 </li>
               </ul>
@@ -178,7 +376,9 @@ export default function IdosoPage() {
                 <input
                   type="text"
                   value={nome}
-                  onChange={(e) => setNome(e.target.value)}
+                  onChange={(e) =>
+                    setNome(e.target.value)
+                  }
                   placeholder="Digite seu nome"
                   className={inputClass}
                 />
@@ -188,7 +388,9 @@ export default function IdosoPage() {
                 <input
                   type="text"
                   value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
+                  onChange={(e) =>
+                    setCpf(e.target.value)
+                  }
                   placeholder="Digite seu CPF"
                   className={inputClass}
                 />
@@ -198,7 +400,9 @@ export default function IdosoPage() {
                 <input
                   type="text"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
+                  onChange={(e) =>
+                    setTelefone(e.target.value)
+                  }
                   placeholder="Digite seu telefone"
                   className={inputClass}
                 />
@@ -208,17 +412,38 @@ export default function IdosoPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) =>
+                    setEmail(
+                      e.target.value.toLowerCase()
+                    )
+                  }
+                  onBlur={() =>
+                    setEmail(
+                      normalizarEmail(email)
+                    )
+                  }
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  inputMode="email"
+                  autoComplete="email"
                   placeholder="Digite seu e-mail"
                   className={inputClass}
                 />
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Confira o e-mail. O ingresso também será
+                  enviado para este endereço.
+                </p>
               </Campo>
 
               <Campo label="Data da visita">
                 <input
                   type="date"
                   value={dataVisita}
-                  onChange={(e) => setDataVisita(e.target.value)}
+                  onChange={(e) =>
+                    setDataVisita(e.target.value)
+                  }
                   className={inputClass}
                 />
               </Campo>
@@ -227,7 +452,11 @@ export default function IdosoPage() {
                 <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
                   <button
                     type="button"
-                    onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
+                    onClick={() =>
+                      setQuantidade((q) =>
+                        Math.max(1, q - 1)
+                      )
+                    }
                     className={contadorClass}
                   >
                     -
@@ -239,7 +468,9 @@ export default function IdosoPage() {
 
                   <button
                     type="button"
-                    onClick={() => setQuantidade((q) => q + 1)}
+                    onClick={() =>
+                      setQuantidade((q) => q + 1)
+                    }
                     className={contadorClass}
                   >
                     +
@@ -256,15 +487,18 @@ export default function IdosoPage() {
 
             <div className="space-y-3 text-base">
               <p>
-                <strong>Produto:</strong> Meia Entrada Idoso
+                <strong>Produto:</strong> Meia Entrada
+                Idoso
               </p>
 
               <p>
-                <strong>Valor unitário:</strong> {valorUnitarioFormatado}
+                <strong>Valor unitário:</strong>{" "}
+                {valorUnitarioFormatado}
               </p>
 
               <p>
-                <strong>Quantidade:</strong> {quantidade}
+                <strong>Quantidade:</strong>{" "}
+                {quantidade}
               </p>
 
               <p>
@@ -291,14 +525,15 @@ export default function IdosoPage() {
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso será liberado somente após confirmação automática do
-              pagamento.
+              O ingresso será liberado somente após
+              confirmação automática do pagamento.
             </p>
 
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
-              Ao prosseguir com a compra, você declara estar ciente das regras
-              de utilização, da política de cancelamento e das informações
-              específicas do ingresso selecionado.
+              Ao prosseguir com a compra, você declara estar
+              ciente das regras de utilização, da política
+              de cancelamento e das informações específicas
+              do ingresso selecionado.
             </p>
           </aside>
         </section>
@@ -316,7 +551,10 @@ function Campo({
 }) {
   return (
     <div>
-      <label className="mb-2 block font-semibold text-gray-700">{label}</label>
+      <label className="mb-2 block font-semibold text-gray-700">
+        {label}
+      </label>
+
       {children}
     </div>
   );
