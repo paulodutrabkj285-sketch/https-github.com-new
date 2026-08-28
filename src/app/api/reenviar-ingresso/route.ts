@@ -1,19 +1,122 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+    NextRequest,
+    NextResponse,
+} from "next/server";
+
 import {
     atualizarPedido,
     buscarPedidoPorId,
 } from "@/lib/pedidos";
-import { enviarIngressoPorEmail } from "@/lib/email";
+
+import {
+    enviarIngressoPorEmail,
+} from "@/lib/email";
 
 export const runtime = "nodejs";
 
-export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
+/* =========================================================
+   DESCOBRIR QUANTIDADE CORRETA
+========================================================= */
 
-        const pedidoId = String(
-            body?.pedidoId || ""
-        ).trim();
+function obterQuantidadePedido(
+    pedido: any
+) {
+    const produto =
+        String(
+            pedido?.produto ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+
+    /*
+     * CAMPING:
+     *
+     * quantidade geralmente representa
+     * 1 reserva.
+     *
+     * quantidadePessoas representa
+     * o número real de hóspedes.
+     */
+
+    if (
+        produto.includes(
+            "camping"
+        )
+    ) {
+        const quantidadePessoas =
+            Number(
+                pedido?.quantidadePessoas ||
+                0
+            );
+
+        if (
+            Number.isFinite(
+                quantidadePessoas
+            ) &&
+            quantidadePessoas > 0
+        ) {
+            return quantidadePessoas;
+        }
+    }
+
+    /*
+     * DEMAIS PRODUTOS
+     */
+
+    const quantidade =
+        Number(
+            pedido?.quantidade ||
+            0
+        );
+
+    if (
+        Number.isFinite(
+            quantidade
+        ) &&
+        quantidade > 0
+    ) {
+        return quantidade;
+    }
+
+    /*
+     * FALLBACK
+     */
+
+    const quantidadePessoas =
+        Number(
+            pedido?.quantidadePessoas ||
+            0
+        );
+
+    if (
+        Number.isFinite(
+            quantidadePessoas
+        ) &&
+        quantidadePessoas > 0
+    ) {
+        return quantidadePessoas;
+    }
+
+    return 1;
+}
+
+/* =========================================================
+   POST
+========================================================= */
+
+export async function POST(
+    req: NextRequest
+) {
+    try {
+        const body =
+            await req.json();
+
+        const pedidoId =
+            String(
+                body?.pedidoId ||
+                ""
+            ).trim();
 
         /* ==========================================
            VALIDAR PEDIDO ID
@@ -22,11 +125,15 @@ export async function POST(req: NextRequest) {
         if (!pedidoId) {
             return NextResponse.json(
                 {
-                    ok: false,
-                    error: "pedidoId não informado.",
+                    ok:
+                        false,
+
+                    error:
+                        "pedidoId não informado.",
                 },
                 {
-                    status: 400,
+                    status:
+                        400,
                 }
             );
         }
@@ -43,18 +150,32 @@ export async function POST(req: NextRequest) {
         if (!pedido) {
             return NextResponse.json(
                 {
-                    ok: false,
-                    error: "Pedido não encontrado.",
+                    ok:
+                        false,
+
+                    error:
+                        "Pedido não encontrado.",
+
                     diagnostico: {
                         pedidoIdInformado:
                             pedidoId,
                     },
                 },
                 {
-                    status: 404,
+                    status:
+                        404,
                 }
             );
         }
+
+        /* ==========================================
+           QUANTIDADE CORRETA
+        ========================================== */
+
+        const quantidade =
+            obterQuantidadePedido(
+                pedido
+            );
 
         /* ==========================================
            LOG PARA VERCEL
@@ -94,6 +215,17 @@ export async function POST(req: NextRequest) {
                     pedido.produto ||
                     null,
 
+                quantidadeFirestore:
+                    pedido.quantidade ??
+                    null,
+
+                quantidadePessoasFirestore:
+                    pedido.quantidadePessoas ??
+                    null,
+
+                quantidadeUtilizada:
+                    quantidade,
+
                 valorTotal:
                     pedido.valorTotal ||
                     null,
@@ -106,13 +238,15 @@ export async function POST(req: NextRequest) {
 
         const email =
             String(
-                pedido.email || ""
+                pedido.email ||
+                ""
             ).trim();
 
         if (!email) {
             return NextResponse.json(
                 {
-                    ok: false,
+                    ok:
+                        false,
 
                     error:
                         "Pedido sem e-mail cadastrado.",
@@ -135,7 +269,8 @@ export async function POST(req: NextRequest) {
                     },
                 },
                 {
-                    status: 400,
+                    status:
+                        400,
                 }
             );
         }
@@ -144,13 +279,22 @@ export async function POST(req: NextRequest) {
            VALIDAR PAGAMENTO
         ========================================== */
 
+        const statusPagamento =
+            String(
+                pedido.statusPagamento ||
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
         if (
-            pedido.statusPagamento !==
+            statusPagamento !==
             "pago"
         ) {
             return NextResponse.json(
                 {
-                    ok: false,
+                    ok:
+                        false,
 
                     error:
                         "O ingresso só pode ser reenviado após pagamento confirmado.",
@@ -191,6 +335,17 @@ export async function POST(req: NextRequest) {
                             pedido.produto ||
                             null,
 
+                        quantidadeFirestore:
+                            pedido.quantidade ??
+                            null,
+
+                        quantidadePessoasFirestore:
+                            pedido.quantidadePessoas ??
+                            null,
+
+                        quantidadeUtilizada:
+                            quantidade,
+
                         valorTotal:
                             pedido.valorTotal ||
                             null,
@@ -209,7 +364,8 @@ export async function POST(req: NextRequest) {
                     },
                 },
                 {
-                    status: 400,
+                    status:
+                        400,
                 }
             );
         }
@@ -219,8 +375,11 @@ export async function POST(req: NextRequest) {
         ========================================== */
 
         const codigoIngresso =
-            pedido.codigoIngresso ||
-            `PMN-${pedido.id}`;
+            String(
+                pedido.codigoIngresso ||
+                pedido.qrCodeIngresso ||
+                `PMN-${pedido.id}`
+            ).trim();
 
         /* ==========================================
            ENVIAR EMAIL
@@ -243,8 +402,15 @@ export async function POST(req: NextRequest) {
                 produto:
                     pedido.produto,
 
-                quantidade:
-                    pedido.quantidade,
+                quantidade,
+
+                quantidadeFirestore:
+                    pedido.quantidade ??
+                    null,
+
+                quantidadePessoasFirestore:
+                    pedido.quantidadePessoas ??
+                    null,
 
                 statusPagamento:
                     pedido.statusPagamento,
@@ -264,11 +430,7 @@ export async function POST(req: NextRequest) {
                     pedido.produto ||
                     "Ingresso Parque Mundo Novo",
 
-                quantidade:
-                    Number(
-                        pedido.quantidade ||
-                        1
-                    ),
+                quantidade,
 
                 codigoIngresso,
 
@@ -285,6 +447,10 @@ export async function POST(req: NextRequest) {
            REGISTRAR REENVIO
         ========================================== */
 
+        const agora =
+            new Date()
+                .toISOString();
+
         await atualizarPedido(
             pedido.id,
             {
@@ -292,7 +458,7 @@ export async function POST(req: NextRequest) {
                     true,
 
                 emailIngressoReenviadoEm:
-                    new Date().toISOString(),
+                    agora,
 
                 emailIngressoReenviadoPara:
                     email,
@@ -304,7 +470,8 @@ export async function POST(req: NextRequest) {
         ========================================== */
 
         return NextResponse.json({
-            ok: true,
+            ok:
+                true,
 
             mensagem:
                 "Ingresso reenviado com sucesso.",
@@ -325,11 +492,7 @@ export async function POST(req: NextRequest) {
                     pedido.produto ||
                     "",
 
-                quantidade:
-                    Number(
-                        pedido.quantidade ||
-                        1
-                    ),
+                quantidade,
 
                 statusPagamento:
                     pedido.statusPagamento,
@@ -339,9 +502,12 @@ export async function POST(req: NextRequest) {
             },
 
             resultadoEmail:
-                resultado || null,
+                resultado ||
+                null,
         });
-    } catch (error: any) {
+    } catch (
+    error: any
+    ) {
         const mensagemErro =
             error?.message ||
             error?.response ||
@@ -357,13 +523,15 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(
             {
-                ok: false,
+                ok:
+                    false,
 
                 error:
                     mensagemErro,
             },
             {
-                status: 500,
+                status:
+                    500,
             }
         );
     }
