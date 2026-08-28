@@ -1,17 +1,30 @@
-import { atualizarPedido, buscarPedidoPorId } from "@/lib/pedidos";
-import { enviarIngressoPorEmail } from "@/lib/email";
-import { db } from "@/lib/firebase";
+import {
+    atualizarPedido,
+    buscarPedidoPorId,
+} from "@/lib/pedidos";
+
+import {
+    enviarIngressoPorEmail,
+} from "@/lib/email";
+
+import {
+    db,
+} from "@/lib/firebase";
 
 import {
     doc,
     updateDoc,
 } from "firebase/firestore";
 
-type FormaPagamento = "pix" | "cartao";
+type FormaPagamento =
+    | "pix"
+    | "cartao";
 
 type FinalizarPagamentoParams = {
     pedidoId: string;
-    formaPagamento: FormaPagamento;
+
+    formaPagamento:
+    FormaPagamento;
 
     valorPago?: number;
 
@@ -56,12 +69,15 @@ type FinalizarPagamentoResultado = {
 function converterParaCentavos(
     valor: unknown
 ) {
-    const numero = Number(
-        valor || 0
-    );
+    const numero =
+        Number(
+            valor || 0
+        );
 
     if (
-        !Number.isFinite(numero)
+        !Number.isFinite(
+            numero
+        )
     ) {
         return 0;
     }
@@ -98,10 +114,11 @@ function gerarUrlPublicaPdf({
             ?.trim() ||
         "https://www.parquemundonovooficial.com.br";
 
-    const url = new URL(
-        "/api/pdf-ingresso",
-        baseUrl
-    );
+    const url =
+        new URL(
+            "/api/pdf-ingresso",
+            baseUrl
+        );
 
     url.searchParams.set(
         "pedidoId",
@@ -117,6 +134,97 @@ function gerarUrlPublicaPdf({
 }
 
 /* =========================================================
+   QUANTIDADE CORRETA DO INGRESSO
+========================================================= */
+
+function obterQuantidadeIngresso(
+    pedido: any
+): number {
+    const produto =
+        String(
+            pedido?.produto ||
+            ""
+        )
+            .trim()
+            .toLowerCase();
+
+    /*
+     * CAMPING
+     *
+     * quantidade normalmente representa
+     * a quantidade da reserva/item.
+     *
+     * quantidadePessoas representa
+     * o número real de hóspedes.
+     */
+
+    if (
+        produto.includes(
+            "camping"
+        )
+    ) {
+        const quantidadePessoas =
+            Number(
+                pedido
+                    ?.quantidadePessoas ||
+                0
+            );
+
+        if (
+            Number.isFinite(
+                quantidadePessoas
+            ) &&
+            quantidadePessoas >
+            0
+        ) {
+            return quantidadePessoas;
+        }
+    }
+
+    /*
+     * DEMAIS PRODUTOS
+     */
+
+    const quantidade =
+        Number(
+            pedido?.quantidade ||
+            0
+        );
+
+    if (
+        Number.isFinite(
+            quantidade
+        ) &&
+        quantidade > 0
+    ) {
+        return quantidade;
+    }
+
+    /*
+     * FALLBACK
+     */
+
+    const quantidadePessoas =
+        Number(
+            pedido
+                ?.quantidadePessoas ||
+            0
+        );
+
+    if (
+        Number.isFinite(
+            quantidadePessoas
+        ) &&
+        quantidadePessoas >
+        0
+    ) {
+        return quantidadePessoas;
+    }
+
+    return 1;
+}
+
+/* =========================================================
    IDENTIFICAR PEDIDO DE AGÊNCIA / PARCEIRO
 ========================================================= */
 
@@ -125,11 +233,14 @@ function pedidoEhDeParceiro(
 ) {
     return (
         String(
-            pedido?.origem || ""
-        ).trim() === "parceiro" &&
+            pedido?.origem ||
+            ""
+        ).trim() ===
+        "parceiro" &&
         Boolean(
             String(
-                pedido?.reservaAgenciaId ||
+                pedido
+                    ?.reservaAgenciaId ||
                 ""
             ).trim()
         )
@@ -168,7 +279,8 @@ async function confirmarPagamentoReservaAgencia({
 
     const reservaAgenciaId =
         String(
-            pedido.reservaAgenciaId ||
+            pedido
+                .reservaAgenciaId ||
             ""
         ).trim();
 
@@ -209,7 +321,8 @@ async function confirmarPagamentoReservaAgencia({
                     dataConfirmacao,
 
                 ...(
-                    valorPago !== undefined
+                    valorPago !==
+                        undefined
                         ? {
                             valorPago:
                                 Number(
@@ -238,7 +351,8 @@ async function confirmarPagamentoReservaAgencia({
                 reservaAgenciaId,
 
                 codigoGrupo:
-                    pedido.codigoGrupo ||
+                    pedido
+                        .codigoGrupo ||
                     null,
 
                 formaPagamento,
@@ -325,7 +439,8 @@ async function marcarValorDivergenteReservaAgencia({
 
     const reservaAgenciaId =
         String(
-            pedido.reservaAgenciaId ||
+            pedido
+                .reservaAgenciaId ||
             ""
         ).trim();
 
@@ -427,7 +542,8 @@ export async function finalizarPagamento({
         );
 
         return {
-            ok: false,
+            ok:
+                false,
 
             pedidoId,
 
@@ -487,7 +603,8 @@ export async function finalizarPagamento({
 
         let emailEnviado =
             Boolean(
-                pedido.emailIngressoEnviado
+                pedido
+                    .emailIngressoEnviado
             );
 
         if (
@@ -495,13 +612,15 @@ export async function finalizarPagamento({
             pedido.email
         ) {
             emailEnviado =
-                await tentarEnviarEmail({
-                    pedido,
+                await tentarEnviarEmail(
+                    {
+                        pedido,
 
-                    pedidoId,
+                        pedidoId,
 
-                    codigoIngresso,
-                });
+                        codigoIngresso,
+                    }
+                );
         }
 
         console.log(
@@ -520,7 +639,8 @@ export async function finalizarPagamento({
         );
 
         return {
-            ok: true,
+            ok:
+                true,
 
             pedidoId,
 
@@ -665,7 +785,8 @@ export async function finalizarPagamento({
             );
 
             return {
-                ok: false,
+                ok:
+                    false,
 
                 pedidoId,
 
@@ -715,7 +836,8 @@ export async function finalizarPagamento({
         valorPago !==
         undefined
     ) {
-        dadosPagamento.valorPago =
+        dadosPagamento
+            .valorPago =
             Number(
                 valorPago
             );
@@ -729,23 +851,28 @@ export async function finalizarPagamento({
         formaPagamento ===
         "pix"
     ) {
-        dadosPagamento.sicrediStatus =
+        dadosPagamento
+            .sicrediStatus =
             "CONCLUIDA";
 
-        dadosPagamento.pixEndToEndId =
+        dadosPagamento
+            .pixEndToEndId =
             pixEndToEndId ||
             "";
 
-        dadosPagamento.pixHorario =
+        dadosPagamento
+            .pixHorario =
             pixHorario ||
             "";
 
-        dadosPagamento.sicrediTxid =
+        dadosPagamento
+            .sicrediTxid =
             sicrediTxid ||
             pedido.sicrediTxid ||
             "";
 
-        dadosPagamento.pixConfirmadoEm =
+        dadosPagamento
+            .pixConfirmadoEm =
             dataConfirmacao;
     }
 
@@ -757,37 +884,45 @@ export async function finalizarPagamento({
         formaPagamento ===
         "cartao"
     ) {
-        dadosPagamento.sicrediStatus =
+        dadosPagamento
+            .sicrediStatus =
             cartaoStatus ||
             "APROVADO";
 
-        dadosPagamento.cartaoStatus =
+        dadosPagamento
+            .cartaoStatus =
             cartaoStatus ||
             "APROVADO";
 
-        dadosPagamento.cartaoTransacaoId =
+        dadosPagamento
+            .cartaoTransacaoId =
             cartaoTransacaoId ||
             "";
 
-        dadosPagamento.cartaoAutorizacao =
+        dadosPagamento
+            .cartaoAutorizacao =
             cartaoAutorizacao ||
             "";
 
-        dadosPagamento.cartaoBandeira =
+        dadosPagamento
+            .cartaoBandeira =
             cartaoBandeira ||
             "";
 
-        dadosPagamento.cartaoUltimosDigitos =
+        dadosPagamento
+            .cartaoUltimosDigitos =
             cartaoUltimosDigitos ||
             "";
 
-        dadosPagamento.cartaoParcelas =
+        dadosPagamento
+            .cartaoParcelas =
             Number(
                 cartaoParcelas ||
                 1
             );
 
-        dadosPagamento.cartaoConfirmadoEm =
+        dadosPagamento
+            .cartaoConfirmadoEm =
             dataConfirmacao;
     }
 
@@ -816,7 +951,8 @@ export async function finalizarPagamento({
                 "site",
 
             reservaAgenciaId:
-                pedido.reservaAgenciaId ||
+                pedido
+                    .reservaAgenciaId ||
                 null,
         }
     );
@@ -873,20 +1009,23 @@ export async function finalizarPagamento({
     ===================================================== */
 
     const emailEnviado =
-        await tentarEnviarEmail({
-            pedido,
+        await tentarEnviarEmail(
+            {
+                pedido,
 
-            pedidoId,
+                pedidoId,
 
-            codigoIngresso,
-        });
+                codigoIngresso,
+            }
+        );
 
     /* =====================================================
        RESULTADO
     ===================================================== */
 
     return {
-        ok: true,
+        ok:
+            true,
 
         pedidoId,
 
@@ -924,7 +1063,8 @@ async function tentarEnviarEmail({
     codigoIngresso: string;
 }) {
     if (
-        pedido.emailIngressoEnviado
+        pedido
+            .emailIngressoEnviado
     ) {
         return true;
     }
@@ -964,10 +1104,25 @@ async function tentarEnviarEmail({
             ).trim();
 
         const whatsappPdfUrl =
-            gerarUrlPublicaPdf({
-                pedidoId,
-                codigoIngresso,
-            });
+            gerarUrlPublicaPdf(
+                {
+                    pedidoId,
+
+                    codigoIngresso,
+                }
+            );
+
+        /*
+         * IMPORTANTE:
+         *
+         * Define a quantidade correta
+         * antes de gerar/enviar o ingresso.
+         */
+
+        const quantidade =
+            obterQuantidadeIngresso(
+                pedido
+            );
 
         console.log(
             "FINALIZAÇÃO: PREPARANDO ENVIO",
@@ -980,6 +1135,21 @@ async function tentarEnviarEmail({
                 telefone:
                     telefone ||
                     null,
+
+                produto:
+                    pedido.produto ||
+                    null,
+
+                quantidadeFirestore:
+                    pedido.quantidade ??
+                    null,
+
+                quantidadePessoasFirestore:
+                    pedido.quantidadePessoas ??
+                    null,
+
+                quantidadeUtilizada:
+                    quantidade,
 
                 whatsappPdfUrl,
             }
@@ -999,12 +1169,13 @@ async function tentarEnviarEmail({
                         pedido.produto ||
                         "Ingresso Parque Mundo Novo",
 
-                    quantidade:
-                        Number(
-                            pedido.quantidade ||
-                            pedido.quantidadePessoas ||
-                            1
-                        ),
+                    /*
+                     * CORRIGIDO:
+                     *
+                     * Camping usa quantidadePessoas.
+                     */
+
+                    quantidade,
 
                     codigoIngresso,
 
@@ -1022,7 +1193,9 @@ async function tentarEnviarEmail({
             );
 
         const whatsappResultado =
-            (resultadoEnvio as any)
+            (
+                resultadoEnvio as any
+            )
                 ?.whatsapp;
 
         const whatsappEnviado =
@@ -1091,6 +1264,13 @@ async function tentarEnviarEmail({
                 telefone:
                     telefone ||
                     null,
+
+                produto:
+                    pedido.produto ||
+                    null,
+
+                quantidadeUtilizada:
+                    quantidade,
 
                 emailEnviado:
                     true,
