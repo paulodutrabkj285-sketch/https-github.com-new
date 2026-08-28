@@ -31,6 +31,12 @@ type Pedido = {
 
     quantidade?: number;
 
+    /* ==========================================
+       CAMPING
+    ========================================== */
+
+    quantidadePessoas?: number;
+
     valorTotal?: number;
 
     statusPagamento?: string;
@@ -202,6 +208,92 @@ export default function EnvioIngressosPage() {
         ]);
 
     /* ==========================================
+       QUANTIDADE CORRETA DO PEDIDO
+    ========================================== */
+
+    function obterQuantidadePedido(
+        pedido: Pedido
+    ) {
+        const produto =
+            String(
+                pedido.produto ||
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+        /*
+         * CAMPING
+         *
+         * quantidade = normalmente 1 reserva
+         * quantidadePessoas = número real de hóspedes
+         */
+
+        if (
+            produto.includes(
+                "camping"
+            )
+        ) {
+            const quantidadePessoas =
+                Number(
+                    pedido.quantidadePessoas ||
+                    0
+                );
+
+            if (
+                Number.isFinite(
+                    quantidadePessoas
+                ) &&
+                quantidadePessoas >
+                0
+            ) {
+                return quantidadePessoas;
+            }
+        }
+
+        /*
+         * DEMAIS INGRESSOS
+         */
+
+        const quantidade =
+            Number(
+                pedido.quantidade ||
+                0
+            );
+
+        if (
+            Number.isFinite(
+                quantidade
+            ) &&
+            quantidade > 0
+        ) {
+            return quantidade;
+        }
+
+        /*
+         * FALLBACK
+         */
+
+        const quantidadePessoas =
+            Number(
+                pedido.quantidadePessoas ||
+                0
+            );
+
+        if (
+            Number.isFinite(
+                quantidadePessoas
+            ) &&
+            quantidadePessoas >
+            0
+        ) {
+            return quantidadePessoas;
+        }
+
+        return 1;
+    }
+
+    /* ==========================================
        FORMATAR DATA
     ========================================== */
 
@@ -250,11 +342,20 @@ export default function EnvioIngressosPage() {
             ).toLocaleString(
                 "pt-BR",
                 {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
+                    day:
+                        "2-digit",
+
+                    month:
+                        "2-digit",
+
+                    year:
+                        "numeric",
+
+                    hour:
+                        "2-digit",
+
+                    minute:
+                        "2-digit",
                 }
             );
         } catch {
@@ -274,8 +375,11 @@ export default function EnvioIngressosPage() {
         ).toLocaleString(
             "pt-BR",
             {
-                style: "currency",
-                currency: "BRL",
+                style:
+                    "currency",
+
+                currency:
+                    "BRL",
             }
         );
     }
@@ -436,13 +540,11 @@ export default function EnvioIngressosPage() {
         }
 
         /*
-         * Abre uma caixa permitindo escolher
-         * o telefone que receberá o ingresso.
+         * Permite escolher o número que
+         * receberá o ingresso.
          *
-         * O telefone original do cliente aparece
-         * preenchido por padrão.
-         *
-         * Alterar aqui NÃO altera o Firestore.
+         * Isso não altera o telefone
+         * original salvo no Firestore.
          */
 
         const telefoneDigitado =
@@ -452,21 +554,12 @@ export default function EnvioIngressosPage() {
                 ""
             );
 
-        /*
-         * Usuário clicou em CANCELAR.
-         */
-
         if (
             telefoneDigitado ===
             null
         ) {
             return;
         }
-
-        /*
-         * Remove espaços, parênteses,
-         * hífens, + etc.
-         */
 
         const telefoneDestino =
             String(
@@ -475,14 +568,6 @@ export default function EnvioIngressosPage() {
                 /\D/g,
                 ""
             );
-
-        /*
-         * Validação básica.
-         *
-         * Brasil:
-         * DDD + telefone normalmente terá
-         * 10 ou 11 números sem o 55.
-         */
 
         if (
             telefoneDestino.length <
@@ -495,10 +580,6 @@ export default function EnvioIngressosPage() {
             return;
         }
 
-        /*
-         * Evita número exageradamente grande.
-         */
-
         if (
             telefoneDestino.length >
             13
@@ -509,10 +590,6 @@ export default function EnvioIngressosPage() {
 
             return;
         }
-
-        /*
-         * Confirma para evitar envio acidental.
-         */
 
         const confirmou =
             window.confirm(
@@ -541,17 +618,6 @@ export default function EnvioIngressosPage() {
                     },
                 })
             );
-
-            /*
-             * Enviamos:
-             *
-             * pedidoId
-             * +
-             * telefoneDestino
-             *
-             * A API continua buscando todos
-             * os dados do ingresso no Firestore.
-             */
 
             const response =
                 await fetch(
@@ -597,12 +663,6 @@ export default function EnvioIngressosPage() {
                     "Erro ao enviar ingresso pelo WhatsApp."
                 );
             }
-
-            /*
-             * Mostramos o número REAL utilizado
-             * pela API, caso ela tenha acrescentado
-             * o código 55 automaticamente.
-             */
 
             const numeroEnviado =
                 resultado?.pedido
@@ -686,7 +746,9 @@ export default function EnvioIngressosPage() {
                         "0 auto",
                 }}
             >
-                {/* CABEÇALHO */}
+                {/* ==========================================
+                    CABEÇALHO
+                ========================================== */}
 
                 <section
                     style={{
@@ -789,7 +851,9 @@ export default function EnvioIngressosPage() {
                     </div>
                 </section>
 
-                {/* BUSCA */}
+                {/* ==========================================
+                    BUSCA
+                ========================================== */}
 
                 <section
                     style={{
@@ -874,7 +938,9 @@ export default function EnvioIngressosPage() {
                     </p>
                 </section>
 
-                {/* PEDIDOS */}
+                {/* ==========================================
+                    PEDIDOS
+                ========================================== */}
 
                 <section>
                     {carregando ? (
@@ -927,6 +993,16 @@ export default function EnvioIngressosPage() {
                                         processandoWhatsappId ===
                                         pedido.id;
 
+                                    /*
+                                     * AQUI calculamos uma única vez
+                                     * a quantidade correta.
+                                     */
+
+                                    const quantidadeReal =
+                                        obterQuantidadePedido(
+                                            pedido
+                                        );
+
                                     return (
                                         <article
                                             key={
@@ -960,6 +1036,8 @@ export default function EnvioIngressosPage() {
                                                             "1 1 500px",
                                                     }}
                                                 >
+                                                    {/* NOME + STATUS */}
+
                                                     <div
                                                         style={{
                                                             display:
@@ -1019,6 +1097,8 @@ export default function EnvioIngressosPage() {
                                                         </span>
                                                     </div>
 
+                                                    {/* DADOS */}
+
                                                     <div
                                                         style={{
                                                             display:
@@ -1038,7 +1118,9 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 Produto:
                                                             </strong>
+
                                                             <br />
+
                                                             {pedido.produto ||
                                                                 "-"}
                                                         </p>
@@ -1047,22 +1129,29 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 Código:
                                                             </strong>
+
                                                             <br />
+
                                                             {pedido.codigoIngresso ||
                                                                 "-"}
                                                         </p>
+
+                                                        {/* ==================================
+                                                            QUANTIDADE CORRIGIDA
+                                                        ================================== */}
 
                                                         <p>
                                                             <strong>
                                                                 Quantidade:
                                                             </strong>
+
                                                             <br />
-                                                            {pedido.quantidade ||
-                                                                0}{" "}
-                                                            {Number(
-                                                                pedido.quantidade ||
-                                                                0
-                                                            ) ===
+
+                                                            {
+                                                                quantidadeReal
+                                                            }{" "}
+
+                                                            {quantidadeReal ===
                                                                 1
                                                                 ? "pessoa"
                                                                 : "pessoas"}
@@ -1072,7 +1161,9 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 Valor:
                                                             </strong>
+
                                                             <br />
+
                                                             {formatarMoeda(
                                                                 pedido.valorTotal
                                                             )}
@@ -1082,7 +1173,9 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 Data da visita:
                                                             </strong>
+
                                                             <br />
+
                                                             {formatarData(
                                                                 pedido.dataEntrada ||
                                                                 pedido.dataVisita
@@ -1093,11 +1186,15 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 Telefone:
                                                             </strong>
+
                                                             <br />
+
                                                             {pedido.telefone ||
                                                                 "-"}
                                                         </p>
                                                     </div>
+
+                                                    {/* ENVIO */}
 
                                                     <div
                                                         style={{
@@ -1123,6 +1220,7 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 E-mail:
                                                             </strong>{" "}
+
                                                             {pedido.email ||
                                                                 "-"}
                                                         </p>
@@ -1136,6 +1234,7 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 Último envio por e-mail:
                                                             </strong>{" "}
+
                                                             {pedido.emailIngressoReenviadoEm
                                                                 ? formatarDataHora(
                                                                     pedido.emailIngressoReenviadoEm
@@ -1156,6 +1255,7 @@ export default function EnvioIngressosPage() {
                                                             <strong>
                                                                 Último envio por WhatsApp:
                                                             </strong>{" "}
+
                                                             {pedido.whatsappIngressoReenviadoEm
                                                                 ? formatarDataHora(
                                                                     pedido.whatsappIngressoReenviadoEm
@@ -1167,6 +1267,8 @@ export default function EnvioIngressosPage() {
                                                                     : "Nenhum envio registrado"}
                                                         </p>
                                                     </div>
+
+                                                    {/* STATUS E-MAIL */}
 
                                                     {status && (
                                                         <div
@@ -1208,6 +1310,8 @@ export default function EnvioIngressosPage() {
                                                         </div>
                                                     )}
 
+                                                    {/* STATUS WHATSAPP */}
+
                                                     {statusWA && (
                                                         <div
                                                             style={{
@@ -1248,6 +1352,8 @@ export default function EnvioIngressosPage() {
                                                         </div>
                                                     )}
                                                 </div>
+
+                                                {/* BOTÕES */}
 
                                                 <div
                                                     style={{
@@ -1365,6 +1471,10 @@ export default function EnvioIngressosPage() {
         </main>
     );
 }
+
+/* ==========================================
+   CARD
+========================================== */
 
 const cardStyle:
     React.CSSProperties = {
