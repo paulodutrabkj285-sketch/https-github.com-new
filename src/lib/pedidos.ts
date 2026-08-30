@@ -126,6 +126,22 @@ export type PedidoInput = {
   cachoeiraMundoNovoValidadoEm?: string;
 
   /* ==========================================
+     ELEVADOR PANORÂMICO
+  ========================================== */
+
+  elevador?: boolean;
+
+  qtdElevador?: number;
+
+  elevadorValidado?: boolean;
+
+  elevadorValidadoPor?: string;
+
+  elevadorValidadoEm?: string;
+
+  elevadorQuantidadeValidada?: number;
+
+  /* ==========================================
      LEMBRETES
   ========================================== */
 

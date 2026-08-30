@@ -22,7 +22,7 @@ const DB_NAME =
  * adiciona cache das reservas
  * de agências.
  */
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 const STORE_PEDIDOS =
     "pedidos";
@@ -39,7 +39,8 @@ const STORE_PENDENTES =
 
 export type LocalValidacao =
     | "principal"
-    | "cachoeira_mundo_novo";
+    | "cachoeira_mundo_novo"
+    | "elevador";
 
 export type TipoEntidadePortaria =
     | "pedido"
@@ -97,6 +98,15 @@ export type ReservaAgenciaCache = {
     cachoeiraMundoNovoValidado?: boolean;
     cachoeiraMundoNovoValidadoPor?: string;
     cachoeiraMundoNovoValidadoEm?: string;
+
+    /* ==========================================
+       ELEVADOR PANORÂMICO
+    ========================================== */
+
+    elevadorValidado?: boolean;
+    elevadorValidadoPor?: string;
+    elevadorValidadoEm?: string;
+    elevadorQuantidadeValidada?: number;
 
     observacoes?: string;
 
