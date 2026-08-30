@@ -46,7 +46,6 @@ const FUNCIONARIOS = [
     "HANDERSON",
     "DANIELA",
     "JULIA",
-    "JEAN",
     "JHAMES",
     "JOSEVITOR",
     "SILVANA",
@@ -2887,9 +2886,9 @@ export default function PortariaPage() {
                                 )
                             }
                             className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
-                                    "principal"
-                                    ? "border-green-700 bg-green-700 text-white"
-                                    : "border-slate-200 bg-white text-slate-800"
+                                "principal"
+                                ? "border-green-700 bg-green-700 text-white"
+                                : "border-slate-200 bg-white text-slate-800"
                                 }`}
                         >
                             🚪 PORTARIA PRINCIPAL
@@ -2903,9 +2902,9 @@ export default function PortariaPage() {
                                 )
                             }
                             className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
-                                    "cachoeira_mundo_novo"
-                                    ? "border-blue-700 bg-blue-700 text-white"
-                                    : "border-slate-200 bg-white text-slate-800"
+                                "cachoeira_mundo_novo"
+                                ? "border-blue-700 bg-blue-700 text-white"
+                                : "border-slate-200 bg-white text-slate-800"
                                 }`}
                         >
                             🌊 CACHOEIRA MUNDO NOVO
@@ -2928,8 +2927,8 @@ export default function PortariaPage() {
                         <div className="flex items-center gap-2">
                             <span
                                 className={`h-3.5 w-3.5 rounded-full ${isOnline
-                                        ? "animate-pulse bg-green-500"
-                                        : "bg-red-500"
+                                    ? "animate-pulse bg-green-500"
+                                    : "bg-red-500"
                                     }`}
                             />
 
@@ -3587,9 +3586,9 @@ export default function PortariaPage() {
                             carregando
                         }
                         className={`mt-5 w-full rounded-3xl px-5 py-6 text-xl font-black text-white shadow-xl disabled:opacity-60 ${localValidacao ===
-                                "principal"
-                                ? "bg-green-500"
-                                : "bg-blue-500"
+                            "principal"
+                            ? "bg-green-500"
+                            : "bg-blue-500"
                             }`}
                     >
                         {reservaAgencia &&
