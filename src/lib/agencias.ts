@@ -34,6 +34,10 @@ export type CategoriaAgencia =
     | "Ouro"
     | "Diamante";
 
+export type ModalidadePagamentoParceiro =
+    | "antecipado"
+    | "chegada";
+
 export type AgenciaInput = {
     nomeEmpresa: string;
     responsavel: string;
@@ -62,13 +66,52 @@ export type Agencia =
 
         status: StatusAgencia;
 
+        /*
+         * BENEFÍCIO VÁLIDO NO MÊS ATUAL.
+         *
+         * Exemplo:
+         * categoria = "Ouro"
+         * descontoPadrao = 15
+         */
         descontoPadrao: number;
 
         categoria: CategoriaAgencia;
 
+        /*
+         * HISTÓRICO GERAL
+         */
         totalVisitantes: number;
         receitaGerada: number;
         descontosConcedidos: number;
+
+        /*
+         * ==========================================
+         * PROGRAMA DE PARCEIROS
+         * ==========================================
+         *
+         * O desempenho de um mês determina
+         * o benefício do mês seguinte.
+         */
+
+        pontosMesAtual?: number;
+
+        pontosMesAnterior?: number;
+
+        mesReferenciaPontos?: string;
+
+        categoriaProximoMes?: CategoriaAgencia;
+
+        descontoProximoMes?: number;
+
+        totalAdultosMes?: number;
+
+        totalIdososMes?: number;
+
+        totalCriancasMes?: number;
+
+        totalVisitantesMes?: number;
+
+        ultimaAtualizacaoPrograma?: string;
 
         aprovadoEm?: string;
         aprovadoPor?: string;
@@ -96,6 +139,61 @@ export type Agencia =
     };
 
 /* ==========================================
+   CONFIGURAÇÃO DO PROGRAMA DE PARCEIROS
+========================================== */
+
+/*
+ * IMPORTANTE:
+ *
+ * Esta é a regra central do programa.
+ *
+ * Quando futuramente criarmos a tela
+ * de configuração no Admin, estes valores
+ * poderão vir do Firestore.
+ *
+ * Por enquanto ficam centralizados aqui,
+ * evitando regras diferentes em cada tela.
+ */
+
+export const PROGRAMA_PARCEIROS = {
+    pontos: {
+        adulto: 1,
+        idoso: 0.5,
+        crianca: 0,
+    },
+
+    niveis: {
+        Bronze: {
+            nome: "Bronze" as CategoriaAgencia,
+            minimo: 0,
+            maximo: 49.5,
+            desconto: 5,
+        },
+
+        Prata: {
+            nome: "Prata" as CategoriaAgencia,
+            minimo: 50,
+            maximo: 99.5,
+            desconto: 10,
+        },
+
+        Ouro: {
+            nome: "Ouro" as CategoriaAgencia,
+            minimo: 100,
+            maximo: 199.5,
+            desconto: 15,
+        },
+
+        Diamante: {
+            nome: "Diamante" as CategoriaAgencia,
+            minimo: 200,
+            maximo: null,
+            desconto: 20,
+        },
+    },
+} as const;
+
+/* ==========================================
    LIMPEZA
 ========================================== */
 
@@ -119,6 +217,488 @@ function somenteDigitos(
 }
 
 /* ==========================================
+   MÊS DE REFERÊNCIA
+========================================== */
+
+export function obterMesReferencia(
+    data: Date = new Date()
+) {
+    const ano =
+        data.getFullYear();
+
+    const mes =
+        String(
+            data.getMonth() + 1
+        ).padStart(
+            2,
+            "0"
+        );
+
+    return `${ano}-${mes}`;
+}
+
+/* ==========================================
+   PONTOS DA RESERVA
+========================================== */
+
+/*
+ * REGRA:
+ *
+ * Adulto:
+ * 1 ponto
+ *
+ * Idoso / meia:
+ * 0,5 ponto
+ *
+ * Criança gratuita:
+ * 0 ponto
+ *
+ * Criança continua sendo contabilizada
+ * como visitante, apenas não gera ponto.
+ */
+
+export function calcularPontosReserva(
+    adultos: number,
+    idosos: number,
+    criancas: number = 0
+) {
+    const qtdAdultos =
+        Math.max(
+            0,
+            Number(
+                adultos || 0
+            )
+        );
+
+    const qtdIdosos =
+        Math.max(
+            0,
+            Number(
+                idosos || 0
+            )
+        );
+
+    const qtdCriancas =
+        Math.max(
+            0,
+            Number(
+                criancas || 0
+            )
+        );
+
+    const pontosAdultos =
+        qtdAdultos *
+        PROGRAMA_PARCEIROS
+            .pontos
+            .adulto;
+
+    const pontosIdosos =
+        qtdIdosos *
+        PROGRAMA_PARCEIROS
+            .pontos
+            .idoso;
+
+    const pontosCriancas =
+        qtdCriancas *
+        PROGRAMA_PARCEIROS
+            .pontos
+            .crianca;
+
+    const pontos =
+        pontosAdultos +
+        pontosIdosos +
+        pontosCriancas;
+
+    return Number(
+        pontos.toFixed(1)
+    );
+}
+
+/* ==========================================
+   CATEGORIA POR PONTOS
+========================================== */
+
+export function calcularCategoriaPorPontos(
+    pontos: number
+): CategoriaAgencia {
+    const total =
+        Math.max(
+            0,
+            Number(
+                pontos || 0
+            )
+        );
+
+    if (
+        total >=
+        PROGRAMA_PARCEIROS
+            .niveis
+            .Diamante
+            .minimo
+    ) {
+        return "Diamante";
+    }
+
+    if (
+        total >=
+        PROGRAMA_PARCEIROS
+            .niveis
+            .Ouro
+            .minimo
+    ) {
+        return "Ouro";
+    }
+
+    if (
+        total >=
+        PROGRAMA_PARCEIROS
+            .niveis
+            .Prata
+            .minimo
+    ) {
+        return "Prata";
+    }
+
+    return "Bronze";
+}
+
+/* ==========================================
+   DESCONTO DA CATEGORIA
+========================================== */
+
+export function calcularDescontoCategoria(
+    categoria:
+        CategoriaAgencia |
+        string |
+        undefined |
+        null
+) {
+    switch (categoria) {
+        case "Diamante":
+            return PROGRAMA_PARCEIROS
+                .niveis
+                .Diamante
+                .desconto;
+
+        case "Ouro":
+            return PROGRAMA_PARCEIROS
+                .niveis
+                .Ouro
+                .desconto;
+
+        case "Prata":
+            return PROGRAMA_PARCEIROS
+                .niveis
+                .Prata
+                .desconto;
+
+        case "Bronze":
+        default:
+            return PROGRAMA_PARCEIROS
+                .niveis
+                .Bronze
+                .desconto;
+    }
+}
+
+/* ==========================================
+   BENEFÍCIO DO PRÓXIMO MÊS
+========================================== */
+
+export function calcularBeneficioProximoMes(
+    pontos: number
+) {
+    const categoria =
+        calcularCategoriaPorPontos(
+            pontos
+        );
+
+    const desconto =
+        calcularDescontoCategoria(
+            categoria
+        );
+
+    return {
+        categoria,
+        desconto,
+        pontos:
+            Number(
+                pontos || 0
+            ),
+    };
+}
+
+/* ==========================================
+   DESCONTO VÁLIDO DA AGÊNCIA
+========================================== */
+
+/*
+ * REGRA FUNDAMENTAL:
+ *
+ * PAGAMENTO ANTECIPADO:
+ * recebe desconto conforme categoria atual.
+ *
+ * PAGAMENTO NA CHEGADA:
+ * NÃO recebe desconto do programa.
+ *
+ * Isso evita reclamações e deixa a regra
+ * comercial objetiva.
+ */
+
+export function calcularDescontoParceiro(
+    agencia:
+        Agencia |
+        null |
+        undefined,
+    modalidade:
+        ModalidadePagamentoParceiro
+) {
+    if (
+        !agencia ||
+        modalidade !==
+        "antecipado"
+    ) {
+        return 0;
+    }
+
+    if (
+        !agenciaPodeReservar(
+            agencia
+        )
+    ) {
+        return 0;
+    }
+
+    /*
+     * Compatibilidade:
+     *
+     * Se categoria existir,
+     * usamos a categoria.
+     *
+     * Caso seja cadastro antigo
+     * sem categoria válida,
+     * Bronze é utilizado.
+     */
+
+    return calcularDescontoCategoria(
+        agencia.categoria ||
+        "Bronze"
+    );
+}
+
+/* ==========================================
+   INFORMAÇÕES DO NÍVEL
+========================================== */
+
+export function obterInformacoesNivel(
+    categoria:
+        CategoriaAgencia
+) {
+    const desconto =
+        calcularDescontoCategoria(
+            categoria
+        );
+
+    switch (categoria) {
+        case "Diamante":
+            return {
+                categoria:
+                    "Diamante" as CategoriaAgencia,
+
+                desconto,
+
+                minimo:
+                    PROGRAMA_PARCEIROS
+                        .niveis
+                        .Diamante
+                        .minimo,
+
+                proximoNivel:
+                    null,
+
+                pontosProximoNivel:
+                    null,
+            };
+
+        case "Ouro":
+            return {
+                categoria:
+                    "Ouro" as CategoriaAgencia,
+
+                desconto,
+
+                minimo:
+                    PROGRAMA_PARCEIROS
+                        .niveis
+                        .Ouro
+                        .minimo,
+
+                proximoNivel:
+                    "Diamante" as CategoriaAgencia,
+
+                pontosProximoNivel:
+                    PROGRAMA_PARCEIROS
+                        .niveis
+                        .Diamante
+                        .minimo,
+            };
+
+        case "Prata":
+            return {
+                categoria:
+                    "Prata" as CategoriaAgencia,
+
+                desconto,
+
+                minimo:
+                    PROGRAMA_PARCEIROS
+                        .niveis
+                        .Prata
+                        .minimo,
+
+                proximoNivel:
+                    "Ouro" as CategoriaAgencia,
+
+                pontosProximoNivel:
+                    PROGRAMA_PARCEIROS
+                        .niveis
+                        .Ouro
+                        .minimo,
+            };
+
+        case "Bronze":
+        default:
+            return {
+                categoria:
+                    "Bronze" as CategoriaAgencia,
+
+                desconto,
+
+                minimo:
+                    PROGRAMA_PARCEIROS
+                        .niveis
+                        .Bronze
+                        .minimo,
+
+                proximoNivel:
+                    "Prata" as CategoriaAgencia,
+
+                pontosProximoNivel:
+                    PROGRAMA_PARCEIROS
+                        .niveis
+                        .Prata
+                        .minimo,
+            };
+    }
+}
+
+/* ==========================================
+   PROGRESSO PARA O PRÓXIMO NÍVEL
+========================================== */
+
+export function calcularProgressoParceiro(
+    pontos: number
+) {
+    const total =
+        Math.max(
+            0,
+            Number(
+                pontos || 0
+            )
+        );
+
+    const categoria =
+        calcularCategoriaPorPontos(
+            total
+        );
+
+    const info =
+        obterInformacoesNivel(
+            categoria
+        );
+
+    if (
+        !info.proximoNivel ||
+        info.pontosProximoNivel === null
+    ) {
+        return {
+            categoria,
+            pontos:
+                total,
+
+            proximoNivel:
+                null,
+
+            faltamPontos:
+                0,
+
+            percentual:
+                100,
+
+            nivelMaximo:
+                true,
+        };
+    }
+
+    const minimoAtual =
+        info.minimo;
+
+    const alvo =
+        info.pontosProximoNivel;
+
+    const intervalo =
+        alvo -
+        minimoAtual;
+
+    const progresso =
+        total -
+        minimoAtual;
+
+    const percentual =
+        intervalo > 0
+            ? Math.min(
+                100,
+                Math.max(
+                    0,
+                    (
+                        progresso /
+                        intervalo
+                    ) *
+                    100
+                )
+            )
+            : 0;
+
+    return {
+        categoria,
+        pontos:
+            total,
+
+        proximoNivel:
+            info.proximoNivel,
+
+        faltamPontos:
+            Math.max(
+                0,
+                Number(
+                    (
+                        alvo -
+                        total
+                    ).toFixed(1)
+                )
+            ),
+
+        percentual:
+            Number(
+                percentual.toFixed(1)
+            ),
+
+        nivelMaximo:
+            false,
+    };
+}
+
+/* ==========================================
    VALIDAR CNPJ / DOCUMENTO
 ========================================== */
 
@@ -139,6 +719,7 @@ export function validarCnpj(
      * Para Agência/Operadora,
      * a tela pública atual envia CNPJ.
      */
+
     return documento.length >= 11;
 }
 
@@ -164,6 +745,7 @@ export async function buscarAgenciaPorDocumento(
                 db,
                 "agencias"
             ),
+
             where(
                 "documento",
                 "==",
@@ -211,10 +793,8 @@ export async function criarAgencia(
 
     /*
      * PROTEÇÃO CONTRA DUPLICIDADE
-     *
-     * Antes de criar qualquer cadastro,
-     * verificamos se o documento já existe.
      */
+
     const existente =
         await buscarAgenciaPorDocumento(
             documento
@@ -265,6 +845,18 @@ export async function criarAgencia(
     const agora =
         new Date()
             .toISOString();
+
+    const mesAtual =
+        obterMesReferencia();
+
+    const categoriaInicial:
+        CategoriaAgencia =
+        "Bronze";
+
+    const descontoInicial =
+        calcularDescontoCategoria(
+            categoriaInicial
+        );
 
     const ref =
         await addDoc(
@@ -342,19 +934,56 @@ export async function criarAgencia(
                 cadasturSituacao:
                     "aguardando_verificacao",
 
+                /* ==================================
+                   PROGRAMA DE PARCEIROS
+                ================================== */
+
                 /*
-                 * Mantido apenas como campo
-                 * administrativo do cadastro.
+                 * Todo novo parceiro inicia Bronze.
                  *
-                 * A regra real do desconto
-                 * é calculada pela quantidade
-                 * de visitantes.
+                 * O desempenho mensal determinará
+                 * a categoria do mês seguinte.
                  */
+
                 descontoPadrao:
-                    5,
+                    descontoInicial,
 
                 categoria:
+                    categoriaInicial,
+
+                pontosMesAtual:
+                    0,
+
+                pontosMesAnterior:
+                    0,
+
+                mesReferenciaPontos:
+                    mesAtual,
+
+                categoriaProximoMes:
                     "Bronze",
+
+                descontoProximoMes:
+                    descontoInicial,
+
+                totalAdultosMes:
+                    0,
+
+                totalIdososMes:
+                    0,
+
+                totalCriancasMes:
+                    0,
+
+                totalVisitantesMes:
+                    0,
+
+                ultimaAtualizacaoPrograma:
+                    agora,
+
+                /* ==================================
+                   TOTAIS HISTÓRICOS
+                ================================== */
 
                 totalVisitantes:
                     0,
@@ -656,6 +1285,7 @@ export function agenciaPodeReservar(
      * O parceiro obrigatoriamente
      * precisa continuar ATIVO.
      */
+
     if (
         agencia.status !==
         "ativa"
@@ -666,27 +1296,9 @@ export function agenciaPodeReservar(
     /*
      * COMPATIBILIDADE COM CADASTROS ANTIGOS
      *
-     * Os parceiros aprovados antes da criação
-     * dos campos documentoVerificado e
-     * cadasturVerificado podem não possuir
-     * esses campos no Firestore.
-     *
-     * Portanto:
-     *
      * true      = liberado
-     * undefined = cadastro antigo aprovado,
-     *             mantém compatibilidade
+     * undefined = cadastro antigo aprovado
      * false     = bloqueado
-     *
-     * Os novos cadastros continuam seguros,
-     * pois são criados como:
-     *
-     * status: "pendente"
-     * documentoVerificado: false
-     * cadasturVerificado: false
-     *
-     * e somente o admin os transforma
-     * em "ativa".
      */
 
     if (
@@ -707,21 +1319,434 @@ export function agenciaPodeReservar(
 }
 
 /* ==========================================
-   DESCONTO
+   PREPARAR DADOS MENSAIS
 ========================================== */
 
 /*
- * REGRA OFICIAL DE DESCONTO
- * PARA AGÊNCIAS / PARCEIROS
+ * Esta função não grava automaticamente.
  *
- * 1 a 4 pessoas:
- * SEM DESCONTO
+ * Ela prepara os dados que serão usados
+ * pela página de reservas.
+ */
+
+export function prepararProgramaParceiro(
+    agencia: Agencia
+) {
+    const agora =
+        new Date();
+
+    const mesAtual =
+        obterMesReferencia(
+            agora
+        );
+
+    const mesSalvo =
+        agencia.mesReferenciaPontos ||
+        mesAtual;
+
+    /*
+     * MESMO MÊS
+     */
+
+    if (
+        mesSalvo ===
+        mesAtual
+    ) {
+        const pontos =
+            Number(
+                agencia.pontosMesAtual ||
+                0
+            );
+
+        const beneficioProximoMes =
+            calcularBeneficioProximoMes(
+                pontos
+            );
+
+        return {
+            mudouMes:
+                false,
+
+            mesReferencia:
+                mesAtual,
+
+            categoriaAtual:
+                agencia.categoria ||
+                "Bronze",
+
+            descontoAtual:
+                calcularDescontoCategoria(
+                    agencia.categoria ||
+                    "Bronze"
+                ),
+
+            pontosMesAtual:
+                pontos,
+
+            categoriaProximoMes:
+                beneficioProximoMes
+                    .categoria,
+
+            descontoProximoMes:
+                beneficioProximoMes
+                    .desconto,
+
+            pontosMesAnterior:
+                Number(
+                    agencia.pontosMesAnterior ||
+                    0
+                ),
+        };
+    }
+
+    /*
+     * MUDOU O MÊS
+     *
+     * O que foi conquistado no mês anterior
+     * passa a valer agora.
+     */
+
+    const pontosAnterior =
+        Number(
+            agencia.pontosMesAtual ||
+            0
+        );
+
+    const beneficioNovoMes =
+        calcularBeneficioProximoMes(
+            pontosAnterior
+        );
+
+    return {
+        mudouMes:
+            true,
+
+        mesReferencia:
+            mesAtual,
+
+        categoriaAtual:
+            beneficioNovoMes
+                .categoria,
+
+        descontoAtual:
+            beneficioNovoMes
+                .desconto,
+
+        pontosMesAtual:
+            0,
+
+        /*
+         * Enquanto o parceiro ainda
+         * não acumula pontos no novo mês,
+         * a projeção começa em Bronze.
+         */
+        categoriaProximoMes:
+            "Bronze" as CategoriaAgencia,
+
+        descontoProximoMes:
+            calcularDescontoCategoria(
+                "Bronze"
+            ),
+
+        pontosMesAnterior:
+            pontosAnterior,
+    };
+}
+
+/* ==========================================
+   APLICAR VIRADA DE MÊS
+========================================== */
+
+export async function atualizarMesProgramaParceiro(
+    agencia: Agencia
+) {
+    const programa =
+        prepararProgramaParceiro(
+            agencia
+        );
+
+    if (
+        !programa.mudouMes
+    ) {
+        return programa;
+    }
+
+    const agora =
+        new Date()
+            .toISOString();
+
+    await atualizarAgencia(
+        agencia.id,
+        {
+            categoria:
+                programa
+                    .categoriaAtual,
+
+            descontoPadrao:
+                programa
+                    .descontoAtual,
+
+            pontosMesAnterior:
+                programa
+                    .pontosMesAnterior,
+
+            pontosMesAtual:
+                0,
+
+            mesReferenciaPontos:
+                programa
+                    .mesReferencia,
+
+            categoriaProximoMes:
+                programa
+                    .categoriaProximoMes,
+
+            descontoProximoMes:
+                programa
+                    .descontoProximoMes,
+
+            totalAdultosMes:
+                0,
+
+            totalIdososMes:
+                0,
+
+            totalCriancasMes:
+                0,
+
+            totalVisitantesMes:
+                0,
+
+            ultimaAtualizacaoPrograma:
+                agora,
+        }
+    );
+
+    return programa;
+}
+
+/* ==========================================
+   SOMAR DESEMPENHO DO MÊS
+========================================== */
+
+/*
+ * IMPORTANTE:
  *
- * 5 a 20 pessoas:
- * 5% DE DESCONTO
+ * Esta função será chamada posteriormente
+ * quando a reserva realmente puder contar
+ * para o programa.
  *
- * 21 pessoas ou mais:
- * 10% DE DESCONTO
+ * O ideal será contar somente reservas
+ * válidas conforme a regra operacional.
+ */
+
+export async function registrarDesempenhoParceiro(
+    agencia: Agencia,
+    dados: {
+        adultos: number;
+        idosos?: number;
+        criancas?: number;
+    }
+) {
+    /*
+     * Primeiro garantimos que estamos
+     * trabalhando no mês correto.
+     */
+
+    const programa =
+        await atualizarMesProgramaParceiro(
+            agencia
+        );
+
+    /*
+     * Se mudou o mês, começamos do zero.
+     * Caso contrário usamos o valor atual.
+     */
+
+    const pontosAtuais =
+        programa.mudouMes
+            ? 0
+            : Number(
+                agencia.pontosMesAtual ||
+                0
+            );
+
+    const adultosAtuais =
+        programa.mudouMes
+            ? 0
+            : Number(
+                agencia.totalAdultosMes ||
+                0
+            );
+
+    const idososAtuais =
+        programa.mudouMes
+            ? 0
+            : Number(
+                agencia.totalIdososMes ||
+                0
+            );
+
+    const criancasAtuais =
+        programa.mudouMes
+            ? 0
+            : Number(
+                agencia.totalCriancasMes ||
+                0
+            );
+
+    const visitantesAtuais =
+        programa.mudouMes
+            ? 0
+            : Number(
+                agencia.totalVisitantesMes ||
+                0
+            );
+
+    const adultos =
+        Math.max(
+            0,
+            Number(
+                dados.adultos ||
+                0
+            )
+        );
+
+    const idosos =
+        Math.max(
+            0,
+            Number(
+                dados.idosos ||
+                0
+            )
+        );
+
+    const criancas =
+        Math.max(
+            0,
+            Number(
+                dados.criancas ||
+                0
+            )
+        );
+
+    const pontosReserva =
+        calcularPontosReserva(
+            adultos,
+            idosos,
+            criancas
+        );
+
+    const novosPontos =
+        Number(
+            (
+                pontosAtuais +
+                pontosReserva
+            ).toFixed(1)
+        );
+
+    const beneficio =
+        calcularBeneficioProximoMes(
+            novosPontos
+        );
+
+    const novosAdultos =
+        adultosAtuais +
+        adultos;
+
+    const novosIdosos =
+        idososAtuais +
+        idosos;
+
+    const novasCriancas =
+        criancasAtuais +
+        criancas;
+
+    const novosVisitantes =
+        visitantesAtuais +
+        adultos +
+        idosos +
+        criancas;
+
+    const agora =
+        new Date()
+            .toISOString();
+
+    await atualizarAgencia(
+        agencia.id,
+        {
+            pontosMesAtual:
+                novosPontos,
+
+            categoriaProximoMes:
+                beneficio
+                    .categoria,
+
+            descontoProximoMes:
+                beneficio
+                    .desconto,
+
+            totalAdultosMes:
+                novosAdultos,
+
+            totalIdososMes:
+                novosIdosos,
+
+            totalCriancasMes:
+                novasCriancas,
+
+            totalVisitantesMes:
+                novosVisitantes,
+
+            ultimaAtualizacaoPrograma:
+                agora,
+        }
+    );
+
+    return {
+        pontosReserva,
+        pontosMesAtual:
+            novosPontos,
+
+        categoriaProximoMes:
+            beneficio
+                .categoria,
+
+        descontoProximoMes:
+            beneficio
+                .desconto,
+
+        totalAdultosMes:
+            novosAdultos,
+
+        totalIdososMes:
+            novosIdosos,
+
+        totalCriancasMes:
+            novasCriancas,
+
+        totalVisitantesMes:
+            novosVisitantes,
+    };
+}
+
+/* ==========================================
+   DESCONTO LEGADO
+========================================== */
+
+/*
+ * ATENÇÃO:
+ *
+ * Mantemos esta função SOMENTE para que
+ * páginas antigas que ainda a importam
+ * continuem compilando durante a migração.
+ *
+ * A nova página de parceiros NÃO deverá
+ * usar esta função.
+ *
+ * Depois que substituirmos a página
+ * /parceiros/reservas, poderemos remover
+ * esta função definitivamente.
  */
 
 export function calcularDescontoGrupo(
@@ -733,10 +1758,6 @@ export function calcularDescontoGrupo(
             0
         );
 
-    /*
-     * Valor inválido ou
-     * nenhuma pessoa.
-     */
     if (
         !Number.isFinite(
             total
@@ -747,35 +1768,33 @@ export function calcularDescontoGrupo(
     }
 
     /*
-     * 1, 2, 3 ou 4 pessoas:
-     * SEM DESCONTO.
+     * REGRA ANTIGA TEMPORÁRIA
+     * somente para compatibilidade.
      */
+
     if (
         total < 5
     ) {
         return 0;
     }
 
-    /*
-     * De 5 até 20 pessoas:
-     * 5% DE DESCONTO.
-     */
     if (
         total <= 20
     ) {
         return 5;
     }
 
-    /*
-     * A partir de 21 pessoas:
-     * 10% DE DESCONTO.
-     */
     return 10;
 }
 
 /* ==========================================
-   APLICAR DESCONTO
+   APLICAR DESCONTO LEGADO
 ========================================== */
+
+/*
+ * Também mantida apenas por
+ * compatibilidade com código antigo.
+ */
 
 export function aplicarDescontoAgencia(
     valor: number,
@@ -807,5 +1826,72 @@ export function aplicarDescontoAgencia(
         valorOriginal,
         valorDesconto,
         valorFinal,
+    };
+}
+
+/* ==========================================
+   APLICAR BENEFÍCIO DO PROGRAMA
+========================================== */
+
+export function aplicarBeneficioParceiro(
+    valor: number,
+    agencia:
+        Agencia |
+        null |
+        undefined,
+    modalidade:
+        ModalidadePagamentoParceiro
+) {
+    const valorOriginal =
+        Math.max(
+            0,
+            Number(
+                valor || 0
+            )
+        );
+
+    const percentual =
+        calcularDescontoParceiro(
+            agencia,
+            modalidade
+        );
+
+    const valorDesconto =
+        valorOriginal *
+        (
+            percentual /
+            100
+        );
+
+    const valorFinal =
+        valorOriginal -
+        valorDesconto;
+
+    return {
+        percentual,
+
+        valorOriginal:
+            Number(
+                valorOriginal.toFixed(2)
+            ),
+
+        valorDesconto:
+            Number(
+                valorDesconto.toFixed(2)
+            ),
+
+        valorFinal:
+            Number(
+                valorFinal.toFixed(2)
+            ),
+
+        modalidade,
+
+        descontoAplicado:
+            percentual > 0,
+
+        categoria:
+            agencia?.categoria ||
+            "Bronze",
     };
 }

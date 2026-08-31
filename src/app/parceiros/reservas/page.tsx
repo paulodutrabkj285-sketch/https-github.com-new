@@ -3,8 +3,13 @@
 import {
   Agencia,
   agenciaPodeReservar,
+  atualizarMesProgramaParceiro,
   buscarAgenciaPorId,
-  calcularDescontoGrupo,
+  calcularDescontoParceiro,
+  calcularPontosReserva,
+  calcularProgressoParceiro,
+  obterInformacoesNivel,
+  prepararProgramaParceiro,
 } from "@/lib/agencias";
 
 import { db } from "@/lib/firebase";
@@ -36,6 +41,22 @@ const VALOR_ELEVADOR = 75;
 
 const WHATSAPP_PARQUE =
   "5549991299991";
+
+/*
+ * Versão das regras.
+ *
+ * Se futuramente as regras mudarem,
+ * alteramos esta versão.
+ *
+ * Assim a reserva guarda quais regras
+ * o parceiro aceitou naquele momento.
+ */
+const VERSAO_REGRAS_PARCEIROS =
+  "2026-08-31-v1";
+
+/* ==========================================
+   TIPOS
+========================================== */
 
 type RespostaSessao = {
   ok?: boolean;
@@ -73,6 +94,25 @@ function somenteDigitos(
     /\D/g,
     ""
   );
+}
+
+function iconeCategoria(
+  categoria?: string
+) {
+  switch (categoria) {
+    case "Diamante":
+      return "💎";
+
+    case "Ouro":
+      return "🥇";
+
+    case "Prata":
+      return "🥈";
+
+    case "Bronze":
+    default:
+      return "🥉";
+  }
 }
 
 /* ==========================================
@@ -128,6 +168,11 @@ export default function ReservaParceiroPage() {
   ] = useState(0);
 
   const [
+    criancas,
+    setCriancas,
+  ] = useState(0);
+
+  const [
     temElevador,
     setTemElevador,
   ] = useState(false);
@@ -153,6 +198,11 @@ export default function ReservaParceiroPage() {
     cpfPagador,
     setCpfPagador,
   ] = useState("");
+
+  const [
+    aceitouRegras,
+    setAceitouRegras,
+  ] = useState(false);
 
   const [
     carregando,
@@ -242,7 +292,7 @@ export default function ReservaParceiroPage() {
   }, []);
 
   /* ======================================
-     CARREGAR PARCEIRO PELA SESSÃO SEGURA
+     CARREGAR PARCEIRO
   ====================================== */
 
   useEffect(() => {
@@ -291,7 +341,9 @@ export default function ReservaParceiroPage() {
           !respostaSessao.ok ||
           !dadosSessao.ok ||
           !dadosSessao.autenticado ||
-          !dadosSessao.parceiro?.agenciaId
+          !dadosSessao
+            .parceiro
+            ?.agenciaId
         ) {
           if (
             typeof window !==
@@ -325,7 +377,7 @@ export default function ReservaParceiroPage() {
           return;
         }
 
-        const encontrada =
+        let encontrada =
           await buscarAgenciaPorId(
             agenciaId
           );
@@ -339,6 +391,10 @@ export default function ReservaParceiroPage() {
 
           return;
         }
+
+        /* ==================================
+           VALIDAR SESSÃO
+        ================================== */
 
         const documentoSessao =
           somenteDigitos(
@@ -404,9 +460,52 @@ export default function ReservaParceiroPage() {
           return;
         }
 
-        if (componenteAtivo) {
-          setAgencia(encontrada);
+        /* ==================================
+           ATUALIZAR VIRADA DE MÊS
+        ================================== */
+
+        if (
+          encontrada.status ===
+          "ativa"
+        ) {
+          try {
+            const programa =
+              await atualizarMesProgramaParceiro(
+                encontrada
+              );
+
+            if (
+              programa.mudouMes
+            ) {
+              const atualizada =
+                await buscarAgenciaPorId(
+                  agenciaId
+                );
+
+              if (atualizada) {
+                encontrada =
+                  atualizada;
+              }
+            }
+          } catch (error) {
+            console.error(
+              "Erro ao atualizar mês do programa:",
+              error
+            );
+          }
         }
+
+        if (
+          componenteAtivo
+        ) {
+          setAgencia(
+            encontrada
+          );
+        }
+
+        /* ==================================
+           STATUS
+        ================================== */
 
         if (
           encontrada.status ===
@@ -415,6 +514,7 @@ export default function ReservaParceiroPage() {
           setErroAgencia(
             "Seu cadastro foi recebido e está aguardando análise do Parque Mundo Novo."
           );
+
           return;
         }
 
@@ -425,6 +525,7 @@ export default function ReservaParceiroPage() {
           setErroAgencia(
             "Este cadastro não foi aprovado. Entre em contato com o Parque Mundo Novo."
           );
+
           return;
         }
 
@@ -435,6 +536,7 @@ export default function ReservaParceiroPage() {
           setErroAgencia(
             "Este cadastro está bloqueado. Entre em contato com o Parque Mundo Novo."
           );
+
           return;
         }
 
@@ -444,8 +546,9 @@ export default function ReservaParceiroPage() {
           )
         ) {
           setErroAgencia(
-            "Este parceiro ainda não está autorizado a realizar reservas com desconto."
+            "Este parceiro ainda não está autorizado a realizar reservas."
           );
+
           return;
         }
 
@@ -456,6 +559,7 @@ export default function ReservaParceiroPage() {
           setErroAgencia(
             "A aprovação deste parceiro ainda não possui confirmação do Cadastur."
           );
+
           return;
         }
 
@@ -466,13 +570,17 @@ export default function ReservaParceiroPage() {
           error
         );
 
-        if (componenteAtivo) {
+        if (
+          componenteAtivo
+        ) {
           setErroAgencia(
             "Não foi possível verificar sua sessão de parceiro."
           );
         }
       } finally {
-        if (componenteAtivo) {
+        if (
+          componenteAtivo
+        ) {
           setCarregandoAgencia(
             false
           );
@@ -488,46 +596,149 @@ export default function ReservaParceiroPage() {
   }, []);
 
   /* ======================================
-     CÁLCULO
+     PROGRAMA DO PARCEIRO
+  ====================================== */
+
+  const programaAtual =
+    useMemo(() => {
+      if (!agencia) {
+        return null;
+      }
+
+      return prepararProgramaParceiro(
+        agencia
+      );
+    }, [
+      agencia,
+    ]);
+
+  const pontosMes =
+    Number(
+      programaAtual
+        ?.pontosMesAtual ||
+      agencia
+        ?.pontosMesAtual ||
+      0
+    );
+
+  const progresso =
+    useMemo(() => {
+      return calcularProgressoParceiro(
+        pontosMes
+      );
+    }, [
+      pontosMes,
+    ]);
+
+  const categoriaAtual =
+    agencia?.categoria ||
+    programaAtual
+      ?.categoriaAtual ||
+    "Bronze";
+
+  const infoNivel =
+    useMemo(() => {
+      return obterInformacoesNivel(
+        categoriaAtual
+      );
+    }, [
+      categoriaAtual,
+    ]);
+
+  /* ======================================
+     CÁLCULO DA RESERVA
   ====================================== */
 
   const calculo =
     useMemo(() => {
       const totalVisitantes =
-        adultos + idosos;
+        adultos +
+        idosos +
+        criancas;
 
+      /*
+       * PONTOS POTENCIAIS.
+       *
+       * Eles ainda NÃO são creditados
+       * apenas pela criação da reserva.
+       *
+       * Serão usados posteriormente
+       * quando a visita for validada.
+       */
+      const pontosPotenciais =
+        calcularPontosReserva(
+          adultos,
+          idosos,
+          criancas
+        );
+
+      /*
+       * O desconto do nível somente
+       * é liberado no pagamento
+       * antecipado.
+       */
       const percentualDesconto =
-        calcularDescontoGrupo(
-          totalVisitantes
+        calcularDescontoParceiro(
+          agencia,
+          modalidadePagamento
         );
 
       const fatorDesconto =
-        percentualDesconto / 100;
+        percentualDesconto /
+        100;
 
-      /* ADULTOS */
+      /* ==================================
+         ADULTOS
+      ================================== */
 
       const valorAdultosBruto =
-        adultos * VALOR_ADULTO;
+        adultos *
+        VALOR_ADULTO;
 
+      /*
+       * O desconto do Programa de Parceiros
+       * é aplicado ao ingresso inteiro.
+       */
       const descontoAdultos =
-        valorAdultosBruto *
-        fatorDesconto;
+        modalidadePagamento ===
+          "antecipado"
+          ? valorAdultosBruto *
+          fatorDesconto
+          : 0;
 
       const valorAdultosFinal =
         valorAdultosBruto -
         descontoAdultos;
 
-      /* IDOSOS */
+      /* ==================================
+         IDOSOS / MEIA
+      ================================== */
 
       const valorIdososBruto =
-        idosos * VALOR_IDOSO;
+        idosos *
+        VALOR_IDOSO;
 
-      // Idoso já possui meia-entrada.
-      // Não recebe desconto adicional.
+      /*
+       * Já possui tarifa reduzida.
+       * Não acumula desconto adicional
+       * do programa.
+       */
+      const descontoIdosos =
+        0;
+
       const valorIdososFinal =
         valorIdososBruto;
 
-      /* ELEVADOR */
+      /* ==================================
+         CRIANÇAS GRATUITAS
+      ================================== */
+
+      const valorCriancas =
+        0;
+
+      /* ==================================
+         ELEVADOR
+      ================================== */
 
       const valorElevadorBruto =
         temElevador
@@ -535,15 +746,23 @@ export default function ReservaParceiroPage() {
           VALOR_ELEVADOR
           : 0;
 
+      /*
+       * O benefício de parceiro desta
+       * versão é aplicado aos ingressos
+       * inteiros do Parque.
+       *
+       * Elevador não acumula desconto
+       * do nível.
+       */
       const descontoElevador =
-        valorElevadorBruto *
-        fatorDesconto;
+        0;
 
       const valorElevadorFinal =
-        valorElevadorBruto -
-        descontoElevador;
+        valorElevadorBruto;
 
-      /* TOTAL */
+      /* ==================================
+         TOTAL
+      ================================== */
 
       const valorBruto =
         valorAdultosBruto +
@@ -552,15 +771,20 @@ export default function ReservaParceiroPage() {
 
       const valorDesconto =
         descontoAdultos +
+        descontoIdosos +
         descontoElevador;
 
       const valorFinal =
         valorAdultosFinal +
         valorIdososFinal +
+        valorCriancas +
         valorElevadorFinal;
 
       return {
         totalVisitantes,
+
+        pontosPotenciais,
+
         percentualDesconto,
 
         valorAdultosBruto,
@@ -568,7 +792,10 @@ export default function ReservaParceiroPage() {
         valorAdultosFinal,
 
         valorIdososBruto,
+        descontoIdosos,
         valorIdososFinal,
+
+        valorCriancas,
 
         valorElevadorBruto,
         descontoElevador,
@@ -581,8 +808,11 @@ export default function ReservaParceiroPage() {
     }, [
       adultos,
       idosos,
+      criancas,
       temElevador,
       qtdElevador,
+      agencia,
+      modalidadePagamento,
     ]);
 
   /* ======================================
@@ -659,21 +889,24 @@ export default function ReservaParceiroPage() {
     }
 
     if (
-      dataVisita < dataHoje
+      dataVisita <
+      dataHoje
     ) {
       return "A data da visita não pode ser anterior à data de hoje.";
     }
 
     if (
       adultos <= 0 &&
-      idosos <= 0
+      idosos <= 0 &&
+      criancas <= 0
     ) {
       return "Informe pelo menos 1 visitante.";
     }
 
     if (
       adultos < 0 ||
-      idosos < 0
+      idosos < 0 ||
+      criancas < 0
     ) {
       return "A quantidade de visitantes não pode ser negativa.";
     }
@@ -703,6 +936,12 @@ export default function ReservaParceiroPage() {
       return "Informe o CPF do responsável pelo pagamento antecipado.";
     }
 
+    if (
+      !aceitouRegras
+    ) {
+      return "Leia e aceite as regras da reserva e do Programa de Parceiros antes de continuar.";
+    }
+
     return "";
   }
 
@@ -717,8 +956,14 @@ export default function ReservaParceiroPage() {
       | "antecipado" =
       "chegada"
   ) {
+    const descricaoBeneficio =
+      modalidade ===
+        "antecipado"
+        ? `${categoriaAtual} - ${calculo.percentualDesconto}%`
+        : `${categoriaAtual} - benefício não aplicado nesta reserva porque o pagamento será realizado na chegada`;
+
     const texto = `
-🏞️ NOVA RESERVA DE AGÊNCIA
+🏞️ NOVA RESERVA DE PARCEIRO
 
 🏢 Agência / Parceiro:
 ${agencia?.nomeEmpresa || "-"}
@@ -741,11 +986,14 @@ ${horaPrevista || "Não informada"}
 🚌 Veículo:
 ${tipoVeiculo}
 
-👨 Adultos:
+👨 Ingressos inteiros:
 ${adultos}
 
-👵 Idosos / meia entrada:
+👴 Idosos / meia entrada:
 ${idosos}
+
+👧 Crianças gratuitas:
+${criancas}
 
 👥 TOTAL:
 ${calculo.totalVisitantes} pessoa(s)
@@ -756,15 +1004,21 @@ ${temElevador
         : "Não"
       }
 
-🏷️ Desconto:
-${calculo.percentualDesconto}%
+🏅 Nível do parceiro:
+${categoriaAtual}
 
-💰 Valor bruto:
+🎁 Benefício:
+${descricaoBeneficio}
+
+⭐ Pontos potenciais desta visita:
+${calculo.pontosPotenciais}
+
+💰 Valor normal:
 ${formatarMoeda(
         calculo.valorBruto
       )}
 
-💸 Desconto:
+💸 Desconto aplicado:
 ${formatarMoeda(
         calculo.valorDesconto
       )}
@@ -778,8 +1032,11 @@ ${formatarMoeda(
 ${modalidade ===
         "antecipado"
         ? "ANTECIPADO - AGUARDANDO CONFIRMAÇÃO"
-        : "NA CHEGADA AO PARQUE"
+        : "NA CHEGADA AO PARQUE - SEM DESCONTO DO PROGRAMA"
       }
+
+📋 Regras do programa:
+ACEITAS PELO PARCEIRO
 
 📝 Observações:
 ${observacoes ||
@@ -807,6 +1064,10 @@ ${observacoes ||
     }
 
     return {
+      /* ==================================
+         PARCEIRO
+      ================================== */
+
       agenciaId:
         agencia.id,
 
@@ -832,7 +1093,44 @@ ${observacoes ||
         agencia.tipoParceiro,
 
       categoriaParceiro:
-        agencia.categoria,
+        categoriaAtual,
+
+      /* ==================================
+         PROGRAMA
+      ================================== */
+
+      categoriaPrograma:
+        categoriaAtual,
+
+      descontoNivelParceiro:
+        infoNivel.desconto,
+
+      descontoAplicado:
+        calculo.percentualDesconto,
+
+      pontosMesNoMomento:
+        pontosMes,
+
+      pontosPotenciaisReserva:
+        calculo.pontosPotenciais,
+
+      pontosCreditados:
+        false,
+
+      pontosCreditadosEm:
+        "",
+
+      /*
+       * Os pontos só devem virar
+       * definitivos depois da regra
+       * operacional de validação.
+       */
+      statusPontosPrograma:
+        "aguardando_visita",
+
+      /* ==================================
+         VISITA
+      ================================== */
 
       dataVisita,
 
@@ -844,8 +1142,14 @@ ${observacoes ||
 
       idosos,
 
+      criancas,
+
       totalVisitantes:
         calculo.totalVisitantes,
+
+      /* ==================================
+         ELEVADOR
+      ================================== */
 
       elevador:
         temElevador,
@@ -854,6 +1158,10 @@ ${observacoes ||
         temElevador
           ? qtdElevador
           : 0,
+
+      /* ==================================
+         VALORES
+      ================================== */
 
       valorAdultosBruto:
         calculo.valorAdultosBruto,
@@ -867,14 +1175,20 @@ ${observacoes ||
       valorIdososBruto:
         calculo.valorIdososBruto,
 
+      descontoIdosos:
+        0,
+
       valorIdososFinal:
         calculo.valorIdososFinal,
+
+      valorCriancas:
+        0,
 
       valorElevadorBruto:
         calculo.valorElevadorBruto,
 
       descontoElevador:
-        calculo.descontoElevador,
+        0,
 
       valorElevadorFinal:
         calculo.valorElevadorFinal,
@@ -888,8 +1202,9 @@ ${observacoes ||
       valorFinal:
         calculo.valorFinal,
 
-      descontoAplicado:
-        calculo.percentualDesconto,
+      /* ==================================
+         RESERVA
+      ================================== */
 
       codigoGrupo,
 
@@ -902,6 +1217,27 @@ ${observacoes ||
         "agencia_guia",
 
       observacoes,
+
+      /* ==================================
+         ACEITE DAS REGRAS
+      ================================== */
+
+      regrasAceitas:
+        true,
+
+      versaoRegras:
+        VERSAO_REGRAS_PARCEIROS,
+
+      regrasAceitasEm:
+        new Date()
+          .toISOString(),
+
+      regraPagamentoAntecipado:
+        modalidadePagamento ===
+        "antecipado",
+
+      regraDescontoSomenteAntecipado:
+        true,
 
       createdAt:
         serverTimestamp(),
@@ -918,17 +1254,26 @@ ${observacoes ||
   function limparFormulario() {
     setDataVisita("");
     setHoraPrevista("");
-    setTipoVeiculo("Ônibus");
+    setTipoVeiculo(
+      "Ônibus"
+    );
+
     setAdultos(0);
     setIdosos(0);
+    setCriancas(0);
+
     setTemElevador(false);
     setQtdElevador(0);
+
     setObservacoes("");
     setCpfPagador("");
+
+    setAceitouRegras(false);
   }
+
   /* ======================================
-   RESERVAR E PAGAR NA CHEGADA
-====================================== */
+     RESERVAR E PAGAR NA CHEGADA
+  ====================================== */
 
   async function criarReservaChegada() {
     setMensagem("");
@@ -939,7 +1284,9 @@ ${observacoes ||
     const erroValidacao =
       validarDadosReserva();
 
-    if (erroValidacao) {
+    if (
+      erroValidacao
+    ) {
       setTipoMensagem(
         "erro"
       );
@@ -995,6 +1342,28 @@ ${observacoes ||
           modalidadePagamento:
             "chegada",
 
+          /*
+           * MUITO IMPORTANTE:
+           *
+           * Pagamento na chegada
+           * não recebe benefício
+           * Bronze / Prata / Ouro /
+           * Diamante.
+           */
+          descontoAplicado:
+            0,
+
+          valorDesconto:
+            0,
+
+          valorAdultosFinal:
+            calculo
+              .valorAdultosBruto,
+
+          valorFinal:
+            calculo
+              .valorBruto,
+
           statusPagamento:
             "a_pagar_na_chegada",
 
@@ -1030,7 +1399,7 @@ ${observacoes ||
           calculo.totalVisitantes,
 
         valorFinal:
-          calculo.valorFinal,
+          calculo.valorBruto,
       });
 
       setLinkWhatsApp(
@@ -1042,9 +1411,9 @@ ${observacoes ||
       );
 
       setMensagem(
-        `Reserva criada com sucesso. Código ${codigoGrupo}. O grupo possui ${calculo.totalVisitantes} pessoa(s) e deverá pagar ${formatarMoeda(
-          calculo.valorFinal
-        )} na chegada ao Parque.`
+        `Reserva criada com sucesso. Código ${codigoGrupo}. O grupo possui ${calculo.totalVisitantes} pessoa(s). Como foi escolhido pagamento na chegada, o benefício do Programa de Parceiros não foi aplicado. Valor previsto na chegada: ${formatarMoeda(
+          calculo.valorBruto
+        )}.`
       );
 
       window.open(
@@ -1086,7 +1455,9 @@ ${observacoes ||
     const erroValidacao =
       validarDadosReserva();
 
-    if (erroValidacao) {
+    if (
+      erroValidacao
+    ) {
       setTipoMensagem(
         "erro"
       );
@@ -1117,14 +1488,6 @@ ${observacoes ||
 
       const codigoGrupo =
         gerarCodigoGrupo();
-
-      /*
-       * O QR identifica a reserva.
-       *
-       * O status de pagamento
-       * deve ser consultado no
-       * Firestore pela portaria.
-       */
 
       const qrCodeGrupo =
         await QRCode.toDataURL(
@@ -1204,7 +1567,7 @@ ${observacoes ||
         );
 
       /* ==================================
-         2. CRIAR PEDIDO DE PAGAMENTO
+         2. CRIAR PEDIDO
       ================================== */
 
       const pedidoId =
@@ -1262,20 +1625,13 @@ ${observacoes ||
               0
               ? Number(
                 (
-                  calculo.valorFinal /
-                  calculo.totalVisitantes
+                  calculo
+                    .valorFinal /
+                  calculo
+                    .totalVisitantes
                 ).toFixed(2)
               )
               : calculo.valorFinal,
-
-          /*
-           * IMPORTANTE:
-           * fica salvo o valor REAL
-           * da reserva.
-           *
-           * O teste de R$ 1 é feito
-           * apenas pela rota do cartão.
-           */
 
           valorTotal:
             calculo.valorFinal,
@@ -1322,7 +1678,7 @@ ${observacoes ||
       );
 
       /* ==================================
-         4. IR PARA CHECKOUT
+         4. CHECKOUT
       ================================== */
 
       const parametros =
@@ -1449,8 +1805,8 @@ ${observacoes ||
           </div>
 
           <p className="mt-5 text-sm text-slate-600">
-            Reservas com desconto são liberadas somente
-            após a aprovação do cadastro.
+            Reservas são liberadas somente após
+            a aprovação do cadastro de parceiro.
           </p>
 
           <a
@@ -1471,7 +1827,9 @@ ${observacoes ||
   return (
     <main className="relative min-h-screen overflow-hidden text-white">
 
-      {/* FUNDO */}
+      {/* ==================================
+          FUNDO
+      ================================== */}
 
       {imagensFundo.map(
         (
@@ -1495,17 +1853,17 @@ ${observacoes ||
         )
       )}
 
-      <div className="absolute inset-0 bg-black/65" />
+      <div className="absolute inset-0 bg-black/70" />
 
       <div className="relative z-10 px-4 py-8">
         <div className="mx-auto max-w-6xl">
 
           {/* ==================================
-              PARCEIRO APROVADO
+              PARCEIRO
           ================================== */}
 
           <div className="mb-6 rounded-3xl border border-green-300/30 bg-green-950/90 p-6 shadow-xl">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex flex-wrap items-start justify-between gap-5">
 
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-green-300">
@@ -1528,245 +1886,507 @@ ${observacoes ||
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-green-500/15 px-5 py-3 text-sm">
-                <p>
+              <div className="rounded-2xl bg-white/10 px-6 py-4 text-center">
+                <p className="text-sm text-white/70">
+                  Seu nível atual
+                </p>
+
+                <p className="mt-1 text-2xl font-black">
+                  {iconeCategoria(
+                    categoriaAtual
+                  )}{" "}
+                  {categoriaAtual}
+                </p>
+
+                <p className="mt-1 text-sm font-bold text-green-300">
+                  Até {infoNivel.desconto}% de benefício
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
+
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-white/60">
                   Cadastur
                 </p>
 
-                <p className="font-black text-green-300">
+                <p className="font-bold">
                   {
                     agencia.cadastur
                   }
                 </p>
               </div>
-            </div>
 
-            <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
               <div className="rounded-xl bg-white/10 p-3">
                 <p className="text-white/60">
-                  CNPJ / Documento
+                  Pontos no mês
                 </p>
 
-                <p className="font-bold">
+                <p className="font-black text-lg">
+                  {pontosMes}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white/10 p-3">
+                <p className="text-white/60">
+                  Próximo nível
+                </p>
+
+                <p className="font-black">
                   {
-                    agencia.documento
+                    progresso.nivelMaximo
+                      ? "Nível máximo alcançado"
+                      : progresso.proximoNivel
                   }
                 </p>
               </div>
 
               <div className="rounded-xl bg-white/10 p-3">
                 <p className="text-white/60">
-                  E-mail
+                  Faltam
                 </p>
 
-                <p className="font-bold">
+                <p className="font-black">
                   {
-                    agencia.email
+                    progresso.nivelMaximo
+                      ? "0 pontos"
+                      : `${progresso.faltamPontos} pontos`
                   }
                 </p>
               </div>
-
-              <div className="rounded-xl bg-white/10 p-3">
-                <p className="text-white/60">
-                  Status
-                </p>
-
-                <p className="font-black text-green-300">
-                  APROVADO
-                </p>
-              </div>
             </div>
+
+            {!progresso.nivelMaximo && (
+              <div className="mt-4">
+                <div className="mb-1 flex justify-between text-xs">
+                  <span>
+                    Progresso
+                  </span>
+
+                  <span>
+                    {progresso.percentual}%
+                  </span>
+                </div>
+
+                <div className="h-3 overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className="h-full rounded-full bg-green-400 transition-all"
+                    style={{
+                      width:
+                        `${progresso.percentual}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ==================================
-              CABEÇALHO
+              PROGRAMA DE PARCEIROS
           ================================== */}
 
-          <div className="mb-6 rounded-3xl border border-white/10 bg-black/45 p-6 shadow-xl backdrop-blur-sm">
-            <p className="text-sm font-semibold text-emerald-300">
-              Parque Mundo Novo
+          <section className="mb-6 rounded-3xl border border-white/20 bg-black/50 p-6 shadow-xl backdrop-blur">
+
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
+              Programa de Parceiros Parque Mundo Novo
             </p>
 
             <h1 className="mt-2 text-3xl font-black md:text-4xl">
               Reservas para Parceiros
             </h1>
 
-            <p className="mt-3 max-w-3xl text-slate-100">
-              Cadastre a visita do grupo com antecedência e
-              escolha entre pagamento antecipado ou pagamento
-              na chegada.
+            <p className="mt-3 max-w-4xl text-slate-100">
+              Quanto mais visitas efetivamente realizadas
+              pelo parceiro, maior poderá ser o benefício
+              conquistado para o período seguinte.
             </p>
 
-            {/* ==================================
-                REGRA CORRETA DE DESCONTOS
+            <div className="mt-6 grid gap-3 md:grid-cols-4">
 
-                1 a 4  = 0%
-                5 a 20 = 5%
-                21+    = 10%
-            ================================== */}
-
-            <div className="mt-5 grid gap-3 md:grid-cols-4">
-
-              <div className="rounded-xl bg-white/10 p-4">
-                <p className="font-black">
-                  👥 1 a 4 pessoas
+              <div className="rounded-2xl border border-amber-700/40 bg-amber-950/40 p-4">
+                <p className="text-xl font-black">
+                  🥉 Bronze
                 </p>
 
-                <p className="mt-1 text-white/70">
-                  Sem desconto
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-white/10 p-4">
-                <p className="font-black">
-                  👥 5 a 20 pessoas
-                </p>
-
-                <p className="mt-1 text-emerald-300">
+                <p className="mt-2 font-black text-amber-200">
                   5% de desconto
                 </p>
+
+                <p className="mt-1 text-sm text-white/70">
+                  0 a 49,5 pontos
+                </p>
               </div>
 
-              <div className="rounded-xl bg-white/10 p-4">
-                <p className="font-black">
-                  👥 Acima de 20 pessoas
+              <div className="rounded-2xl border border-slate-300/40 bg-slate-700/40 p-4">
+                <p className="text-xl font-black">
+                  🥈 Prata
                 </p>
 
-                <p className="mt-1 text-emerald-300">
+                <p className="mt-2 font-black text-slate-100">
                   10% de desconto
                 </p>
-              </div>
 
-              <div className="rounded-xl bg-white/10 p-4">
-                <p className="font-black">
-                  👴 Meia entrada
-                </p>
-
-                <p className="mt-1 text-white/70">
-                  Sem desconto adicional
+                <p className="mt-1 text-sm text-white/70">
+                  50 a 99,5 pontos
                 </p>
               </div>
 
+              <div className="rounded-2xl border border-yellow-300/40 bg-yellow-700/30 p-4">
+                <p className="text-xl font-black">
+                  🥇 Ouro
+                </p>
+
+                <p className="mt-2 font-black text-yellow-200">
+                  15% de desconto
+                </p>
+
+                <p className="mt-1 text-sm text-white/70">
+                  100 a 199,5 pontos
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-200/50 bg-cyan-800/30 p-4">
+                <p className="text-xl font-black">
+                  💎 Diamante
+                </p>
+
+                <p className="mt-2 font-black text-cyan-100">
+                  20% de desconto
+                </p>
+
+                <p className="mt-1 text-sm text-white/70">
+                  200 pontos ou mais
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* ==================================
-              PAGAMENTO
-          ================================== */}
+            {/* ==================================
+                REGRAS PRINCIPAIS
+            ================================== */}
 
-          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-emerald-700">
-                Forma de pagamento
-              </p>
+            <div className="mt-6 rounded-2xl border border-white/15 bg-white/10 p-5">
 
-              <h2 className="mt-1 text-2xl font-black">
-                Como deseja pagar a reserva?
+              <h2 className="text-xl font-black">
+                📋 Regras importantes
               </h2>
 
-              <p className="mt-2 max-w-3xl text-sm text-slate-600">
-                Escolha entre pagar antecipadamente por Pix ou
-                cartão, ou apenas registrar o grupo e pagar na
-                chegada ao Parque.
-              </p>
+              <div className="mt-4 grid gap-4 text-sm leading-relaxed md:grid-cols-2">
 
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="font-black text-emerald-300">
+                    ⭐ Como os pontos funcionam
+                  </p>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalidadePagamento(
-                      "antecipado"
-                    );
+                  <p className="mt-2">
+                    Ingresso inteiro:{" "}
+                    <strong>
+                      1 ponto
+                    </strong>
+                    .
+                  </p>
 
-                    setMensagem("");
-                    setTipoMensagem("");
-                  }}
-                  className={`rounded-2xl border-2 p-5 text-left transition ${modalidadePagamento ===
-                      "antecipado"
-                      ? "border-emerald-600 bg-emerald-50 shadow-md"
-                      : "border-slate-200 bg-white hover:border-emerald-300"
-                    }`}
-                >
-                  <p className="text-xl font-black text-emerald-800">
+                  <p>
+                    Idoso / meia entrada:{" "}
+                    <strong>
+                      0,5 ponto
+                    </strong>
+                    .
+                  </p>
+
+                  <p>
+                    Criança com gratuidade:{" "}
+                    <strong>
+                      0 ponto
+                    </strong>
+                    , mas será contabilizada
+                    no total de visitantes do grupo.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-black text-emerald-300">
+                    📅 Apuração do nível
+                  </p>
+
+                  <p className="mt-2">
+                    O desempenho acumulado no período
+                    será utilizado para definir o
+                    benefício do período seguinte.
+                  </p>
+
+                  <p className="mt-2">
+                    Reservas canceladas, reembolsadas,
+                    não pagas ou visitas que não forem
+                    efetivamente realizadas não devem
+                    gerar pontuação definitiva.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-black text-emerald-300">
                     💳 Pagamento antecipado
                   </p>
 
-                  <p className="mt-2 text-sm text-slate-600">
-                    Pague agora por Pix ou cartão de crédito.
-                    Após a confirmação, a reserva ficará marcada
-                    como paga para conferência na portaria.
+                  <p className="mt-2">
+                    O benefício Bronze, Prata, Ouro ou
+                    Diamante é aplicado somente nas
+                    reservas elegíveis realizadas e
+                    pagas antecipadamente pelo Portal
+                    de Parceiros.
                   </p>
 
-                  <p className="mt-3 text-xs font-black uppercase text-emerald-700">
-                    Pix ou cartão
+                  <p className="mt-2">
+                    A reserva somente será considerada
+                    paga após a confirmação do
+                    pagamento.
                   </p>
-                </button>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalidadePagamento(
-                      "chegada"
-                    );
-
-                    setMensagem("");
-                    setTipoMensagem("");
-                  }}
-                  className={`rounded-2xl border-2 p-5 text-left transition ${modalidadePagamento ===
-                      "chegada"
-                      ? "border-blue-600 bg-blue-50 shadow-md"
-                      : "border-slate-200 bg-white hover:border-blue-300"
-                    }`}
-                >
-                  <p className="text-xl font-black text-blue-800">
+                <div>
+                  <p className="font-black text-yellow-300">
                     🚌 Pagamento na chegada
                   </p>
 
-                  <p className="mt-2 text-sm text-slate-600">
-                    Registre o grupo antecipadamente e efetue
-                    o pagamento no Parque antes da liberação
-                    da entrada.
+                  <p className="mt-2">
+                    A reserva poderá ser registrada
+                    antecipadamente, porém{" "}
+                    <strong>
+                      não utilizará o desconto do
+                      Programa de Parceiros
+                    </strong>
+                    .
                   </p>
 
-                  <p className="mt-3 text-xs font-black uppercase text-blue-700">
-                    Reserva para conferência
+                  <p className="mt-2">
+                    O pagamento deverá ser realizado no
+                    Parque antes da liberação da entrada.
                   </p>
-                </button>
+                </div>
+
+                <div>
+                  <p className="font-black text-emerald-300">
+                    👴 Tarifas reduzidas
+                  </p>
+
+                  <p className="mt-2">
+                    Ingressos que já possuam tarifa
+                    reduzida, como idoso/meia entrada,
+                    não acumulam automaticamente o
+                    desconto adicional do nível do
+                    parceiro.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-black text-emerald-300">
+                    🏢 Relação da agência com o cliente
+                  </p>
+
+                  <p className="mt-2">
+                    O desconto do programa é um benefício
+                    comercial concedido ao parceiro na
+                    compra elegível. A comercialização
+                    do pacote ou serviço ao cliente final
+                    é de responsabilidade do parceiro,
+                    observadas as regras aplicáveis.
+                  </p>
+                </div>
               </div>
-
-              {modalidadePagamento ===
-                "antecipado" && (
-                  <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-                    <p className="font-black">
-                      🧪 Teste do pagamento antecipado
-                    </p>
-
-                    <p className="mt-1">
-                      Durante o teste local do cartão, mantenha{" "}
-                      <strong>
-                        SICREDI_IPG_VALOR_TESTE=true
-                      </strong>
-                      . O valor real da reserva continuará registrado
-                      no sistema, mas o Sicredi cobrará somente R$ 1,00
-                      no cartão.
-                    </p>
-                  </div>
-                )}
             </div>
           </section>
 
           {/* ==================================
-              CONTEÚDO
+              FORMA DE PAGAMENTO
+          ================================== */}
+
+          <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 text-slate-900 shadow-xl">
+
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-700">
+              Forma de pagamento
+            </p>
+
+            <h2 className="mt-1 text-2xl font-black">
+              Como deseja pagar a reserva?
+            </h2>
+
+            <p className="mt-2 max-w-4xl text-sm text-slate-600">
+              Leia atentamente. A forma de pagamento
+              escolhida interfere diretamente na
+              aplicação do benefício do seu nível.
+            </p>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+
+              {/* PAGAMENTO ANTECIPADO */}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setModalidadePagamento(
+                    "antecipado"
+                  );
+
+                  setAceitouRegras(
+                    false
+                  );
+
+                  setMensagem("");
+                  setTipoMensagem("");
+                }}
+                className={`rounded-2xl border-2 p-5 text-left transition ${modalidadePagamento ===
+                    "antecipado"
+                    ? "border-emerald-600 bg-emerald-50 shadow-md"
+                    : "border-slate-200 bg-white hover:border-emerald-300"
+                  }`}
+              >
+                <p className="text-xl font-black text-emerald-800">
+                  💳 Pagamento antecipado
+                </p>
+
+                <p className="mt-2 text-sm text-slate-600">
+                  Pague antecipadamente pelo checkout
+                  e utilize o benefício correspondente
+                  ao seu nível atual.
+                </p>
+
+                <div className="mt-4 rounded-xl bg-emerald-100 p-3">
+                  <p className="text-xs font-black uppercase text-emerald-700">
+                    Seu benefício atual
+                  </p>
+
+                  <p className="mt-1 text-2xl font-black text-emerald-900">
+                    {iconeCategoria(
+                      categoriaAtual
+                    )}{" "}
+                    {categoriaAtual}
+                    {" • "}
+                    {infoNivel.desconto}%
+                  </p>
+                </div>
+
+                <p className="mt-3 text-xs font-black uppercase text-emerald-700">
+                  ✓ Benefício elegível
+                </p>
+              </button>
+
+              {/* PAGAMENTO NA CHEGADA */}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setModalidadePagamento(
+                    "chegada"
+                  );
+
+                  setAceitouRegras(
+                    false
+                  );
+
+                  setMensagem("");
+                  setTipoMensagem("");
+                }}
+                className={`rounded-2xl border-2 p-5 text-left transition ${modalidadePagamento ===
+                    "chegada"
+                    ? "border-orange-500 bg-orange-50 shadow-md"
+                    : "border-slate-200 bg-white hover:border-orange-300"
+                  }`}
+              >
+                <p className="text-xl font-black text-orange-800">
+                  🚌 Pagamento na chegada
+                </p>
+
+                <p className="mt-2 text-sm text-slate-600">
+                  Registre o grupo agora e faça o
+                  pagamento quando chegar ao Parque.
+                </p>
+
+                <div className="mt-4 rounded-xl bg-orange-100 p-3">
+                  <p className="text-xs font-black uppercase text-orange-700">
+                    Atenção
+                  </p>
+
+                  <p className="mt-1 font-black text-orange-900">
+                    Sem desconto do Programa de Parceiros
+                  </p>
+                </div>
+
+                <p className="mt-3 text-xs font-black uppercase text-orange-700">
+                  ⚠ Pagamento pelo valor da reserva sem benefício do nível
+                </p>
+              </button>
+            </div>
+
+            {/* AVISO DINÂMICO */}
+
+            {modalidadePagamento ===
+              "antecipado" ? (
+              <div className="mt-5 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-5 text-emerald-950">
+                <p className="text-lg font-black">
+                  ✅ Benefício do parceiro aplicado
+                </p>
+
+                <p className="mt-2 text-sm">
+                  Você selecionou pagamento antecipado.
+                  Nesta reserva, o benefício do nível{" "}
+                  <strong>
+                    {categoriaAtual}
+                  </strong>{" "}
+                  poderá ser aplicado aos ingressos
+                  inteiros elegíveis.
+                </p>
+
+                <p className="mt-2 text-sm font-bold">
+                  Benefício atual:{" "}
+                  {infoNivel.desconto}%.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border-2 border-orange-300 bg-orange-50 p-5 text-orange-950">
+                <p className="text-lg font-black">
+                  ⚠️ Atenção antes de continuar
+                </p>
+
+                <p className="mt-2 text-sm">
+                  Você selecionou{" "}
+                  <strong>
+                    pagamento na chegada
+                  </strong>
+                  .
+                </p>
+
+                <p className="mt-2 text-sm font-black">
+                  O desconto Bronze, Prata, Ouro ou
+                  Diamante NÃO será aplicado nesta
+                  reserva.
+                </p>
+
+                <p className="mt-2 text-sm">
+                  Para utilizar o benefício do seu
+                  nível, selecione{" "}
+                  <strong>
+                    Pagamento antecipado
+                  </strong>{" "}
+                  antes de confirmar a reserva.
+                </p>
+              </div>
+            )}
+          </section>
+
+          {/* ==================================
+              FORMULÁRIO + RESUMO
           ================================== */}
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
-            {/* FORMULÁRIO */}
+            {/* ==================================
+                FORMULÁRIO
+            ================================== */}
 
             <section className="rounded-3xl bg-white/95 p-6 text-slate-900 shadow-xl backdrop-blur lg:col-span-2">
 
               <div className="flex flex-wrap items-center justify-between gap-3">
+
                 <h2 className="text-2xl font-black">
                   Dados da visita
                 </h2>
@@ -1775,7 +2395,7 @@ ${observacoes ||
                   className={`rounded-full px-4 py-2 text-xs font-black ${modalidadePagamento ===
                       "antecipado"
                       ? "bg-emerald-100 text-emerald-800"
-                      : "bg-blue-100 text-blue-800"
+                      : "bg-orange-100 text-orange-800"
                     }`}
                 >
                   {modalidadePagamento ===
@@ -1786,6 +2406,8 @@ ${observacoes ||
               </div>
 
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                {/* DATA */}
 
                 <label>
                   <span className="font-medium">
@@ -1811,6 +2433,8 @@ ${observacoes ||
                   />
                 </label>
 
+                {/* HORA */}
+
                 <label>
                   <span className="font-medium">
                     Chegada prevista
@@ -1831,6 +2455,8 @@ ${observacoes ||
                     className="mt-1 w-full rounded-xl border px-3 py-3"
                   />
                 </label>
+
+                {/* VEÍCULO */}
 
                 <label>
                   <span className="font-medium">
@@ -1864,9 +2490,11 @@ ${observacoes ||
                   </select>
                 </label>
 
+                {/* ADULTOS */}
+
                 <label>
                   <span className="font-medium">
-                    Adultos
+                    Ingressos inteiros
                   </span>
 
                   <input
@@ -1891,7 +2519,13 @@ ${observacoes ||
                     }
                     className="mt-1 w-full rounded-xl border px-3 py-3"
                   />
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    1 ponto por ingresso após a validação da visita.
+                  </p>
                 </label>
+
+                {/* IDOSOS */}
 
                 <label>
                   <span className="font-medium">
@@ -1920,7 +2554,48 @@ ${observacoes ||
                     }
                     className="mt-1 w-full rounded-xl border px-3 py-3"
                   />
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    0,5 ponto por ingresso após a validação. Tarifa reduzida sem desconto adicional do nível.
+                  </p>
                 </label>
+
+                {/* CRIANÇAS */}
+
+                <label>
+                  <span className="font-medium">
+                    Crianças com gratuidade
+                  </span>
+
+                  <input
+                    type="number"
+                    min={
+                      0
+                    }
+                    value={
+                      criancas
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setCriancas(
+                        Math.max(
+                          0,
+                          Number(
+                            e.target.value
+                          )
+                        )
+                      )
+                    }
+                    className="mt-1 w-full rounded-xl border px-3 py-3"
+                  />
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Contam como visitantes, mas não geram pontos.
+                  </p>
+                </label>
+
+                {/* ELEVADOR */}
 
                 <div>
                   <span className="font-medium">
@@ -1928,6 +2603,7 @@ ${observacoes ||
                   </span>
 
                   <div className="mt-2 flex gap-3">
+
                     <button
                       type="button"
                       onClick={() => {
@@ -1971,7 +2647,12 @@ ${observacoes ||
                       Sim
                     </button>
                   </div>
+
+                  <p className="mt-2 text-xs text-slate-500">
+                    O Elevador Panorâmico não recebe desconto adicional do nível nesta modalidade do programa.
+                  </p>
                 </div>
+
                 {temElevador && (
                   <label>
                     <span className="font-medium">
@@ -2007,6 +2688,8 @@ ${observacoes ||
                 )}
               </div>
 
+              {/* OBSERVAÇÕES */}
+
               <label className="mt-5 block">
                 <span className="font-medium">
                   Observações
@@ -2027,6 +2710,8 @@ ${observacoes ||
                   className="mt-1 min-h-28 w-full rounded-xl border px-3 py-3"
                 />
               </label>
+
+              {/* CPF */}
 
               {modalidadePagamento ===
                 "antecipado" && (
@@ -2061,11 +2746,80 @@ ${observacoes ||
                     />
 
                     <p className="mt-2 text-xs text-slate-500">
-                      Necessário para gerar a cobrança Pix e identificar
-                      o responsável pelo pagamento antecipado.
+                      Necessário para identificar o responsável pelo pagamento antecipado.
                     </p>
                   </label>
                 )}
+
+              {/* ==================================
+                  ACEITE OBRIGATÓRIO
+              ================================== */}
+
+              <div
+                className={`mt-6 rounded-2xl border-2 p-5 ${aceitouRegras
+                    ? "border-emerald-300 bg-emerald-50"
+                    : "border-orange-300 bg-orange-50"
+                  }`}
+              >
+                <p className="text-lg font-black">
+                  📋 Confirmação das regras
+                </p>
+
+                {modalidadePagamento ===
+                  "antecipado" ? (
+                  <p className="mt-2 text-sm leading-relaxed">
+                    Confirmo que li as regras do Programa
+                    de Parceiros, que estou realizando uma
+                    reserva com{" "}
+                    <strong>
+                      pagamento antecipado
+                    </strong>{" "}
+                    e que o benefício do nível será aplicado
+                    somente aos itens elegíveis indicados no
+                    resumo.
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed">
+                    Confirmo que li as regras e estou ciente
+                    de que escolhi{" "}
+                    <strong>
+                      pagamento na chegada
+                    </strong>
+                    , portanto esta reserva{" "}
+                    <strong>
+                      não receberá o desconto Bronze,
+                      Prata, Ouro ou Diamante
+                    </strong>
+                    .
+                  </p>
+                )}
+
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl bg-white p-4 shadow-sm">
+
+                  <input
+                    type="checkbox"
+                    checked={
+                      aceitouRegras
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setAceitouRegras(
+                        e.target.checked
+                      )
+                    }
+                    className="mt-1 h-5 w-5"
+                  />
+
+                  <span className="text-sm font-bold">
+                    Li, compreendi e concordo com as
+                    regras da reserva e do Programa
+                    de Parceiros Parque Mundo Novo.
+                  </span>
+                </label>
+              </div>
+
+              {/* MENSAGEM */}
 
               {mensagem && (
                 <div
@@ -2081,8 +2835,11 @@ ${observacoes ||
                 </div>
               )}
 
+              {/* RESERVA CRIADA */}
+
               {reservaCriada && (
                 <div className="mt-5 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-5">
+
                   <p className="text-sm font-bold uppercase text-emerald-700">
                     Código do grupo
                   </p>
@@ -2104,15 +2861,22 @@ ${observacoes ||
                   </p>
 
                   <p className="mt-1 text-sm">
-                    Valor a pagar na chegada:{" "}
+                    Valor previsto na chegada:{" "}
                     <strong>
                       {formatarMoeda(
                         reservaCriada.valorFinal
                       )}
                     </strong>
                   </p>
+
+                  <p className="mt-2 text-xs font-bold text-orange-700">
+                    Reserva com pagamento na chegada:
+                    benefício do nível não aplicado.
+                  </p>
                 </div>
               )}
+
+              {/* WHATSAPP */}
 
               {linkWhatsApp && (
                 <a
@@ -2127,6 +2891,8 @@ ${observacoes ||
                 </a>
               )}
 
+              {/* BOTÃO */}
+
               <button
                 type="button"
                 onClick={
@@ -2136,12 +2902,13 @@ ${observacoes ||
                     : criarReservaChegada
                 }
                 disabled={
-                  carregando
+                  carregando ||
+                  !aceitouRegras
                 }
-                className={`mt-6 w-full rounded-xl py-4 text-lg font-black text-white transition disabled:bg-slate-400 ${modalidadePagamento ===
+                className={`mt-6 w-full rounded-xl py-4 text-lg font-black text-white transition disabled:cursor-not-allowed disabled:bg-slate-400 ${modalidadePagamento ===
                     "antecipado"
                     ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-blue-600 hover:bg-blue-700"
+                    : "bg-orange-600 hover:bg-orange-700"
                   }`}
               >
                 {carregando
@@ -2149,10 +2916,12 @@ ${observacoes ||
                     "antecipado"
                     ? "Criando pagamento..."
                     : "Criando reserva..."
-                  : modalidadePagamento ===
-                    "antecipado"
-                    ? "Confirmar reserva e pagar agora"
-                    : "Confirmar reserva e pagar na chegada"}
+                  : !aceitouRegras
+                    ? "Aceite as regras para continuar"
+                    : modalidadePagamento ===
+                      "antecipado"
+                      ? "Confirmar reserva e pagar agora"
+                      : "Confirmar reserva e pagar na chegada"}
               </button>
             </section>
 
@@ -2161,15 +2930,68 @@ ${observacoes ||
             ================================== */}
 
             <aside className="h-fit rounded-3xl bg-white/95 p-6 text-slate-900 shadow-xl">
+
               <h2 className="text-xl font-black">
-                Resumo
+                Resumo da reserva
               </h2>
+
+              {/* NÍVEL */}
+
+              <div className="mt-4 rounded-2xl bg-slate-900 p-4 text-white">
+
+                <p className="text-xs font-bold uppercase text-white/60">
+                  Seu nível
+                </p>
+
+                <p className="mt-1 text-2xl font-black">
+                  {iconeCategoria(
+                    categoriaAtual
+                  )}{" "}
+                  {categoriaAtual}
+                </p>
+
+                <p className="mt-1 text-sm text-white/80">
+                  Benefício disponível:{" "}
+                  <strong>
+                    {infoNivel.desconto}%
+                  </strong>
+                </p>
+              </div>
+
+              {/* MODALIDADE */}
+
+              {modalidadePagamento ===
+                "antecipado" ? (
+                <div className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-center">
+
+                  <p className="text-xs font-black uppercase text-emerald-700">
+                    Pagamento antecipado
+                  </p>
+
+                  <p className="mt-1 font-black text-emerald-900">
+                    COM BENEFÍCIO DO PARCEIRO
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-xl border-2 border-orange-300 bg-orange-50 p-4 text-center">
+
+                  <p className="text-xs font-black uppercase text-orange-700">
+                    Pagamento na chegada
+                  </p>
+
+                  <p className="mt-1 font-black text-orange-900">
+                    SEM BENEFÍCIO DO PROGRAMA
+                  </p>
+                </div>
+              )}
 
               <div className="mt-5 space-y-3 text-sm">
 
+                {/* QUANTIDADES */}
+
                 <div className="flex justify-between">
                   <span>
-                    Adultos
+                    Inteiros
                   </span>
 
                   <strong>
@@ -2181,12 +3003,24 @@ ${observacoes ||
 
                 <div className="flex justify-between">
                   <span>
-                    Idosos
+                    Idosos / meia
                   </span>
 
                   <strong>
                     {
                       idosos
+                    }
+                  </strong>
+                </div>
+
+                <div className="flex justify-between">
+                  <span>
+                    Crianças gratuitas
+                  </span>
+
+                  <strong>
+                    {
+                      criancas
                     }
                   </strong>
                 </div>
@@ -2204,24 +3038,31 @@ ${observacoes ||
                   </strong>
                 </div>
 
-                <div className="rounded-xl bg-emerald-100 p-4 text-center">
-                  <p className="text-xs font-bold uppercase text-emerald-700">
-                    Desconto do grupo
+                {/* PONTOS */}
+
+                <div className="rounded-xl bg-violet-50 p-4 text-center">
+                  <p className="text-xs font-bold uppercase text-violet-700">
+                    Pontos potenciais desta visita
                   </p>
 
-                  <p className="mt-1 text-3xl font-black text-emerald-800">
+                  <p className="mt-1 text-3xl font-black text-violet-900">
                     {
-                      calculo.percentualDesconto
+                      calculo.pontosPotenciais
                     }
-                    %
+                  </p>
+
+                  <p className="mt-1 text-xs text-violet-700">
+                    Sujeitos à validação da visita.
                   </p>
                 </div>
 
                 <hr />
 
+                {/* ADULTOS */}
+
                 <div className="flex justify-between">
                   <span>
-                    Adultos
+                    Ingressos inteiros
                   </span>
 
                   <strong>
@@ -2235,7 +3076,7 @@ ${observacoes ||
                   0 && (
                     <div className="flex justify-between text-emerald-700">
                       <span>
-                        Desconto adultos
+                        Desconto parceiro
                       </span>
 
                       <strong>
@@ -2247,9 +3088,11 @@ ${observacoes ||
                     </div>
                   )}
 
+                {/* IDOSOS */}
+
                 <div className="flex justify-between">
                   <span>
-                    Idosos
+                    Idosos / meia
                   </span>
 
                   <strong>
@@ -2258,6 +3101,30 @@ ${observacoes ||
                     )}
                   </strong>
                 </div>
+
+                {idosos >
+                  0 && (
+                    <p className="text-xs text-slate-500">
+                      Tarifa reduzida sem desconto adicional do nível.
+                    </p>
+                  )}
+
+                {/* CRIANÇAS */}
+
+                {criancas >
+                  0 && (
+                    <div className="flex justify-between">
+                      <span>
+                        Crianças gratuitas
+                      </span>
+
+                      <strong>
+                        R$ 0,00
+                      </strong>
+                    </div>
+                  )}
+
+                {/* ELEVADOR */}
 
                 {temElevador && (
                   <>
@@ -2273,25 +3140,15 @@ ${observacoes ||
                       </strong>
                     </div>
 
-                    {calculo.descontoElevador >
-                      0 && (
-                        <div className="flex justify-between text-emerald-700">
-                          <span>
-                            Desconto elevador
-                          </span>
-
-                          <strong>
-                            -{" "}
-                            {formatarMoeda(
-                              calculo.descontoElevador
-                            )}
-                          </strong>
-                        </div>
-                      )}
+                    <p className="text-xs text-slate-500">
+                      Sem desconto adicional do nível.
+                    </p>
                   </>
                 )}
 
                 <hr />
+
+                {/* VALOR NORMAL */}
 
                 <div className="flex justify-between">
                   <span>
@@ -2305,98 +3162,119 @@ ${observacoes ||
                   </strong>
                 </div>
 
-                <div className="flex justify-between text-emerald-700">
+                {/* DESCONTO */}
+
+                <div
+                  className={`flex justify-between ${modalidadePagamento ===
+                      "antecipado"
+                      ? "text-emerald-700"
+                      : "text-slate-500"
+                    }`}
+                >
                   <span>
-                    Desconto total
+                    Desconto do programa
                   </span>
 
                   <strong>
-                    -{" "}
-                    {formatarMoeda(
-                      calculo.valorDesconto
-                    )}
+                    {modalidadePagamento ===
+                      "antecipado"
+                      ? `- ${formatarMoeda(
+                        calculo.valorDesconto
+                      )}`
+                      : "R$ 0,00"}
                   </strong>
                 </div>
 
-                <div className="rounded-xl bg-blue-700 p-4 text-white">
+                {/* PERCENTUAL */}
+
+                <div className="flex justify-between">
+                  <span>
+                    Percentual aplicado
+                  </span>
+
+                  <strong>
+                    {
+                      modalidadePagamento ===
+                        "antecipado"
+                        ? `${calculo.percentualDesconto}%`
+                        : "0%"
+                    }
+                  </strong>
+                </div>
+
+                {/* TOTAL */}
+
+                <div
+                  className={`rounded-xl p-4 text-white ${modalidadePagamento ===
+                      "antecipado"
+                      ? "bg-emerald-700"
+                      : "bg-orange-600"
+                    }`}
+                >
                   <p className="text-xs font-bold uppercase">
                     {modalidadePagamento ===
                       "antecipado"
-                      ? "Valor da reserva"
-                      : "Valor a pagar na chegada"}
+                      ? "Valor a pagar agora"
+                      : "Valor previsto na chegada"}
                   </p>
 
                   <p className="mt-1 text-3xl font-black">
                     {formatarMoeda(
-                      calculo.valorFinal
+                      modalidadePagamento ===
+                        "antecipado"
+                        ? calculo.valorFinal
+                        : calculo.valorBruto
                     )}
                   </p>
                 </div>
               </div>
 
+              {/* AVISO FINAL */}
+
               {modalidadePagamento ===
                 "antecipado" ? (
-                <>
-                  <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-900">
-                    <p className="font-black">
-                      💳 Pagamento antecipado
-                    </p>
+                <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-900">
 
-                    <p className="mt-2">
-                      Ao confirmar, será criado um pedido vinculado
-                      a esta reserva e você seguirá para o checkout
-                      para escolher Pix ou cartão de crédito.
-                    </p>
+                  <p className="font-black">
+                    ✅ Pagamento antecipado
+                  </p>
 
-                    <p className="mt-2">
-                      A reserva somente será considerada paga após
-                      a confirmação do Sicredi.
-                    </p>
-                  </div>
+                  <p className="mt-2">
+                    Ao confirmar, será criado um pedido
+                    vinculado a esta reserva e você
+                    seguirá para o checkout.
+                  </p>
 
-                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-                    <p className="font-black">
-                      🧪 Teste de R$ 1,00 no cartão
-                    </p>
-
-                    <p className="mt-2">
-                      Com SICREDI_IPG_VALOR_TESTE=true no ambiente
-                      local, o cartão será cobrado em R$ 1,00. O
-                      valor real da reserva permanecerá registrado
-                      para conferência do teste.
-                    </p>
-                  </div>
-                </>
+                  <p className="mt-2">
+                    A reserva somente será considerada
+                    paga após a confirmação do pagamento.
+                  </p>
+                </div>
               ) : (
-                <>
-                  <div className="mt-5 rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-xs text-yellow-900">
-                    <p className="font-black">
-                      💰 Pagamento na chegada
-                    </p>
+                <div className="mt-5 rounded-xl border-2 border-orange-300 bg-orange-50 p-4 text-xs text-orange-900">
 
-                    <p className="mt-2">
-                      O grupo deverá realizar o pagamento no Parque
-                      antes da confirmação da entrada.
-                    </p>
+                  <p className="font-black">
+                    ⚠️ Pagamento na chegada
+                  </p>
 
-                    <p className="mt-2">
-                      Será gerado um código e QR Code para
-                      identificação do grupo na portaria.
-                    </p>
-                  </div>
+                  <p className="mt-2">
+                    O grupo deverá realizar o pagamento
+                    no Parque antes da liberação da
+                    entrada.
+                  </p>
 
-                  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-xs text-blue-900">
-                    <p className="font-black">
-                      ℹ️ Reserva antecipada
-                    </p>
+                  <p className="mt-2 font-black">
+                    Esta modalidade não utiliza o
+                    desconto Bronze, Prata, Ouro ou
+                    Diamante.
+                  </p>
 
-                    <p className="mt-2">
-                      Esta reserva garante o cadastro antecipado do
-                      grupo. O valor indicado deverá ser pago na
-                      chegada ao Parque.
-                    </p>
-                  </div>
-                </>
+                  <p className="mt-2">
+                    Para utilizar o benefício do nível,
+                    altere a modalidade para pagamento
+                    antecipado antes de confirmar.
+                  </p>
+                </div>
               )}
             </aside>
           </div>
