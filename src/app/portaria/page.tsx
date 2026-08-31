@@ -9,6 +9,7 @@ import {
 import { db } from "@/lib/firebase";
 
 import {
+    atualizarReservaAgenciaComPontuacao,
     listarPedidosLocalmente,
     listarReservasAgenciasLocalmente,
     LocalValidacao,
@@ -2516,13 +2517,9 @@ export default function PortariaPage() {
         if (
             isOnline
         ) {
-            await updateDoc(
-                doc(
-                    db,
-                    "reservas_agencias",
-                    reservaAgencia.id
-                ),
-
+            await atualizarReservaAgenciaComPontuacao(
+                reservaAgencia.id,
+                localValidacao,
                 dadosUtilizacao
             );
         } else {
