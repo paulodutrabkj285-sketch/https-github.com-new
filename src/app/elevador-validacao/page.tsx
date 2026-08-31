@@ -79,7 +79,7 @@ type QrExtraido = {
 };
 
 /* ==========================================
-   AUXILIARES
+   FUNÇÕES AUXILIARES
 ========================================== */
 
 function limpar(
@@ -166,7 +166,7 @@ function formatarDataHora(
 }
 
 /* ==========================================
-   DIREITO AO ELEVADOR
+   INGRESSO TEM DIREITO AO ELEVADOR?
 ========================================== */
 
 function pedidoTemElevador(
@@ -216,19 +216,23 @@ function pedidoTemElevador(
     return false;
 }
 
+/* ==========================================
+   QUANTIDADE DE PESSOAS DO ELEVADOR
+========================================== */
+
 function quantidadeElevadorPedido(
     pedido: Pedido
 ) {
-    const qtdElevador =
+    const quantidadeEspecifica =
         numeroSeguro(
             pedido.qtdElevador
         );
 
     if (
-        qtdElevador >
+        quantidadeEspecifica >
         0
     ) {
-        return qtdElevador;
+        return quantidadeEspecifica;
     }
 
     const quantidade =
@@ -246,6 +250,10 @@ function quantidadeElevadorPedido(
     return 1;
 }
 
+/* ==========================================
+   RESERVA TEM ELEVADOR?
+========================================== */
+
 function reservaTemElevador(
     reserva:
         ReservaAgenciaCache
@@ -261,7 +269,81 @@ function reservaTemElevador(
 }
 
 /* ==========================================
-   EXTRAIR DADOS DO QR
+   COMPATIBILIDADE COM SISTEMA ANTIGO
+========================================== */
+
+/*
+ * Antes da criação do aplicativo separado,
+ * o aparelho do elevador utilizava o mesmo
+ * sistema da portaria.
+ *
+ * Portanto existem ingressos antigos de
+ * Elevador Panorâmico que já foram usados,
+ * mas possuem somente:
+ *
+ * statusOperacional = "utilizado"
+ *
+ * e ainda não possuem:
+ *
+ * elevadorValidado = true
+ *
+ * Estes ingressos precisam continuar
+ * bloqueados para impedir reutilização.
+ */
+
+function pedidoFoiUtilizadoNoSistemaAntigo(
+    pedido: Pedido
+) {
+    if (
+        !pedidoTemElevador(
+            pedido
+        )
+    ) {
+        return false;
+    }
+
+    if (
+        pedido.elevadorValidado ===
+        true
+    ) {
+        return false;
+    }
+
+    return (
+        normalizarCodigo(
+            pedido.statusOperacional
+        ) ===
+        "UTILIZADO"
+    );
+}
+
+/* ==========================================
+   INGRESSO JÁ UTILIZOU ELEVADOR?
+========================================== */
+
+function pedidoElevadorJaUtilizado(
+    pedido: Pedido
+) {
+    if (
+        pedido.elevadorValidado ===
+        true
+    ) {
+        return true;
+    }
+
+    if (
+        pedidoFoiUtilizadoNoSistemaAntigo(
+            pedido
+        )
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+/* ==========================================
+   EXTRAIR QR
 ========================================== */
 
 function extrairQr(
@@ -549,7 +631,7 @@ export default function ElevadorValidacaoPage() {
     );
 
     /* ======================================
-       FIRESTORE
+       FIRESTORE - RESERVAS
     ====================================== */
 
     async function carregarReservasOnline() {
@@ -572,6 +654,10 @@ export default function ElevadorValidacaoPage() {
             })
         ) as ReservaAgenciaCache[];
     }
+
+    /* ======================================
+       FIRESTORE - PEDIDOS
+    ====================================== */
 
     async function carregarPedidosOnline() {
         return await listarPedidosAtivosPortaria();
@@ -628,7 +714,7 @@ export default function ElevadorValidacaoPage() {
             error
             ) {
                 console.error(
-                    "ELEVADOR: erro online:",
+                    "ELEVADOR: erro ao carregar dados online:",
                     error
                 );
             }
@@ -661,11 +747,15 @@ export default function ElevadorValidacaoPage() {
         error
         ) {
             console.error(
-                "ELEVADOR: erro cache:",
+                "ELEVADOR: erro ao carregar cache:",
                 error
             );
         }
     }
+
+    /* ======================================
+       PEDIDOS PARA BUSCA
+    ====================================== */
 
     async function obterPedidosParaBusca() {
         const online =
@@ -684,16 +774,25 @@ export default function ElevadorValidacaoPage() {
                     pedidos
                 );
 
-                await salvarPedidosLocalmente(
-                    pedidos
-                );
+                try {
+                    await salvarPedidosLocalmente(
+                        pedidos
+                    );
+                } catch (
+                error
+                ) {
+                    console.error(
+                        "Erro cache pedidos:",
+                        error
+                    );
+                }
 
                 return pedidos;
             } catch (
             error
             ) {
                 console.error(
-                    "ELEVADOR: Firestore indisponível:",
+                    "Erro Firestore pedidos:",
                     error
                 );
             }
@@ -713,6 +812,10 @@ export default function ElevadorValidacaoPage() {
         }
     }
 
+    /* ======================================
+       RESERVAS PARA BUSCA
+    ====================================== */
+
     async function obterReservasParaBusca() {
         const online =
             typeof navigator !==
@@ -730,16 +833,25 @@ export default function ElevadorValidacaoPage() {
                     reservas
                 );
 
-                await salvarReservasAgenciasLocalmente(
-                    reservas
-                );
+                try {
+                    await salvarReservasAgenciasLocalmente(
+                        reservas
+                    );
+                } catch (
+                error
+                ) {
+                    console.error(
+                        "Erro cache reservas:",
+                        error
+                    );
+                }
 
                 return reservas;
             } catch (
             error
             ) {
                 console.error(
-                    "ELEVADOR: reservas online indisponíveis:",
+                    "Erro Firestore reservas:",
                     error
                 );
             }
@@ -760,7 +872,7 @@ export default function ElevadorValidacaoPage() {
     }
 
     /* ======================================
-       CONTADOR
+       CONTADOR DO DIA
     ====================================== */
 
     function calcularContadorHoje(
@@ -778,6 +890,15 @@ export default function ElevadorValidacaoPage() {
 
         let total =
             0;
+
+        /*
+         * Aqui contamos somente validações
+         * feitas pelo NOVO app do elevador.
+         *
+         * Os registros antigos continuam
+         * bloqueados para reutilização,
+         * mas não entram no contador novo.
+         */
 
         pedidos.forEach(
             (
@@ -835,7 +956,7 @@ export default function ElevadorValidacaoPage() {
     }
 
     /* ======================================
-       PENDÊNCIAS
+       PENDÊNCIAS OFFLINE
     ====================================== */
 
     async function atualizarPendencias() {
@@ -843,7 +964,7 @@ export default function ElevadorValidacaoPage() {
             const itens =
                 await obterPendentes();
 
-            const somenteElevador =
+            const elevador =
                 itens.filter(
                     (
                         item
@@ -853,17 +974,21 @@ export default function ElevadorValidacaoPage() {
                 );
 
             setPendentesCount(
-                somenteElevador.length
+                elevador.length
             );
         } catch (
         error
         ) {
             console.error(
-                "ELEVADOR: erro pendências:",
+                "Erro pendências:",
                 error
             );
         }
     }
+
+    /* ======================================
+       SINCRONIZAÇÃO
+    ====================================== */
 
     async function sincronizarTudo() {
         if (
@@ -896,7 +1021,7 @@ export default function ElevadorValidacaoPage() {
         error
         ) {
             console.error(
-                "ELEVADOR: erro sincronização:",
+                "Erro sincronização:",
                 error
             );
 
@@ -968,10 +1093,7 @@ export default function ElevadorValidacaoPage() {
             ""
         );
 
-        /*
-         * O aplicativo do elevador
-         * NÃO verifica portaria principal.
-         */
+        /* PAGAMENTO */
 
         if (
             pedido.statusPagamento !==
@@ -987,6 +1109,8 @@ export default function ElevadorValidacaoPage() {
 
             return;
         }
+
+        /* PRODUTO */
 
         if (
             !pedidoTemElevador(
@@ -1004,6 +1128,8 @@ export default function ElevadorValidacaoPage() {
             return;
         }
 
+        /* NOVO APP */
+
         if (
             pedido.elevadorValidado ===
             true
@@ -1020,6 +1146,26 @@ export default function ElevadorValidacaoPage() {
 
             return;
         }
+
+        /* SISTEMA ANTIGO */
+
+        if (
+            pedidoFoiUtilizadoNoSistemaAntigo(
+                pedido
+            )
+        ) {
+            setMensagem(
+                "INGRESSO JÁ UTILIZADO NO SISTEMA ANTERIOR"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        /* LIBERADO */
 
         const quantidade =
             quantidadeElevadorPedido(
@@ -1054,12 +1200,6 @@ export default function ElevadorValidacaoPage() {
             reserva.codigoGrupo ||
             ""
         );
-
-        /*
-         * Reserva precisa estar paga.
-         * Não depende da validação
-         * da Portaria Principal.
-         */
 
         if (
             reserva.statusPagamento !==
@@ -1124,7 +1264,7 @@ export default function ElevadorValidacaoPage() {
     }
 
     /* ======================================
-       BUSCAR
+       BUSCAR QR / CÓDIGO
     ====================================== */
 
     async function buscarCodigo(
@@ -1268,9 +1408,7 @@ export default function ElevadorValidacaoPage() {
                                 item.id
                             );
 
-                        /*
-                         * Código PMN.
-                         */
+                        /* Código PMN */
 
                         if (
                             codigoQr &&
@@ -1280,9 +1418,7 @@ export default function ElevadorValidacaoPage() {
                             return true;
                         }
 
-                        /*
-                         * pedidoId dentro do QR.
-                         */
+                        /* pedidoId do QR */
 
                         if (
                             pedidoIdQr &&
@@ -1292,9 +1428,7 @@ export default function ElevadorValidacaoPage() {
                             return true;
                         }
 
-                        /*
-                         * ID direto.
-                         */
+                        /* ID direto */
 
                         if (
                             codigoQr &&
@@ -1306,9 +1440,7 @@ export default function ElevadorValidacaoPage() {
                             return true;
                         }
 
-                        /*
-                         * qrCodeIngresso simples.
-                         */
+                        /* qrCodeIngresso */
 
                         if (
                             codigoQr &&
@@ -1319,9 +1451,7 @@ export default function ElevadorValidacaoPage() {
                             return true;
                         }
 
-                        /*
-                         * Conteúdo bruto do QR.
-                         */
+                        /* QR bruto */
 
                         if (
                             qrCodeIngresso &&
@@ -1357,7 +1487,7 @@ export default function ElevadorValidacaoPage() {
         error
         ) {
             console.error(
-                "ELEVADOR: erro consulta:",
+                "Erro ao consultar ingresso:",
                 error
             );
 
@@ -1462,7 +1592,7 @@ export default function ElevadorValidacaoPage() {
                 error
                 ) {
                     console.error(
-                        "ELEVADOR: câmera:",
+                        "Erro câmera:",
                         error
                     );
 
@@ -1507,7 +1637,7 @@ export default function ElevadorValidacaoPage() {
     }
 
     /* ======================================
-       PODE CONFIRMAR
+       PERMISSÃO DE VALIDAÇÃO
     ====================================== */
 
     const podeConfirmar =
@@ -1524,24 +1654,31 @@ export default function ElevadorValidacaoPage() {
                     entidade.tipo ===
                     "pedido"
                 ) {
+                    const pedido =
+                        entidade.pedido;
+
                     return (
-                        entidade.pedido.statusPagamento ===
+                        pedido.statusPagamento ===
                         "pago" &&
                         pedidoTemElevador(
-                            entidade.pedido
+                            pedido
                         ) &&
-                        entidade.pedido.elevadorValidado !==
-                        true
+                        !pedidoElevadorJaUtilizado(
+                            pedido
+                        )
                     );
                 }
 
+                const reserva =
+                    entidade.reserva;
+
                 return (
-                    entidade.reserva.statusPagamento ===
+                    reserva.statusPagamento ===
                     "pago" &&
                     reservaTemElevador(
-                        entidade.reserva
+                        reserva
                     ) &&
-                    entidade.reserva.elevadorValidado !==
+                    reserva.elevadorValidado !==
                     true
                 );
             },
@@ -1582,7 +1719,7 @@ export default function ElevadorValidacaoPage() {
             );
 
             /* ==================================
-               PEDIDO NORMAL
+               INGRESSO NORMAL
             ================================== */
 
             if (
@@ -1595,14 +1732,13 @@ export default function ElevadorValidacaoPage() {
                     );
 
                 /*
-                 * IMPORTANTE:
+                 * SOMENTE campos do elevador.
                  *
-                 * Somente campos do elevador.
+                 * Não altera:
                  *
-                 * NÃO altera:
                  * statusPagamento
-                 * valorTotal
                  * quantidade
+                 * valorTotal
                  * statusOperacional
                  * validadoPor
                  * validadoEm
@@ -1793,7 +1929,7 @@ export default function ElevadorValidacaoPage() {
         error
         ) {
             console.error(
-                "ELEVADOR: erro ao registrar:",
+                "Erro ao validar elevador:",
                 error
             );
 
@@ -1851,6 +1987,8 @@ export default function ElevadorValidacaoPage() {
                     };
                 }
 
+                /* PEDIDO */
+
                 if (
                     entidade.tipo ===
                     "pedido"
@@ -1864,10 +2002,10 @@ export default function ElevadorValidacaoPage() {
                     ) {
                         return {
                             titulo:
-                                "NÃO LIBERAR",
+                                "PAGAMENTO PENDENTE",
 
                             classe:
-                                "border-red-400 bg-red-50 text-red-950",
+                                "border-red-500 bg-red-50 text-red-950",
 
                             icone:
                                 "⛔",
@@ -1884,7 +2022,7 @@ export default function ElevadorValidacaoPage() {
                                 "INGRESSO INCORRETO",
 
                             classe:
-                                "border-red-400 bg-red-50 text-red-950",
+                                "border-red-500 bg-red-50 text-red-950",
 
                             icone:
                                 "⛔",
@@ -1900,10 +2038,27 @@ export default function ElevadorValidacaoPage() {
                                 "JÁ UTILIZADO",
 
                             classe:
-                                "border-amber-400 bg-amber-50 text-amber-950",
+                                "border-amber-500 bg-amber-50 text-amber-950",
 
                             icone:
                                 "⚠️",
+                        };
+                    }
+
+                    if (
+                        pedidoFoiUtilizadoNoSistemaAntigo(
+                            pedido
+                        )
+                    ) {
+                        return {
+                            titulo:
+                                "JÁ UTILIZADO",
+
+                            classe:
+                                "border-red-500 bg-red-50 text-red-950",
+
+                            icone:
+                                "⛔",
                         };
                     }
 
@@ -1912,12 +2067,14 @@ export default function ElevadorValidacaoPage() {
                             "INGRESSO VÁLIDO",
 
                         classe:
-                            "border-emerald-400 bg-emerald-50 text-emerald-950",
+                            "border-emerald-500 bg-emerald-50 text-emerald-950",
 
                         icone:
                             "✅",
                     };
                 }
+
+                /* RESERVA */
 
                 const reserva =
                     entidade.reserva;
@@ -1931,7 +2088,7 @@ export default function ElevadorValidacaoPage() {
                             "PAGAMENTO PENDENTE",
 
                         classe:
-                            "border-red-400 bg-red-50 text-red-950",
+                            "border-red-500 bg-red-50 text-red-950",
 
                         icone:
                             "⛔",
@@ -1948,7 +2105,7 @@ export default function ElevadorValidacaoPage() {
                             "SEM ELEVADOR",
 
                         classe:
-                            "border-red-400 bg-red-50 text-red-950",
+                            "border-red-500 bg-red-50 text-red-950",
 
                         icone:
                             "⛔",
@@ -1964,7 +2121,7 @@ export default function ElevadorValidacaoPage() {
                             "JÁ UTILIZADO",
 
                         classe:
-                            "border-amber-400 bg-amber-50 text-amber-950",
+                            "border-amber-500 bg-amber-50 text-amber-950",
 
                         icone:
                             "⚠️",
@@ -1976,7 +2133,7 @@ export default function ElevadorValidacaoPage() {
                         "RESERVA VÁLIDA",
 
                     classe:
-                        "border-emerald-400 bg-emerald-50 text-emerald-950",
+                        "border-emerald-500 bg-emerald-50 text-emerald-950",
 
                     icone:
                         "✅",
@@ -2003,7 +2160,7 @@ export default function ElevadorValidacaoPage() {
 
             <div className="relative z-10 mx-auto max-w-md">
 
-                {/* CABEÇALHO */}
+                {/* TÍTULO */}
 
                 <header className="mb-4 text-center">
                     <h1 className="text-3xl font-black">
@@ -2015,10 +2172,11 @@ export default function ElevadorValidacaoPage() {
                     </p>
                 </header>
 
-                {/* INTERNET */}
+                {/* CONEXÃO */}
 
                 <section className="mb-4 rounded-2xl bg-slate-950/90 p-4 shadow-xl">
                     <div className="flex items-center justify-between gap-3">
+
                         <div className="flex items-center gap-2">
                             <span
                                 className={`h-3 w-3 rounded-full ${isOnline
@@ -2053,7 +2211,8 @@ export default function ElevadorValidacaoPage() {
                 {/* CONTADORES */}
 
                 <div className="mb-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-sky-600 p-4 text-center">
+
+                    <div className="rounded-2xl bg-sky-600 p-4 text-center shadow-xl">
                         <p className="text-xs font-black uppercase">
                             Pessoas hoje
                         </p>
@@ -2063,7 +2222,7 @@ export default function ElevadorValidacaoPage() {
                         </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-900 p-4 text-center">
+                    <div className="rounded-2xl bg-slate-900 p-4 text-center shadow-xl">
                         <p className="text-xs font-black uppercase">
                             Pendências
                         </p>
@@ -2076,7 +2235,8 @@ export default function ElevadorValidacaoPage() {
 
                 {/* FUNCIONÁRIO */}
 
-                <section className="mb-4 rounded-3xl bg-white p-4 text-slate-900">
+                <section className="mb-4 rounded-3xl bg-white p-4 text-slate-900 shadow-xl">
+
                     <p className="mb-2 text-xs font-black uppercase">
                         Funcionário do elevador
                     </p>
@@ -2119,7 +2279,7 @@ export default function ElevadorValidacaoPage() {
 
                 {/* LEITOR */}
 
-                <section className="mb-4 rounded-3xl bg-white p-4 text-slate-900">
+                <section className="mb-4 rounded-3xl bg-white p-4 text-slate-900 shadow-xl">
 
                     {!cameraAtiva ? (
                         <button
@@ -2151,12 +2311,14 @@ export default function ElevadorValidacaoPage() {
                         </div>
                     )}
 
-                    <div className="mt-4 border-t pt-4">
+                    <div className="mt-4 border-t border-slate-300 pt-4">
+
                         <p className="mb-2 text-xs font-black uppercase">
                             Digitar código
                         </p>
 
                         <div className="flex gap-2">
+
                             <input
                                 value={
                                     codigoManual
@@ -2168,8 +2330,20 @@ export default function ElevadorValidacaoPage() {
                                         event.target.value.toUpperCase()
                                     )
                                 }
+                                onKeyDown={(
+                                    event
+                                ) => {
+                                    if (
+                                        event.key ===
+                                        "Enter"
+                                    ) {
+                                        void buscarCodigo(
+                                            codigoManual
+                                        );
+                                    }
+                                }}
                                 placeholder="PMN-12345"
-                                className="min-w-0 flex-1 rounded-2xl border-2 px-4 py-4 font-black uppercase"
+                                className="min-w-0 flex-1 rounded-2xl border-2 border-slate-300 px-4 py-4 font-black uppercase"
                             />
 
                             <button
@@ -2178,6 +2352,9 @@ export default function ElevadorValidacaoPage() {
                                     buscarCodigo(
                                         codigoManual
                                     )
+                                }
+                                disabled={
+                                    carregando
                                 }
                                 className="rounded-2xl bg-slate-900 px-5 font-black text-white"
                             >
@@ -2190,7 +2367,7 @@ export default function ElevadorValidacaoPage() {
                 {/* RESULTADO */}
 
                 <section
-                    className={`rounded-3xl border-4 p-6 text-center ${statusVisual.classe}`}
+                    className={`rounded-3xl border-4 p-6 text-center shadow-2xl ${statusVisual.classe}`}
                 >
                     <p className="text-6xl">
                         {statusVisual.icone}
@@ -2207,11 +2384,11 @@ export default function ElevadorValidacaoPage() {
                     </p>
                 </section>
 
-                {/* PEDIDO */}
+                {/* DADOS DO PEDIDO */}
 
                 {entidade?.tipo ===
                     "pedido" && (
-                        <section className="mt-4 rounded-3xl bg-white p-5 text-slate-900">
+                        <section className="mt-4 rounded-3xl bg-white p-5 text-slate-900 shadow-xl">
 
                             <p className="text-xs font-black uppercase text-slate-500">
                                 Código
@@ -2222,8 +2399,9 @@ export default function ElevadorValidacaoPage() {
                             </p>
 
                             <div className="mt-4 rounded-2xl bg-sky-100 p-5 text-center text-sky-950">
+
                                 <p className="text-xs font-black uppercase">
-                                    Liberar no elevador
+                                    Ingressos do elevador
                                 </p>
 
                                 <p className="text-6xl font-black">
@@ -2238,6 +2416,7 @@ export default function ElevadorValidacaoPage() {
                             </div>
 
                             <div className="mt-4 space-y-2 rounded-2xl bg-slate-100 p-4">
+
                                 <p>
                                     <strong>Nome:</strong>{" "}
                                     {entidade.pedido.nome}
@@ -2249,7 +2428,7 @@ export default function ElevadorValidacaoPage() {
                                 </p>
 
                                 <p>
-                                    <strong>Data:</strong>{" "}
+                                    <strong>Data da visita:</strong>{" "}
                                     {formatarData(
                                         entidade.pedido.dataVisita
                                     )}
@@ -2264,25 +2443,63 @@ export default function ElevadorValidacaoPage() {
                                 </p>
                             </div>
 
-                            {entidade.pedido.elevadorValidado && (
-                                <div className="mt-4 rounded-2xl bg-amber-100 p-4 text-amber-950">
-                                    <p className="font-black">
-                                        ⚠️ ELEVADOR JÁ UTILIZADO
-                                    </p>
+                            {/* USADO NO NOVO SISTEMA */}
 
-                                    <p>
-                                        Por:{" "}
-                                        {entidade.pedido.elevadorValidadoPor}
-                                    </p>
+                            {entidade.pedido.elevadorValidado ===
+                                true && (
+                                    <div className="mt-4 rounded-2xl bg-amber-100 p-4 text-amber-950">
 
-                                    <p>
-                                        Em:{" "}
-                                        {formatarDataHora(
-                                            entidade.pedido.elevadorValidadoEm
+                                        <p className="font-black">
+                                            ⚠️ ELEVADOR JÁ UTILIZADO
+                                        </p>
+
+                                        <p className="mt-2">
+                                            <strong>Funcionário:</strong>{" "}
+                                            {entidade.pedido.elevadorValidadoPor ||
+                                                "-"}
+                                        </p>
+
+                                        <p>
+                                            <strong>Data/hora:</strong>{" "}
+                                            {formatarDataHora(
+                                                entidade.pedido.elevadorValidadoEm
+                                            )}
+                                        </p>
+                                    </div>
+                                )}
+
+                            {/* LEGADO */}
+
+                            {pedidoFoiUtilizadoNoSistemaAntigo(
+                                entidade.pedido
+                            ) && (
+                                    <div className="mt-4 rounded-2xl bg-red-100 p-4 text-red-950">
+
+                                        <p className="text-lg font-black">
+                                            ⛔ INGRESSO JÁ UTILIZADO
+                                        </p>
+
+                                        <p className="mt-2 text-sm font-bold">
+                                            Este ingresso foi validado pelo sistema anterior do elevador.
+                                        </p>
+
+                                        {entidade.pedido.validadoPor && (
+                                            <p className="mt-2">
+                                                <strong>Validado por:</strong>{" "}
+                                                {entidade.pedido.validadoPor}
+                                            </p>
                                         )}
-                                    </p>
-                                </div>
-                            )}
+
+                                        {entidade.pedido.utilizadoEm && (
+                                            <p>
+                                                <strong>Utilizado em:</strong>{" "}
+                                                {formatarDataHora(
+                                                    entidade.pedido.utilizadoEm
+                                                )}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                         </section>
                     )}
 
@@ -2290,21 +2507,23 @@ export default function ElevadorValidacaoPage() {
 
                 {entidade?.tipo ===
                     "reserva_agencia" && (
-                        <section className="mt-4 rounded-3xl bg-white p-5 text-slate-900">
+                        <section className="mt-4 rounded-3xl bg-white p-5 text-slate-900 shadow-xl">
 
                             <p className="text-xs font-black uppercase text-slate-500">
-                                Reserva
+                                Reserva de agência
                             </p>
 
                             <p className="font-mono text-xl font-black">
                                 {entidade.reserva.codigoGrupo}
                             </p>
 
-                            <p className="mt-2 font-black">
-                                {entidade.reserva.agenciaNome}
+                            <p className="mt-2 text-lg font-black">
+                                {entidade.reserva.agenciaNome ||
+                                    "Agência"}
                             </p>
 
                             <div className="mt-4 rounded-2xl bg-sky-100 p-5 text-center text-sky-950">
+
                                 <p className="text-xs font-black uppercase">
                                     Liberar no elevador
                                 </p>
@@ -2322,10 +2541,10 @@ export default function ElevadorValidacaoPage() {
                         </section>
                     )}
 
-                {/* CONFIRMAR */}
+                {/* BOTÃO CONFIRMAR */}
 
                 {entidade && (
-                    <section className="mt-4 rounded-3xl bg-white p-4">
+                    <section className="mt-4 rounded-3xl bg-white p-4 shadow-xl">
 
                         {podeConfirmar ? (
                             <button
@@ -2365,7 +2584,6 @@ export default function ElevadorValidacaoPage() {
                 <p className="mt-6 text-center text-xs text-white/60">
                     Parque Mundo Novo • Elevador Panorâmico
                 </p>
-
             </div>
         </main>
     );
