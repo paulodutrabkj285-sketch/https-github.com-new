@@ -415,24 +415,68 @@ export async function POST(
         }
 
         /* =================================================
+           TIPO DE DOCUMENTO
+
+           O tipo é obtido do pedido salvo no Firestore.
+
+           Brasileiro:
+           tipoDocumento = "cpf"
+
+           Estrangeiro:
+           tipoDocumento = "estrangeiro"
+
+           Pedidos antigos que ainda não possuem
+           tipoDocumento continuam sendo tratados
+           como pedidos brasileiros.
+        ================================================= */
+
+        const tipoDocumentoSalvo =
+            String(
+                pedidoSalvo
+                    .tipoDocumento ||
+                "cpf"
+            )
+                .trim()
+                .toLowerCase();
+
+        const ehEstrangeiro =
+            tipoDocumentoSalvo ===
+            "estrangeiro";
+
+        const documentoSalvo =
+            String(
+                pedidoSalvo
+                    .documento ||
+                ""
+            ).trim();
+
+        /* =================================================
            NOME DO PAGADOR
         ================================================= */
 
         const nomeFinal =
             String(
-                nome ||
                 pedidoSalvo.nome ||
+                nome ||
                 "Cliente"
             ).trim();
 
         /* =================================================
            CPF DO PAGADOR
+
+           Para brasileiros:
+           usa o CPF salvo no pedido.
+
+           cpf recebido do navegador fica apenas
+           como compatibilidade para pedidos antigos.
+
+           Para estrangeiro o CPF pode ficar vazio.
         ================================================= */
 
         const cpfFinal =
             somenteDigitos(
-                cpf ||
                 pedidoSalvo.cpf ||
+                cpf ||
                 ""
             );
 
@@ -442,15 +486,15 @@ export async function POST(
            O valor vem EXCLUSIVAMENTE do pedido salvo
            no Firestore.
 
-           NÃO existe mais fallback para valor enviado
-           pela URL ou pelo navegador.
+           NÃO existe fallback para valor enviado
+           pela URL ou navegador.
 
            Portanto:
 
            ?valorTotal=1
 
-           ou qualquer modificação feita pela agência
-           no navegador NÃO altera a cobrança.
+           ou qualquer alteração no navegador
+           NÃO modifica o valor da cobrança.
         ================================================= */
 
         const valorNumerico =
@@ -509,30 +553,63 @@ export async function POST(
                 .toFixed(2);
 
         /* =================================================
-           VALIDAR CPF
+           VALIDAR DOCUMENTO DO COMPRADOR
+
+           BRASILEIRO:
+           CPF obrigatório e validado.
+
+           ESTRANGEIRO:
+           CPF não é obrigatório.
+           Passaporte/documento estrangeiro precisa
+           estar salvo no pedido.
         ================================================= */
 
         if (
-            !cpfValido(
-                cpfFinal
-            )
+            ehEstrangeiro
         ) {
-            return NextResponse.json(
-                {
-                    ok: false,
+            if (
+                !documentoSalvo
+            ) {
+                return NextResponse.json(
+                    {
+                        ok: false,
 
-                    error:
-                        "CPF inválido ou não encontrado no pedido.",
-                },
-                {
-                    status: 400,
-
-                    headers: {
-                        "Cache-Control":
-                            "no-store",
+                        error:
+                            "Documento estrangeiro não encontrado no pedido.",
                     },
-                }
-            );
+                    {
+                        status: 400,
+
+                        headers: {
+                            "Cache-Control":
+                                "no-store",
+                        },
+                    }
+                );
+            }
+        } else {
+            if (
+                !cpfValido(
+                    cpfFinal
+                )
+            ) {
+                return NextResponse.json(
+                    {
+                        ok: false,
+
+                        error:
+                            "CPF inválido ou não encontrado no pedido.",
+                    },
+                    {
+                        status: 400,
+
+                        headers: {
+                            "Cache-Control":
+                                "no-store",
+                        },
+                    }
+                );
+            }
         }
 
         /* =================================================
@@ -566,6 +643,7 @@ export async function POST(
            - certificado
            - chave privada
            - client secret
+           - documento
         ================================================= */
 
         console.log(
@@ -580,6 +658,11 @@ export async function POST(
                     pedidoSalvo
                         .statusPagamento ||
                     "pendente",
+
+                tipoDocumento:
+                    ehEstrangeiro
+                        ? "estrangeiro"
+                        : "cpf",
             }
         );
 
@@ -784,17 +867,20 @@ export async function POST(
            exclusivamente pedidoSalvo.valorTotal
         ================================================= */
 
-        const payload = {
+        /*
+         * BRASILEIRO:
+         * envia devedor.cpf e devedor.nome.
+         *
+         * ESTRANGEIRO:
+         * não envia o objeto devedor.
+         *
+         * Passaporte/documento estrangeiro
+         * nunca é colocado no campo CPF.
+         */
+
+        const payload: any = {
             calendario: {
                 expiracao: 3600,
-            },
-
-            devedor: {
-                cpf:
-                    cpfFinal,
-
-                nome:
-                    nomeFinal,
             },
 
             valor: {
@@ -813,6 +899,18 @@ export async function POST(
                     "Ingresso Parque Mundo Novo"
                 ),
         };
+
+        if (
+            !ehEstrangeiro
+        ) {
+            payload.devedor = {
+                cpf:
+                    cpfFinal,
+
+                nome:
+                    nomeFinal,
+            };
+        }
 
         /* =================================================
            ENVIAR PARA SICREDI

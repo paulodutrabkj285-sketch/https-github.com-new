@@ -4,11 +4,17 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { criarPedido } from "@/lib/pedidos";
 
+type TipoDocumento = "cpf" | "estrangeiro";
+
 export default function ParquePage() {
   const router = useRouter();
 
   const [nome, setNome] = useState("");
+  const [tipoDocumento, setTipoDocumento] =
+    useState<TipoDocumento>("cpf");
   const [cpf, setCpf] = useState("");
+  const [documentoEstrangeiro, setDocumentoEstrangeiro] =
+    useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [dataVisita, setDataVisita] = useState("");
@@ -38,6 +44,15 @@ export default function ParquePage() {
     return valor.replace(/\D/g, "");
   }
 
+  function normalizarDocumentoEstrangeiro(
+    valor: string
+  ) {
+    return String(valor || "")
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, " ");
+  }
+
   function normalizarEmail(valor: string) {
     return String(valor || "")
       .trim()
@@ -56,6 +71,7 @@ export default function ParquePage() {
 
   function sugerirCorrecaoEmail(valor: string) {
     const emailNormalizado = normalizarEmail(valor);
+
     const partes = emailNormalizado.split("@");
 
     if (partes.length !== 2) {
@@ -119,12 +135,22 @@ export default function ParquePage() {
   }
 
   async function continuarParaResumo() {
+    const nomeFinal = nome.trim();
+
     const cpfLimpo = limparCpf(cpf);
-    const emailNormalizado = normalizarEmail(email);
+
+    const documentoFinal =
+      tipoDocumento === "cpf"
+        ? cpfLimpo
+        : normalizarDocumentoEstrangeiro(
+          documentoEstrangeiro
+        );
+
+    const emailNormalizado =
+      normalizarEmail(email);
 
     if (
-      !nome.trim() ||
-      !cpfLimpo ||
+      !nomeFinal ||
       !telefone.trim() ||
       !emailNormalizado ||
       !dataVisita
@@ -132,20 +158,47 @@ export default function ParquePage() {
       alert(
         "Preencha todos os campos antes de continuar."
       );
+
       return;
     }
 
-    if (cpfLimpo.length !== 11) {
-      alert(
-        "CPF inválido. Digite os 11 números do CPF."
-      );
-      return;
+    if (tipoDocumento === "cpf") {
+      if (!cpfLimpo) {
+        alert("Informe o CPF do comprador.");
+
+        return;
+      }
+
+      if (cpfLimpo.length !== 11) {
+        alert(
+          "CPF inválido. Digite os 11 números do CPF."
+        );
+
+        return;
+      }
+    } else {
+      if (!documentoFinal) {
+        alert(
+          "Informe o passaporte ou documento estrangeiro."
+        );
+
+        return;
+      }
+
+      if (documentoFinal.length < 3) {
+        alert(
+          "Documento estrangeiro inválido. Confira o número informado."
+        );
+
+        return;
+      }
     }
 
     if (!emailTemFormatoValido(emailNormalizado)) {
       alert(
         "E-mail inválido.\n\nConfira o endereço informado antes de continuar."
       );
+
       return;
     }
 
@@ -172,39 +225,85 @@ export default function ParquePage() {
     try {
       setSalvando(true);
 
-      const pedidoId = await criarPedido({
+      const dadosPedido = {
         produto: "Ingresso Parque",
         tipo: "ingresso",
-        nome: nome.trim(),
-        cpf: cpfLimpo,
+
+        nome: nomeFinal,
+
+        cpf:
+          tipoDocumento === "cpf"
+            ? cpfLimpo
+            : "",
+
+        tipoDocumento,
+
+        documento: documentoFinal,
+
         telefone: telefone.trim(),
+
         email: emailNormalizado,
+
         dataVisita,
+
         quantidade,
+
         valorUnitario,
+
         valorTotal,
+
         statusPagamento: "pendente",
+
         statusOperacional: "ativo",
+
         pagbankCheckoutId: "",
+
         pagbankReferenceId: "",
+
         pagbankPayUrl: "",
+
         pagbankStatus: "",
+
         codigoIngresso: "",
+
         qrCodeIngresso: "",
-      });
+      };
+
+      const pedidoId =
+        await criarPedido(dadosPedido);
 
       const params = new URLSearchParams({
         pedidoId,
+
         produto: "Ingresso Parque",
+
         tipo: "ingresso",
-        nome: nome.trim(),
-        cpf: cpfLimpo,
+
+        nome: nomeFinal,
+
+        cpf:
+          tipoDocumento === "cpf"
+            ? cpfLimpo
+            : "",
+
+        tipoDocumento,
+
+        documento: documentoFinal,
+
         telefone: telefone.trim(),
+
         email: emailNormalizado,
+
         dataVisita,
-        quantidade: String(quantidade),
-        valorUnitario: String(valorUnitario),
-        valorTotal: String(valorTotal),
+
+        quantidade:
+          String(quantidade),
+
+        valorUnitario:
+          String(valorUnitario),
+
+        valorTotal:
+          String(valorTotal),
       });
 
       router.push(
@@ -262,13 +361,14 @@ export default function ParquePage() {
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🔒 Compra segura via Pix, com confirmação
-                  automática.
+                  🔒 Compra segura via Pix ou cartão, com
+                  confirmação automática.
                 </div>
 
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🎟️ Ingresso digital com QR Code para
-                  validação na portaria.
+                  🌎 Visitantes estrangeiros podem comprar
+                  sem CPF usando passaporte ou documento
+                  estrangeiro.
                 </div>
               </div>
             </div>
@@ -305,6 +405,12 @@ export default function ParquePage() {
                 </li>
 
                 <li>
+                  Visitantes estrangeiros não precisam
+                  informar CPF. Utilize passaporte ou outro
+                  documento oficial estrangeiro.
+                </li>
+
+                <li>
                   Após a validação na portaria, este ingresso
                   não poderá ser reutilizado.
                 </li>
@@ -320,30 +426,94 @@ export default function ParquePage() {
                     setNome(e.target.value)
                   }
                   placeholder="Digite seu nome"
+                  autoComplete="name"
                   className={inputClass}
                 />
               </Campo>
 
-              <Campo label="CPF">
-                <input
-                  type="text"
-                  value={cpf}
-                  onChange={(e) =>
-                    setCpf(e.target.value)
-                  }
-                  placeholder="Digite seu CPF"
+              <Campo label="Nacionalidade / documento">
+                <select
+                  value={tipoDocumento}
+                  onChange={(e) => {
+                    const novoTipo =
+                      e.target.value as TipoDocumento;
+
+                    setTipoDocumento(novoTipo);
+
+                    setCpf("");
+
+                    setDocumentoEstrangeiro("");
+                  }}
                   className={inputClass}
-                />
+                >
+                  <option value="cpf">
+                    Brasileiro — CPF
+                  </option>
+
+                  <option value="estrangeiro">
+                    Estrangeiro — Passaporte / documento
+                  </option>
+                </select>
               </Campo>
+
+              {tipoDocumento === "cpf" ? (
+                <Campo label="CPF">
+                  <input
+                    type="text"
+                    value={cpf}
+                    onChange={(e) =>
+                      setCpf(
+                        e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 11)
+                      )
+                    }
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="Digite os 11 números do CPF"
+                    className={inputClass}
+                  />
+                </Campo>
+              ) : (
+                <Campo label="Passaporte / documento estrangeiro">
+                  <input
+                    type="text"
+                    value={documentoEstrangeiro}
+                    onChange={(e) =>
+                      setDocumentoEstrangeiro(
+                        e.target.value
+                          .toUpperCase()
+                          .slice(0, 40)
+                      )
+                    }
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="off"
+                    placeholder="Ex.: AB1234567"
+                    className={inputClass}
+                  />
+
+                  <p className="mt-2 text-xs text-gray-500">
+                    Informe o número exatamente como aparece
+                    no passaporte ou documento oficial.
+                  </p>
+                </Campo>
+              )}
 
               <Campo label="Telefone / WhatsApp">
                 <input
-                  type="text"
+                  type="tel"
                   value={telefone}
                   onChange={(e) =>
                     setTelefone(e.target.value)
                   }
-                  placeholder="Digite seu telefone"
+                  placeholder={
+                    tipoDocumento === "estrangeiro"
+                      ? "Ex.: +54 9 11 1234-5678"
+                      : "Digite seu telefone"
+                  }
+                  autoComplete="tel"
                   className={inputClass}
                 />
               </Campo>
@@ -409,7 +579,9 @@ export default function ParquePage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setQuantidade((q) => q + 1)
+                      setQuantidade(
+                        (q) => q + 1
+                      )
                     }
                     className={contadorClass}
                   >
@@ -418,6 +590,17 @@ export default function ParquePage() {
                 </div>
               </Campo>
             </div>
+
+            {tipoDocumento === "estrangeiro" && (
+              <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+                <strong>
+                  Visitante estrangeiro:
+                </strong>{" "}
+                você poderá seguir normalmente para o
+                pagamento. O documento informado ficará
+                vinculado ao pedido no lugar do CPF.
+              </div>
+            )}
           </div>
 
           <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
@@ -427,7 +610,8 @@ export default function ParquePage() {
 
             <div className="space-y-3 text-base">
               <p>
-                <strong>Produto:</strong> Ingresso Parque
+                <strong>Produto:</strong>{" "}
+                Ingresso Parque
               </p>
 
               <p>
@@ -443,6 +627,13 @@ export default function ParquePage() {
               <p>
                 <strong>Data da visita:</strong>{" "}
                 {dataVisita || "Não informada"}
+              </p>
+
+              <p>
+                <strong>Documento:</strong>{" "}
+                {tipoDocumento === "cpf"
+                  ? "CPF"
+                  : "Passaporte / estrangeiro"}
               </p>
             </div>
 

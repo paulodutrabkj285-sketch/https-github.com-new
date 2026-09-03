@@ -3,65 +3,186 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+type TipoDocumento = "cpf" | "estrangeiro";
+
 export default function ResumoPage() {
   const [pedidoId, setPedidoId] = useState("");
   const [produto, setProduto] = useState("");
   const [tipo, setTipo] = useState("");
   const [quantidade, setQuantidade] = useState("1");
   const [valorTotal, setValorTotal] = useState("0");
+
   const [nome, setNome] = useState("");
+
   const [cpf, setCpf] = useState("");
+
+  const [tipoDocumento, setTipoDocumento] =
+    useState<TipoDocumento>("cpf");
+
+  const [documento, setDocumento] = useState("");
+
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
+
   const [dataVisita, setDataVisita] = useState("");
   const [dataEntrada, setDataEntrada] = useState("");
+
   const [diarias, setDiarias] = useState("");
-  const [quantidadePessoas, setQuantidadePessoas] = useState("");
-  const [tipoCamping, setTipoCamping] = useState("");
+
+  const [
+    quantidadePessoas,
+    setQuantidadePessoas,
+  ] = useState("");
+
+  const [tipoCamping, setTipoCamping] =
+    useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
 
-    setPedidoId(params.get("pedidoId") || "");
-    setProduto(params.get("produto") || "");
-    setTipo(params.get("tipo") || "");
-    setQuantidade(params.get("quantidade") || "1");
-    setValorTotal(params.get("valorTotal") || params.get("valor") || "0");
-    setNome(params.get("nome") || "");
-    setCpf((params.get("cpf") || "").replace(/\D/g, ""));
-    setEmail(params.get("email") || "");
-    setTelefone(params.get("telefone") || "");
-    setDataVisita(params.get("dataVisita") || "");
-    setDataEntrada(params.get("dataEntrada") || "");
-    setDiarias(params.get("diarias") || params.get("noites") || "");
-    setQuantidadePessoas(params.get("quantidadePessoas") || "");
-    setTipoCamping(params.get("tipoCamping") || "");
+    setPedidoId(
+      params.get("pedidoId") || ""
+    );
+
+    setProduto(
+      params.get("produto") || ""
+    );
+
+    setTipo(
+      params.get("tipo") || ""
+    );
+
+    setQuantidade(
+      params.get("quantidade") || "1"
+    );
+
+    setValorTotal(
+      params.get("valorTotal") ||
+      params.get("valor") ||
+      "0"
+    );
+
+    setNome(
+      params.get("nome") || ""
+    );
+
+    const cpfRecebido =
+      (params.get("cpf") || "")
+        .replace(/\D/g, "");
+
+    setCpf(cpfRecebido);
+
+    const tipoDocumentoRecebido =
+      params.get("tipoDocumento");
+
+    if (
+      tipoDocumentoRecebido ===
+      "estrangeiro"
+    ) {
+      setTipoDocumento(
+        "estrangeiro"
+      );
+    } else {
+      setTipoDocumento("cpf");
+    }
+
+    setDocumento(
+      params.get("documento") ||
+      cpfRecebido ||
+      ""
+    );
+
+    setEmail(
+      params.get("email") || ""
+    );
+
+    setTelefone(
+      params.get("telefone") || ""
+    );
+
+    setDataVisita(
+      params.get("dataVisita") || ""
+    );
+
+    setDataEntrada(
+      params.get("dataEntrada") || ""
+    );
+
+    setDiarias(
+      params.get("diarias") ||
+      params.get("noites") ||
+      ""
+    );
+
+    setQuantidadePessoas(
+      params.get(
+        "quantidadePessoas"
+      ) || ""
+    );
+
+    setTipoCamping(
+      params.get("tipoCamping") || ""
+    );
   }, []);
 
-  const queryPagamento = new URLSearchParams({
-    pedidoId,
-    produto,
-    tipo,
-    quantidade,
-    valorTotal,
-    nome,
-    cpf,
-    email,
-    telefone,
-  }).toString();
+  const queryPagamento =
+    new URLSearchParams({
+      pedidoId,
+      produto,
+      tipo,
+      quantidade,
+      valorTotal,
 
-  const valorFormatado = Number(valorTotal || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+      nome,
 
-  const dataPrincipal = dataVisita || dataEntrada || "";
+      cpf,
+
+      tipoDocumento,
+
+      documento,
+
+      email,
+
+      telefone,
+    }).toString();
+
+  const valorFormatado =
+    Number(
+      valorTotal || 0
+    ).toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
+
+  const dataPrincipal =
+    dataVisita ||
+    dataEntrada ||
+    "";
+
+  const documentoExibicao =
+    tipoDocumento ===
+      "estrangeiro"
+      ? documento
+      : cpf;
+
+  const labelDocumento =
+    tipoDocumento ===
+      "estrangeiro"
+      ? "Passaporte / documento"
+      : "CPF";
 
   return (
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
       style={{
-        backgroundImage: "url('/fotos/fundo-geral.jpg')",
+        backgroundImage:
+          "url('/fotos/fundo-geral.jpg')",
       }}
     >
       <div className="absolute inset-0 bg-black/50" />
@@ -83,8 +204,18 @@ export default function ResumoPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg text-white/90">
-                Confira os dados antes de seguir para o pagamento.
+                Confira os dados antes de seguir
+                para o pagamento.
               </p>
+
+              {tipoDocumento ===
+                "estrangeiro" && (
+                  <div className="mt-4 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-bold text-cyan-50">
+                    🌎 Compra de visitante
+                    estrangeiro — CPF não é
+                    necessário.
+                  </div>
+                )}
             </div>
           </div>
         </section>
@@ -96,20 +227,104 @@ export default function ResumoPage() {
             </h2>
 
             <div className="grid gap-4 text-base sm:grid-cols-2">
-              {pedidoId && <Info label="Pedido" value={pedidoId} />}
-              <Info label="Produto" value={produto || tipo || "Não informado"} />
-              <Info label="Quantidade" value={quantidade} />
-              {dataPrincipal && <Info label="Data" value={dataPrincipal} />}
-              {nome && <Info label="Nome" value={nome} />}
-              {cpf && <Info label="CPF" value={cpf} />}
-              {telefone && <Info label="Telefone" value={telefone} />}
-              {email && <Info label="E-mail" value={email} />}
-              {tipoCamping && <Info label="Tipo camping" value={tipoCamping} />}
-              {quantidadePessoas && (
-                <Info label="Pessoas" value={quantidadePessoas} />
+              {pedidoId && (
+                <Info
+                  label="Pedido"
+                  value={pedidoId}
+                />
               )}
-              {diarias && <Info label="Diárias" value={diarias} />}
+
+              <Info
+                label="Produto"
+                value={
+                  produto ||
+                  tipo ||
+                  "Não informado"
+                }
+              />
+
+              <Info
+                label="Quantidade"
+                value={quantidade}
+              />
+
+              {dataPrincipal && (
+                <Info
+                  label="Data"
+                  value={dataPrincipal}
+                />
+              )}
+
+              {nome && (
+                <Info
+                  label="Nome"
+                  value={nome}
+                />
+              )}
+
+              {documentoExibicao && (
+                <Info
+                  label={labelDocumento}
+                  value={
+                    documentoExibicao
+                  }
+                />
+              )}
+
+              {telefone && (
+                <Info
+                  label="Telefone"
+                  value={telefone}
+                />
+              )}
+
+              {email && (
+                <Info
+                  label="E-mail"
+                  value={email}
+                />
+              )}
+
+              {tipoCamping && (
+                <Info
+                  label="Tipo camping"
+                  value={tipoCamping}
+                />
+              )}
+
+              {quantidadePessoas && (
+                <Info
+                  label="Pessoas"
+                  value={
+                    quantidadePessoas
+                  }
+                />
+              )}
+
+              {diarias && (
+                <Info
+                  label="Diárias"
+                  value={diarias}
+                />
+              )}
             </div>
+
+            {tipoDocumento ===
+              "estrangeiro" && (
+                <div className="mt-6 rounded-2xl border border-cyan-300 bg-cyan-50 p-4 text-sm leading-relaxed text-cyan-950">
+                  <p className="font-black">
+                    🌎 Visitante estrangeiro
+                  </p>
+
+                  <p className="mt-2">
+                    Seu passaporte ou documento
+                    estrangeiro ficará vinculado
+                    ao pedido. Não é necessário
+                    possuir CPF brasileiro para
+                    continuar a compra.
+                  </p>
+                </div>
+              )}
           </div>
 
           <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl lg:sticky lg:top-5">
@@ -129,8 +344,19 @@ export default function ResumoPage() {
             </Link>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              Após a confirmação do pagamento, o ingresso será liberado com QR Code.
+              Após a confirmação do
+              pagamento, o ingresso será
+              liberado com QR Code.
             </p>
+
+            {tipoDocumento ===
+              "estrangeiro" && (
+                <p className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs font-semibold leading-relaxed text-cyan-900">
+                  Estrangeiros podem continuar
+                  normalmente para o pagamento
+                  sem CPF.
+                </p>
+              )}
           </aside>
         </section>
       </div>
@@ -138,11 +364,22 @@ export default function ResumoPage() {
   );
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-      <p className="text-sm font-semibold text-gray-500">{label}</p>
-      <p className="mt-1 font-bold text-gray-900">{value}</p>
+      <p className="text-sm font-semibold text-gray-500">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words font-bold text-gray-900">
+        {value}
+      </p>
     </div>
   );
 }
