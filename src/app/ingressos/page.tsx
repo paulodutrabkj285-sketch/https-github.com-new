@@ -43,14 +43,11 @@ export default function IngressosPage() {
   useEffect(() => {
     const intervalo = setInterval(() => {
       setImagemAtual(
-        (prev) =>
-          (prev + 1) %
-          imagens.length
+        (prev) => (prev + 1) % imagens.length
       );
     }, 7000);
 
-    return () =>
-      clearInterval(intervalo);
+    return () => clearInterval(intervalo);
   }, [imagens.length]);
 
   const confianca = [
@@ -86,80 +83,70 @@ export default function IngressosPage() {
       titulo: "Cachoeira Mundo Novo",
       texto:
         "A principal do parque. Queda impressionante e paisagens únicas.",
-      imagem:
-        "/fotos/cachoeira-mundo-novo.png",
+      imagem: "/fotos/cachoeira-mundo-novo.png",
     },
     {
       icone: "💧",
       titulo: "Cascata do Avencal",
       texto:
         "Queda imponente de aproximadamente 100 metros de altura.",
-      imagem:
-        "/fotos/cascata-avencal.png",
+      imagem: "/fotos/cascata-avencal.png",
     },
     {
       icone: "🚠",
       titulo: "Elevador Panorâmico",
       texto:
         "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura.",
-      imagem:
-        "/fotos/elevador-novo.png",
+      imagem: "/fotos/elevador-novo.png",
     },
     {
       icone: "🌤️",
       titulo: "Balanço do Infinito",
       texto:
         "Uma das atrações mais procuradas para fotos.",
-      imagem:
-        "/fotos/balanco-infinito.png",
+      imagem: "/fotos/balanco-infinito.png",
     },
     {
       icone: "🪨",
       titulo: "Réplica da Pedra Furada",
       texto:
         "Réplica temática para visitação e fotos.",
-      imagem:
-        "/fotos/pedra-furada.png",
+      imagem: "/fotos/pedra-furada.png",
     },
     {
       icone: "🍽️",
       titulo: "Restaurante",
       texto:
         "Buffet variado com comida caseira e sabor da serra.",
-      imagem:
-        "/fotos/restaurante.png",
+      imagem: "/fotos/restaurante.png",
     },
     {
       icone: "⛺",
       titulo: "Camping",
       texto:
         "Estrutura completa para sua conexão com a natureza.",
-      imagem:
-        "/fotos/camping.png",
+      imagem: "/fotos/camping.png",
     },
     {
       icone: "🚐",
       titulo: "Camping para Motorhome",
       texto:
         "O camping aceita motorhomes com estrutura adequada.",
-      imagem:
-        "/fotos/motorhome.png",
+      imagem: "/fotos/motorhome.png",
     },
     {
       icone: "🐶",
       titulo: "Pet Friendly",
       texto:
-        "Seu pet é bem-vindo para aproveitar o parque com você.",
-      imagem:
-        "/fotos/pet-friendly.png",
+        "Seu pet é bem-vindo. Consulte abaixo as regras para entrada e permanência com cães.",
+      imagem: "/fotos/pet-friendly.png",
     },
     {
       icone: "🧒",
       titulo: "Área Kids",
       texto:
         "Espaço seguro e divertido para as crianças.",
-      imagem:
-        "/fotos/area-kids.png",
+      imagem: "/fotos/area-kids.png",
     },
   ];
 
@@ -169,67 +156,45 @@ export default function IngressosPage() {
       descricao:
         "Entrada para visitar o parque, trilhas, cachoeiras e mirantes.",
       preco: "R$ 60,00",
-      imagem:
-        "/fotos/ingresso-parque.png",
-      rota:
-        "/ingressos/parque",
-      botao:
-        "Comprar ingresso",
-      selo:
-        "Mais procurado",
-      tipoSelo:
-        "verde",
+      imagem: "/fotos/ingresso-parque.png",
+      rota: "/ingressos/parque",
+      botao: "Comprar ingresso",
+      selo: "Mais procurado",
+      tipoSelo: "verde",
       parceiro: false,
     },
     {
-      titulo:
-        "Elevador Panorâmico",
+      titulo: "Elevador Panorâmico",
       descricao:
         "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura. Vista privilegiada da Cascata do Avencal. Ingresso vendido separadamente.",
-      preco:
-        "R$ 75,00",
-      imagem:
-        "/fotos/elevador-novo.png",
-      rota:
-        "/ingressos/elevador",
-      botao:
-        "Comprar ingresso",
-      selo:
-        "⭐ Experiência única",
-      tipoSelo:
-        "dourado",
+      preco: "R$ 75,00",
+      imagem: "/fotos/elevador-novo.png",
+      rota: "/ingressos/elevador",
+      botao: "Comprar ingresso",
+      selo: "⭐ Experiência única",
+      tipoSelo: "dourado",
       parceiro: false,
     },
     {
-      titulo:
-        "Meia Entrada Idoso",
+      titulo: "Meia Entrada Idoso",
       descricao:
         "Valor especial para idosos mediante documento comprobatório.",
-      preco:
-        "R$ 30,00",
-      imagem:
-        "/fotos/idoso-cachoeira.png",
-      rota:
-        "/ingressos/idoso",
-      botao:
-        "Comprar ingresso",
+      preco: "R$ 30,00",
+      imagem: "/fotos/idoso-cachoeira.png",
+      rota: "/ingressos/idoso",
+      botao: "Comprar ingresso",
       selo: "",
       tipoSelo: "",
       parceiro: false,
     },
     {
-      titulo:
-        "Camping",
+      titulo: "Camping",
       descricao:
         "1ª diária R$ 100 por pessoa. A partir da 2ª diária R$ 80.",
-      preco:
-        "A partir de R$ 100,00",
-      imagem:
-        "/fotos/camping.png",
-      rota:
-        "/ingressos/camping",
-      botao:
-        "Comprar camping",
+      preco: "A partir de R$ 100,00",
+      imagem: "/fotos/camping.png",
+      rota: "/ingressos/camping",
+      botao: "Comprar camping",
       selo: "",
       tipoSelo: "",
       parceiro: false,
@@ -240,32 +205,16 @@ export default function IngressosPage() {
     ====================================== */
 
     {
-      titulo:
-        "Agências e Guias",
-
+      titulo: "Agências e Guias",
       descricao:
         "Área exclusiva para agências, guias e operadoras turísticas parceiras do Parque Mundo Novo.",
-
-      preco:
-        "Área de parceiros",
-
-      imagem:
-        "/fotos/fundo-geral.jpg",
-
-      rota:
-        "/parceiros/acesso",
-
-      botao:
-        "Acessar área",
-
-      selo:
-        "Parceiros",
-
-      tipoSelo:
-        "verde",
-
-      parceiro:
-        true,
+      preco: "Área de parceiros",
+      imagem: "/fotos/fundo-geral.jpg",
+      rota: "/parceiros/acesso",
+      botao: "Acessar área",
+      selo: "Parceiros",
+      tipoSelo: "verde",
+      parceiro: true,
     },
   ];
 
@@ -281,15 +230,13 @@ export default function IngressosPage() {
   const planejamento = [
     {
       icone: "🕒",
-      titulo:
-        "Horário de Funcionamento",
+      titulo: "Horário de Funcionamento",
       texto:
         "O Parque Mundo Novo está aberto todos os dias, das 08h00 às 17h30. Recomendamos chegar com antecedência para aproveitar melhor sua visita.",
     },
     {
       icone: "🎫",
-      titulo:
-        "Como funciona seu ingresso",
+      titulo: "Como funciona seu ingresso",
       texto:
         "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail. Basta apresentar o QR Code impresso ou pelo celular na entrada.",
     },
@@ -301,36 +248,31 @@ export default function IngressosPage() {
     },
     {
       icone: "🚗",
-      titulo:
-        "Estacionamento próprio",
+      titulo: "Estacionamento próprio",
       texto:
         "O parque possui estacionamento próprio. Recomendamos manter o veículo trancado, conferir portas e vidros e não deixar objetos de valor aparentes. O Parque Mundo Novo não se responsabiliza por objetos esquecidos, perdidos, furtados ou danificados no interior dos veículos ou nas áreas de estacionamento.",
     },
     {
       icone: "🎢",
-      titulo:
-        "Serviços terceirizados",
+      titulo: "Serviços terceirizados",
       texto:
         "Tirolesa, tirolesa infantil, salto de pêndulo, restaurante, bistrô e Café El Torrador são serviços operados por empresas parceiras, com administração própria. O Parque Mundo Novo disponibiliza apenas o espaço físico e não se responsabiliza por operação, horários, valores, manutenção, cancelamentos ou indisponibilidade desses serviços.",
     },
     {
       icone: "🌧️",
-      titulo:
-        "Condições climáticas",
+      titulo: "Condições climáticas",
       texto:
         "Por segurança, atrações terceirizadas podem ser suspensas em caso de chuva, vento forte, neblina intensa ou outras condições climáticas adversas. A contratação dessas atividades é feita diretamente no local com os operadores responsáveis.",
     },
     {
       icone: "🍽️",
-      titulo:
-        "Estrutura disponível",
+      titulo: "Estrutura disponível",
       texto:
         "Dentro do parque você encontra restaurante, bistrô, Café El Torrador, camping, área para motorhome, área kids, mirantes, cachoeiras, elevador panorâmico, estacionamento e espaço pet friendly.",
     },
     {
       icone: "📞",
-      titulo:
-        "Atendimento",
+      titulo: "Atendimento",
       texto:
         "Para dúvidas sobre ingressos, fale pelo WhatsApp (48) 9338-18975 ou pelo e-mail ingressosparquemundonovo@gmail.com.",
     },
@@ -338,70 +280,64 @@ export default function IngressosPage() {
 
   const perguntas = [
     {
-      pergunta:
-        "Quanto tempo vale o ingresso?",
+      pergunta: "Quanto tempo vale o ingresso?",
       resposta:
         "Seu ingresso é válido por 6 meses a partir da data da compra. Dentro desse período, você escolhe o melhor dia para sua visita.",
     },
     {
-      pergunta:
-        "Como recebo meu ingresso?",
+      pergunta: "Como recebo meu ingresso?",
       resposta:
         "Após a confirmação do pagamento, você recebe seu ingresso digital por e-mail, com QR Code para apresentar na entrada.",
     },
     {
-      pergunta:
-        "O Elevador Panorâmico está incluso?",
+      pergunta: "O Elevador Panorâmico está incluso?",
       resposta:
         "Não. O Elevador Panorâmico possui ingresso próprio e é vendido separadamente do ingresso de entrada do parque.",
     },
     {
-      pergunta:
-        "O que torna o Elevador Panorâmico especial?",
+      pergunta: "O que torna o Elevador Panorâmico especial?",
       resposta:
         "Ele é o primeiro Elevador Panorâmico da América Latina com 100 metros de altura e proporciona uma vista privilegiada da Cascata do Avencal e da paisagem da Serra Catarinense de um ponto de vista inesquecível.",
     },
     {
-      pergunta:
-        "Camping está incluso?",
+      pergunta: "Camping está incluso?",
       resposta:
         "Não. O camping possui ingresso próprio. A 1ª diária custa R$ 100,00 por pessoa e a partir da 2ª diária R$ 80,00 por pessoa/noite.",
     },
     {
-      pergunta:
-        "Crianças pagam camping?",
+      pergunta: "Crianças pagam camping?",
       resposta:
         "Crianças até 10 anos completos não pagam, desde que acompanhadas por responsável.",
     },
     {
-      pergunta:
-        "Como funciona a meia entrada?",
+      pergunta: "Como funciona a meia entrada?",
       resposta:
         "A meia entrada para idoso exige documento comprobatório no mesmo nome informado na compra e sua apresentação na portaria.",
     },
     {
-      pergunta:
-        "Posso cancelar a compra?",
+      pergunta: "Posso cancelar a compra?",
       resposta:
         "Sim. Você pode solicitar o cancelamento em até 7 dias corridos após o pagamento, desde que o ingresso ainda não tenha sido utilizado.",
     },
     {
-      pergunta:
-        "Como solicito o cancelamento?",
+      pergunta: "Como solicito o cancelamento?",
       resposta:
         "Entre em contato pelo WhatsApp do parque, (48) 9338-18975, informando o número do pedido. O reembolso é feito pelo mesmo meio de pagamento e pode levar alguns dias úteis.",
     },
     {
-      pergunta:
-        "Posso apresentar pelo celular?",
+      pergunta: "Posso apresentar pelo celular?",
       resposta:
         "Sim. Você pode apresentar o QR Code diretamente pelo celular na entrada do parque.",
     },
     {
-      pergunta:
-        "As atrações terceirizadas são vendidas pelo site?",
+      pergunta: "As atrações terceirizadas são vendidas pelo site?",
       resposta:
         "Não. Tirolesa, tirolesa infantil, salto de pêndulo, restaurante, bistrô e cafeteria são serviços terceirizados e devem ser contratados diretamente no local.",
+    },
+    {
+      pergunta: "Posso levar meu pet ao parque?",
+      resposta:
+        "Sim. O Parque Mundo Novo é Pet Friendly. Todos os cães devem permanecer em guia curta e sob controle do tutor. Para pit bull e raças derivadas, são exigidos guia com enforcador, focinheira adequada ao porte e condução por pessoa maior de 18 anos.",
     },
   ];
 
@@ -425,29 +361,23 @@ export default function IngressosPage() {
       });
 
       setCarregandoReenvio(false);
-
       return;
     }
 
     try {
-      const resposta =
-        await fetch(
-          `/api/ingresso/${pedidoId}`,
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                pedidoId,
-              }),
-          }
-        );
+      const resposta = await fetch(
+        `/api/ingresso/${pedidoId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            pedidoId,
+          }),
+        }
+      );
 
       const dados =
         await resposta.json();
@@ -457,9 +387,7 @@ export default function IngressosPage() {
         dados.ok
       ) {
         setMensagemReenvio({
-          tipo:
-            "sucesso",
-
+          tipo: "sucesso",
           texto:
             "Sucesso! O ingresso foi reenviado para o e-mail cadastrado.",
         });
@@ -467,9 +395,7 @@ export default function IngressosPage() {
         setPedidoId("");
       } else {
         setMensagemReenvio({
-          tipo:
-            "erro",
-
+          tipo: "erro",
           texto:
             dados.error ||
             "Ocorreu um erro ao reenviar. Confirme o ID do pedido.",
@@ -482,9 +408,7 @@ export default function IngressosPage() {
       );
 
       setMensagemReenvio({
-        tipo:
-          "erro",
-
+        tipo: "erro",
         texto:
           "Erro de conexão. Verifique sua internet e tente novamente.",
       });
@@ -507,21 +431,16 @@ export default function IngressosPage() {
             index
           ) => (
             <div
-              key={
-                img.url
-              }
-              className={`absolute inset-0 bg-no-repeat transition-opacity duration-[2000ms] ${imagemAtual ===
-                  index
+              key={img.url}
+              className={`absolute inset-0 bg-no-repeat transition-opacity duration-[2000ms] ${imagemAtual === index
                   ? "opacity-100"
                   : "opacity-0"
                 }`}
               style={{
                 backgroundImage:
                   `url('${img.url}')`,
-
                 backgroundSize:
                   "cover",
-
                 backgroundPosition:
                   img.posicao,
               }}
@@ -552,12 +471,11 @@ export default function IngressosPage() {
                   Parque Mundo Novo
                 </p>
               </div>
+
             </div>
 
             <a
-              href={
-                linkMaps
-              }
+              href={linkMaps}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden rounded-full border border-white/25 bg-white/10 px-5 py-3 text-sm font-bold backdrop-blur-md transition hover:bg-white/20 md:inline-block"
@@ -572,9 +490,7 @@ export default function IngressosPage() {
             <div className="max-w-4xl">
 
               <span className="inline-flex rounded-full border border-yellow-300/30 bg-yellow-500/15 px-4 py-2 text-sm font-bold text-yellow-100 shadow-xl backdrop-blur-md">
-                {
-                  avaliacaoGoogle
-                }
+                {avaliacaoGoogle}
               </span>
 
               <h1 className="mt-6 text-5xl font-black leading-tight drop-shadow-2xl md:text-7xl">
@@ -634,9 +550,7 @@ export default function IngressosPage() {
                   type="button"
                   onClick={() =>
                     setMostrarLocalizacao(
-                      (
-                        valor
-                      ) =>
+                      (valor) =>
                         !valor
                     )
                   }
@@ -704,9 +618,7 @@ export default function IngressosPage() {
                   </p>
 
                   <a
-                    href={
-                      linkMaps
-                    }
+                    href={linkMaps}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-4 inline-block rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-lg transition hover:bg-emerald-500"
@@ -744,11 +656,9 @@ export default function IngressosPage() {
                   setModalReenviarAberto(
                     false
                   );
-
                   setMensagemReenvio(
                     null
                   );
-
                   setPedidoId("");
                 }}
                 className="rounded-lg bg-white/10 p-2 text-sm font-bold hover:bg-white/20"
@@ -759,9 +669,7 @@ export default function IngressosPage() {
             </div>
 
             <form
-              onSubmit={
-                lidarComReenvio
-              }
+              onSubmit={lidarComReenvio}
               className="mt-6 space-y-4"
             >
 
@@ -771,22 +679,16 @@ export default function IngressosPage() {
                   htmlFor="pedidoId"
                   className="block text-sm font-bold text-emerald-200"
                 >
-                  Código ou ID do
-                  Pedido
+                  Código ou ID do Pedido
                 </label>
 
                 <input
                   type="text"
                   id="pedidoId"
-                  value={
-                    pedidoId
-                  }
-                  onChange={(
-                    e
-                  ) =>
+                  value={pedidoId}
+                  onChange={(e) =>
                     setPedidoId(
-                      e.target
-                        .value
+                      e.target.value
                     )
                   }
                   placeholder="Ex: 67394abc..."
@@ -803,9 +705,7 @@ export default function IngressosPage() {
                       : "border-red-500 bg-red-500/25 text-red-200"
                     }`}
                 >
-                  {
-                    mensagemReenvio.texto
-                  }
+                  {mensagemReenvio.texto}
                 </div>
               )}
 
@@ -817,11 +717,9 @@ export default function IngressosPage() {
                     setModalReenviarAberto(
                       false
                     );
-
                     setMensagemReenvio(
                       null
                     );
-
                     setPedidoId("");
                   }}
                   className="w-1/2 rounded-xl bg-white/10 py-4 font-bold transition hover:bg-white/15"
@@ -859,32 +757,22 @@ export default function IngressosPage() {
         <div className="mx-auto grid max-w-7xl gap-4 rounded-[2rem] border border-emerald-300/20 bg-emerald-950/75 p-4 shadow-2xl backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-4">
 
           {confianca.map(
-            (
-              item
-            ) => (
+            (item) => (
               <div
-                key={
-                  item.titulo
-                }
+                key={item.titulo}
                 className="rounded-[1.5rem] border border-white/10 bg-white/[0.07] p-5 shadow-xl transition hover:-translate-y-1 hover:bg-white/[0.12]"
               >
 
                 <div className="text-4xl">
-                  {
-                    item.icone
-                  }
+                  {item.icone}
                 </div>
 
                 <h3 className="mt-4 text-lg font-black">
-                  {
-                    item.titulo
-                  }
+                  {item.titulo}
                 </h3>
 
                 <p className="mt-2 text-sm leading-relaxed text-emerald-50/80">
-                  {
-                    item.texto
-                  }
+                  {item.texto}
                 </p>
 
               </div>
@@ -1240,23 +1128,15 @@ export default function IngressosPage() {
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
 
             {atracoes.map(
-              (
-                item
-              ) => (
+              (item) => (
                 <div
-                  key={
-                    item.titulo
-                  }
+                  key={item.titulo}
                   className="group relative min-h-[360px] overflow-hidden rounded-[1.75rem] border border-emerald-300/20 bg-black/40 shadow-xl transition hover:-translate-y-1 hover:border-emerald-300/50"
                 >
 
                   <img
-                    src={
-                      item.imagem
-                    }
-                    alt={
-                      item.titulo
-                    }
+                    src={item.imagem}
+                    alt={item.titulo}
                     className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
                   />
 
@@ -1265,21 +1145,15 @@ export default function IngressosPage() {
                   <div className="relative z-10 flex h-full min-h-[360px] flex-col justify-end p-5">
 
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-900/80 text-2xl shadow-lg">
-                      {
-                        item.icone
-                      }
+                      {item.icone}
                     </div>
 
                     <h3 className="text-xl font-black text-white">
-                      {
-                        item.titulo
-                      }
+                      {item.titulo}
                     </h3>
 
                     <p className="mt-3 text-sm leading-relaxed text-white/85">
-                      {
-                        item.texto
-                      }
+                      {item.texto}
                     </p>
 
                   </div>
@@ -1287,6 +1161,137 @@ export default function IngressosPage() {
                 </div>
               )
             )}
+
+          </div>
+
+        </div>
+
+      </section>
+
+      {/* ======================================
+          PET FRIENDLY
+      ====================================== */}
+
+      <section
+        id="regras-pets"
+        className="px-4 pb-20"
+      >
+
+        <div className="mx-auto max-w-7xl">
+
+          <div className="overflow-hidden rounded-[2.5rem] border border-emerald-300/20 bg-gradient-to-br from-[#123524] via-[#183d2a] to-[#263f2f] shadow-2xl">
+
+            <div className="grid gap-8 p-6 md:p-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+
+              <div>
+
+                <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+                  🐾 Parque Pet Friendly
+                </p>
+
+                <h2 className="mt-4 text-4xl font-black leading-tight text-white md:text-5xl">
+                  Vai trazer seu pet?
+                </h2>
+
+                <p className="mt-5 max-w-xl text-lg leading-relaxed text-emerald-50/85">
+                  Amamos receber o seu pet! Para
+                  garantir a segurança e o
+                  bem-estar de todos, algumas
+                  regras devem ser seguidas
+                  durante a visita.
+                </p>
+
+              </div>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+
+                <div className="rounded-[1.75rem] border border-white/15 bg-white/95 p-6 text-zinc-800 shadow-xl">
+
+                  <p className="text-sm font-black uppercase tracking-[0.2em] text-emerald-700">
+                    🐶 Todos os cães
+                  </p>
+
+                  <div className="mt-5 space-y-4 text-sm font-semibold leading-relaxed text-zinc-700">
+
+                    <p className="flex gap-3">
+                      <span className="text-emerald-600">
+                        ✓
+                      </span>
+
+                      <span>
+                        Sempre em guia curta.
+                      </span>
+                    </p>
+
+                    <p className="flex gap-3">
+                      <span className="text-emerald-600">
+                        ✓
+                      </span>
+
+                      <span>
+                        Sob controle do tutor
+                        durante toda a permanência
+                        no parque.
+                      </span>
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <div className="rounded-[1.75rem] border border-amber-300/40 bg-amber-50 p-6 text-zinc-800 shadow-xl">
+
+                  <p className="text-sm font-black uppercase tracking-[0.2em] text-amber-800">
+                    🐕 Pit bull e raças derivadas
+                  </p>
+
+                  <div className="mt-5 space-y-4 text-sm font-semibold leading-relaxed text-zinc-700">
+
+                    <p className="flex gap-3">
+                      <span className="text-amber-700">
+                        ✓
+                      </span>
+
+                      <span>
+                        Guia com enforcador.
+                      </span>
+                    </p>
+
+                    <p className="flex gap-3">
+                      <span className="text-amber-700">
+                        ✓
+                      </span>
+
+                      <span>
+                        Focinheira adequada ao
+                        porte.
+                      </span>
+                    </p>
+
+                    <p className="flex gap-3">
+                      <span className="text-amber-700">
+                        ✓
+                      </span>
+
+                      <span>
+                        Conduzidos por pessoa
+                        maior de 18 anos.
+                      </span>
+                    </p>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            <div className="border-t border-white/10 bg-black/15 px-6 py-4 text-center text-xs font-semibold leading-relaxed text-emerald-50/70 md:px-10">
+              Base legal informada pelo parque:
+              Lei nº 14.204/2007 e Decreto nº
+              1.047/2025 (SC).
+            </div>
 
           </div>
 
@@ -1338,13 +1343,9 @@ export default function IngressosPage() {
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5">
 
             {ingressos.map(
-              (
-                item
-              ) => (
+              (item) => (
                 <div
-                  key={
-                    item.titulo
-                  }
+                  key={item.titulo}
                   className={`group relative min-h-[440px] overflow-hidden rounded-3xl border shadow-2xl ${item.tipoSelo ===
                       "verde"
                       ? "border-emerald-300/60"
@@ -1356,12 +1357,8 @@ export default function IngressosPage() {
                 >
 
                   <img
-                    src={
-                      item.imagem
-                    }
-                    alt={
-                      item.titulo
-                    }
+                    src={item.imagem}
+                    alt={item.titulo}
                     className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
                   />
 
@@ -1375,30 +1372,22 @@ export default function IngressosPage() {
                           : "bg-emerald-400 text-emerald-950"
                         }`}
                     >
-                      {
-                        item.selo
-                      }
+                      {item.selo}
                     </div>
                   )}
 
                   <div className="relative z-10 flex h-full min-h-[440px] flex-col justify-end p-6">
 
                     <h2 className="text-2xl font-black leading-tight drop-shadow-lg">
-                      {
-                        item.titulo
-                      }
+                      {item.titulo}
                     </h2>
 
                     <p className="mt-4 text-sm leading-relaxed text-white/90">
-                      {
-                        item.descricao
-                      }
+                      {item.descricao}
                     </p>
 
                     <p className="mt-6 text-2xl font-black">
-                      {
-                        item.preco
-                      }
+                      {item.preco}
                     </p>
 
                     {/* ==================================
@@ -1446,9 +1435,7 @@ export default function IngressosPage() {
                         }
                         className="mt-6 rounded-xl px-5 py-4 font-black shadow-lg transition hover:-translate-y-1 hover:bg-emerald-400"
                       >
-                        {
-                          item.botao
-                        }
+                        {item.botao}
                       </button>
 
                     )}
@@ -1487,32 +1474,22 @@ export default function IngressosPage() {
           <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 
             {planejamento.map(
-              (
-                item
-              ) => (
+              (item) => (
                 <div
-                  key={
-                    item.titulo
-                  }
+                  key={item.titulo}
                   className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl"
                 >
 
                   <div className="text-4xl">
-                    {
-                      item.icone
-                    }
+                    {item.icone}
                   </div>
 
                   <h3 className="mt-4 text-xl font-black text-zinc-900">
-                    {
-                      item.titulo
-                    }
+                    {item.titulo}
                   </h3>
 
                   <p className="mt-3 text-sm leading-relaxed text-zinc-600">
-                    {
-                      item.texto
-                    }
+                    {item.texto}
                   </p>
 
                 </div>
@@ -1580,26 +1557,18 @@ export default function IngressosPage() {
           <div className="mt-10 grid gap-6 sm:grid-cols-2">
 
             {perguntas.map(
-              (
-                item
-              ) => (
+              (item) => (
                 <div
-                  key={
-                    item.pergunta
-                  }
+                  key={item.pergunta}
                   className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-xl"
                 >
 
                   <h3 className="text-lg font-black text-zinc-900">
-                    {
-                      item.pergunta
-                    }
+                    {item.pergunta}
                   </h3>
 
                   <p className="mt-3 text-sm leading-relaxed text-zinc-600">
-                    {
-                      item.resposta
-                    }
+                    {item.resposta}
                   </p>
 
                 </div>
@@ -1652,9 +1621,7 @@ export default function IngressosPage() {
             </p>
 
             <p className="mt-4 text-xs font-bold text-yellow-600">
-              {
-                avaliacaoGoogle
-              }
+              {avaliacaoGoogle}
             </p>
 
           </div>
@@ -1748,9 +1715,7 @@ export default function IngressosPage() {
 
         <div className="mx-auto mt-12 max-w-7xl border-t border-zinc-200 pt-8 text-center text-xs text-zinc-400">
           ©{" "}
-          {
-            new Date().getFullYear()
-          }{" "}
+          {new Date().getFullYear()}{" "}
           Parque Mundo Novo - Todos os
           direitos reservados
         </div>

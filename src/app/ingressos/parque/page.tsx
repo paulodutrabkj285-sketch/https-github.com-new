@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { criarPedido } from "@/lib/pedidos";
 
 type TipoDocumento = "cpf" | "estrangeiro";
+type TipoDocumentoEstrangeiro =
+  | "identidade_nacional"
+  | "passaporte"
+  | "outro";
 
 export default function ParquePage() {
   const router = useRouter();
@@ -13,8 +17,22 @@ export default function ParquePage() {
   const [tipoDocumento, setTipoDocumento] =
     useState<TipoDocumento>("cpf");
   const [cpf, setCpf] = useState("");
-  const [documentoEstrangeiro, setDocumentoEstrangeiro] =
-    useState("");
+
+  const [paisDocumento, setPaisDocumento] = useState("");
+
+  const [
+    tipoDocumentoEstrangeiro,
+    setTipoDocumentoEstrangeiro,
+  ] =
+    useState<TipoDocumentoEstrangeiro>(
+      "identidade_nacional"
+    );
+
+  const [
+    documentoEstrangeiro,
+    setDocumentoEstrangeiro,
+  ] = useState("");
+
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [dataVisita, setDataVisita] = useState("");
@@ -61,18 +79,25 @@ export default function ParquePage() {
   }
 
   function emailTemFormatoValido(valor: string) {
-    const emailNormalizado = normalizarEmail(valor);
+    const emailNormalizado =
+      normalizarEmail(valor);
 
     const regexEmail =
       /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-    return regexEmail.test(emailNormalizado);
+    return regexEmail.test(
+      emailNormalizado
+    );
   }
 
-  function sugerirCorrecaoEmail(valor: string) {
-    const emailNormalizado = normalizarEmail(valor);
+  function sugerirCorrecaoEmail(
+    valor: string
+  ) {
+    const emailNormalizado =
+      normalizarEmail(valor);
 
-    const partes = emailNormalizado.split("@");
+    const partes =
+      emailNormalizado.split("@");
 
     if (partes.length !== 2) {
       return null;
@@ -81,8 +106,10 @@ export default function ParquePage() {
     const usuario = partes[0];
     const dominio = partes[1];
 
-    const correcoes: Record<string, string> = {
-      // Gmail
+    const correcoes: Record<
+      string,
+      string
+    > = {
       "gmai.com": "gmail.com",
       "gmial.com": "gmail.com",
       "gamil.com": "gmail.com",
@@ -94,7 +121,6 @@ export default function ParquePage() {
       "gmail.comm": "gmail.com",
       "gmail.com.br": "gmail.com",
 
-      // Hotmail
       "hotmai.com": "hotmail.com",
       "hotmal.com": "hotmail.com",
       "hotamil.com": "hotmail.com",
@@ -103,21 +129,18 @@ export default function ParquePage() {
       "hotmail.cm": "hotmail.com",
       "hotmail.om": "hotmail.com",
 
-      // Outlook
       "outlok.com": "outlook.com",
       "outloo.com": "outlook.com",
       "outlook.con": "outlook.com",
       "outlook.co": "outlook.com",
       "outlook.cm": "outlook.com",
 
-      // Yahoo
       "yaho.com": "yahoo.com",
       "yahho.com": "yahoo.com",
       "yahoo.con": "yahoo.com",
       "yahoo.co": "yahoo.com",
       "yahoo.cm": "yahoo.com",
 
-      // iCloud
       "iclod.com": "icloud.com",
       "icoud.com": "icloud.com",
       "icloud.con": "icloud.com",
@@ -125,7 +148,8 @@ export default function ParquePage() {
       "icloud.cm": "icloud.com",
     };
 
-    const dominioCorreto = correcoes[dominio];
+    const dominioCorreto =
+      correcoes[dominio];
 
     if (!dominioCorreto) {
       return null;
@@ -136,7 +160,6 @@ export default function ParquePage() {
 
   async function continuarParaResumo() {
     const nomeFinal = nome.trim();
-
     const cpfLimpo = limparCpf(cpf);
 
     const documentoFinal =
@@ -158,14 +181,14 @@ export default function ParquePage() {
       alert(
         "Preencha todos os campos antes de continuar."
       );
-
       return;
     }
 
     if (tipoDocumento === "cpf") {
       if (!cpfLimpo) {
-        alert("Informe o CPF do comprador.");
-
+        alert(
+          "Informe o CPF do comprador."
+        );
         return;
       }
 
@@ -173,15 +196,20 @@ export default function ParquePage() {
         alert(
           "CPF inválido. Digite os 11 números do CPF."
         );
-
         return;
       }
     } else {
+      if (!paisDocumento.trim()) {
+        alert(
+          "Informe o país do documento."
+        );
+        return;
+      }
+
       if (!documentoFinal) {
         alert(
-          "Informe o passaporte ou documento estrangeiro."
+          "Informe o número do documento estrangeiro."
         );
-
         return;
       }
 
@@ -189,21 +217,25 @@ export default function ParquePage() {
         alert(
           "Documento estrangeiro inválido. Confira o número informado."
         );
-
         return;
       }
     }
 
-    if (!emailTemFormatoValido(emailNormalizado)) {
+    if (
+      !emailTemFormatoValido(
+        emailNormalizado
+      )
+    ) {
       alert(
         "E-mail inválido.\n\nConfira o endereço informado antes de continuar."
       );
-
       return;
     }
 
     const emailSugerido =
-      sugerirCorrecaoEmail(emailNormalizado);
+      sugerirCorrecaoEmail(
+        emailNormalizado
+      );
 
     if (emailSugerido) {
       alert(
@@ -214,7 +246,6 @@ export default function ParquePage() {
       );
 
       setEmail(emailSugerido);
-
       return;
     }
 
@@ -240,6 +271,16 @@ export default function ParquePage() {
 
         documento: documentoFinal,
 
+        paisDocumento:
+          tipoDocumento === "estrangeiro"
+            ? paisDocumento.trim()
+            : "Brasil",
+
+        tipoDocumentoEstrangeiro:
+          tipoDocumento === "estrangeiro"
+            ? tipoDocumentoEstrangeiro
+            : "",
+
         telefone: telefone.trim(),
 
         email: emailNormalizado,
@@ -252,9 +293,11 @@ export default function ParquePage() {
 
         valorTotal,
 
-        statusPagamento: "pendente",
+        statusPagamento:
+          "pendente",
 
-        statusOperacional: "ativo",
+        statusOperacional:
+          "ativo",
 
         pagbankCheckoutId: "",
 
@@ -270,41 +313,64 @@ export default function ParquePage() {
       };
 
       const pedidoId =
-        await criarPedido(dadosPedido);
+        await criarPedido(
+          dadosPedido
+        );
 
-      const params = new URLSearchParams({
-        pedidoId,
+      const params =
+        new URLSearchParams({
+          pedidoId,
 
-        produto: "Ingresso Parque",
+          produto:
+            "Ingresso Parque",
 
-        tipo: "ingresso",
+          tipo:
+            "ingresso",
 
-        nome: nomeFinal,
+          nome:
+            nomeFinal,
 
-        cpf:
-          tipoDocumento === "cpf"
-            ? cpfLimpo
-            : "",
+          cpf:
+            tipoDocumento === "cpf"
+              ? cpfLimpo
+              : "",
 
-        tipoDocumento,
+          tipoDocumento,
 
-        documento: documentoFinal,
+          documento:
+            documentoFinal,
 
-        telefone: telefone.trim(),
+          paisDocumento:
+            tipoDocumento ===
+              "estrangeiro"
+              ? paisDocumento.trim()
+              : "Brasil",
 
-        email: emailNormalizado,
+          tipoDocumentoEstrangeiro:
+            tipoDocumento ===
+              "estrangeiro"
+              ? tipoDocumentoEstrangeiro
+              : "",
 
-        dataVisita,
+          telefone:
+            telefone.trim(),
 
-        quantidade:
-          String(quantidade),
+          email:
+            emailNormalizado,
 
-        valorUnitario:
-          String(valorUnitario),
+          dataVisita,
 
-        valorTotal:
-          String(valorTotal),
-      });
+          quantidade:
+            String(quantidade),
+
+          valorUnitario:
+            String(
+              valorUnitario
+            ),
+
+          valorTotal:
+            String(valorTotal),
+        });
 
       router.push(
         `/checkout/resumo?${params.toString()}`
@@ -334,138 +400,214 @@ export default function ParquePage() {
       <div className="absolute inset-0 bg-black/45" />
 
       <div className="relative z-10 mx-auto max-w-6xl">
+
         <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+
             <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
+
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
                 className="w-full max-w-[140px] rounded-xl"
               />
+
             </div>
 
             <div>
+
               <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
                 Ingresso Parque
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
-                Preencha os dados abaixo para comprar seu
-                ingresso online com praticidade e segurança.
+                Preencha os dados
+                abaixo para comprar
+                seu ingresso online
+                com praticidade e
+                segurança.
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code do ingresso será liberado após
-                confirmação do pagamento.
+                O QR Code do ingresso
+                será liberado após
+                confirmação do
+                pagamento.
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🔒 Compra segura via Pix ou cartão, com
-                  confirmação automática.
+                  🔒 Compra segura via
+                  Pix ou cartão, com
+                  confirmação
+                  automática.
                 </div>
 
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🌎 Visitantes estrangeiros podem comprar
-                  sem CPF usando passaporte ou documento
-                  estrangeiro.
+                  🌎 Visitantes
+                  estrangeiros podem
+                  comprar sem CPF
+                  usando documento
+                  nacional de
+                  identidade,
+                  passaporte ou outro
+                  documento oficial.
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados do comprador
             </h2>
 
             <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
+
               <p className="mb-2 font-black">
-                📌 Informações importantes
+                📌 Informações
+                importantes
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
+
                 <li>
-                  Este ingresso é válido para acesso ao
+                  Este ingresso é
+                  válido para acesso ao
                   Parque Mundo Novo.
                 </li>
 
                 <li>
-                  O <strong>Elevador Panorâmico</strong> é
-                  uma atração opcional e possui ingresso
-                  vendido separadamente.
+                  O{" "}
+                  <strong>
+                    Elevador Panorâmico
+                  </strong>{" "}
+                  é uma atração
+                  opcional e possui
+                  ingresso vendido
+                  separadamente.
                 </li>
 
                 <li>
-                  O ingresso é pessoal e poderá ser
-                  solicitado juntamente com um documento
-                  oficial com foto.
+                  O ingresso é pessoal
+                  e poderá ser
+                  solicitado
+                  juntamente com um
+                  documento oficial com
+                  foto.
                 </li>
 
                 <li>
-                  Visitantes estrangeiros não precisam
-                  informar CPF. Utilize passaporte ou outro
-                  documento oficial estrangeiro.
+                  Visitantes
+                  estrangeiros não
+                  precisam informar
+                  CPF. Informe o país,
+                  o tipo de documento e
+                  o número de um
+                  documento oficial.
                 </li>
 
                 <li>
-                  Após a validação na portaria, este ingresso
-                  não poderá ser reutilizado.
+                  Após a validação na
+                  portaria, este
+                  ingresso não poderá
+                  ser reutilizado.
                 </li>
+
               </ul>
+
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
               <Campo label="Nome completo">
+
                 <input
                   type="text"
                   value={nome}
                   onChange={(e) =>
-                    setNome(e.target.value)
+                    setNome(
+                      e.target.value
+                    )
                   }
                   placeholder="Digite seu nome"
                   autoComplete="name"
                   className={inputClass}
                 />
+
               </Campo>
 
               <Campo label="Nacionalidade / documento">
+
                 <select
                   value={tipoDocumento}
                   onChange={(e) => {
                     const novoTipo =
-                      e.target.value as TipoDocumento;
+                      e.target
+                        .value as TipoDocumento;
 
-                    setTipoDocumento(novoTipo);
+                    setTipoDocumento(
+                      novoTipo
+                    );
 
                     setCpf("");
 
-                    setDocumentoEstrangeiro("");
+                    setPaisDocumento("");
+
+                    setTipoDocumentoEstrangeiro(
+                      "identidade_nacional"
+                    );
+
+                    setDocumentoEstrangeiro(
+                      ""
+                    );
                   }}
                   className={inputClass}
                 >
+
                   <option value="cpf">
                     Brasileiro — CPF
                   </option>
 
                   <option value="estrangeiro">
-                    Estrangeiro — Passaporte / documento
+                    Estrangeiro —
+                    Documento de
+                    identificação
                   </option>
+
                 </select>
+
               </Campo>
 
-              {tipoDocumento === "cpf" ? (
+              {tipoDocumento ===
+                "cpf" ? (
+
                 <Campo label="CPF">
+
                   <input
                     type="text"
                     value={cpf}
                     onChange={(e) =>
                       setCpf(
                         e.target.value
-                          .replace(/\D/g, "")
-                          .slice(0, 11)
+                          .replace(
+                            /\D/g,
+                            ""
+                          )
+                          .slice(
+                            0,
+                            11
+                          )
                       )
                     }
                     inputMode="numeric"
@@ -473,52 +615,134 @@ export default function ParquePage() {
                     placeholder="Digite os 11 números do CPF"
                     className={inputClass}
                   />
-                </Campo>
-              ) : (
-                <Campo label="Passaporte / documento estrangeiro">
-                  <input
-                    type="text"
-                    value={documentoEstrangeiro}
-                    onChange={(e) =>
-                      setDocumentoEstrangeiro(
-                        e.target.value
-                          .toUpperCase()
-                          .slice(0, 40)
-                      )
-                    }
-                    autoCapitalize="characters"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    autoComplete="off"
-                    placeholder="Ex.: AB1234567"
-                    className={inputClass}
-                  />
 
-                  <p className="mt-2 text-xs text-gray-500">
-                    Informe o número exatamente como aparece
-                    no passaporte ou documento oficial.
-                  </p>
                 </Campo>
+
+              ) : (
+
+                <>
+
+                  <Campo label="País do documento">
+
+                    <input
+                      type="text"
+                      value={
+                        paisDocumento
+                      }
+                      onChange={(e) =>
+                        setPaisDocumento(
+                          e.target
+                            .value
+                        )
+                      }
+                      autoComplete="country-name"
+                      placeholder="Ex.: Argentina, Uruguai, Chile, Estados Unidos"
+                      className={inputClass}
+                    />
+
+                  </Campo>
+
+                  <Campo label="Tipo de documento">
+
+                    <select
+                      value={
+                        tipoDocumentoEstrangeiro
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        setTipoDocumentoEstrangeiro(
+                          e.target
+                            .value as TipoDocumentoEstrangeiro
+                        )
+                      }
+                      className={inputClass}
+                    >
+
+                      <option value="identidade_nacional">
+                        Documento
+                        nacional de
+                        identidade
+                      </option>
+
+                      <option value="passaporte">
+                        Passaporte
+                      </option>
+
+                      <option value="outro">
+                        Outro documento
+                        oficial
+                      </option>
+
+                    </select>
+
+                  </Campo>
+
+                  <Campo label="Número do documento">
+
+                    <input
+                      type="text"
+                      value={
+                        documentoEstrangeiro
+                      }
+                      onChange={(e) =>
+                        setDocumentoEstrangeiro(
+                          e.target
+                            .value
+                            .toUpperCase()
+                            .slice(
+                              0,
+                              40
+                            )
+                        )
+                      }
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={
+                        false
+                      }
+                      autoComplete="off"
+                      placeholder="Ex.: AB1234567"
+                      className={inputClass}
+                    />
+
+                    <p className="mt-2 text-xs text-gray-500">
+                      Informe o número
+                      exatamente como
+                      aparece no
+                      documento oficial.
+                    </p>
+
+                  </Campo>
+
+                </>
+
               )}
 
               <Campo label="Telefone / WhatsApp">
+
                 <input
                   type="tel"
                   value={telefone}
                   onChange={(e) =>
-                    setTelefone(e.target.value)
+                    setTelefone(
+                      e.target.value
+                    )
                   }
                   placeholder={
-                    tipoDocumento === "estrangeiro"
+                    tipoDocumento ===
+                      "estrangeiro"
                       ? "Ex.: +54 9 11 1234-5678"
                       : "Digite seu telefone"
                   }
                   autoComplete="tel"
                   className={inputClass}
                 />
+
               </Campo>
 
               <Campo label="E-mail">
+
                 <input
                   type="email"
                   value={email}
@@ -529,7 +753,9 @@ export default function ParquePage() {
                   }
                   onBlur={() =>
                     setEmail(
-                      normalizarEmail(email)
+                      normalizarEmail(
+                        email
+                      )
                     )
                   }
                   autoCapitalize="none"
@@ -542,29 +768,42 @@ export default function ParquePage() {
                 />
 
                 <p className="mt-2 text-xs text-gray-500">
-                  Confira o e-mail. O ingresso também será
-                  enviado para este endereço.
+                  Confira o e-mail. O
+                  ingresso também será
+                  enviado para este
+                  endereço.
                 </p>
+
               </Campo>
 
               <Campo label="Data da visita">
+
                 <input
                   type="date"
                   value={dataVisita}
                   onChange={(e) =>
-                    setDataVisita(e.target.value)
+                    setDataVisita(
+                      e.target.value
+                    )
                   }
                   className={inputClass}
                 />
+
               </Campo>
 
               <Campo label="Quantidade de ingressos">
+
                 <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
+
                   <button
                     type="button"
                     onClick={() =>
-                      setQuantidade((q) =>
-                        Math.max(1, q - 1)
+                      setQuantidade(
+                        (q) =>
+                          Math.max(
+                            1,
+                            q - 1
+                          )
                       )
                     }
                     className={contadorClass}
@@ -580,94 +819,151 @@ export default function ParquePage() {
                     type="button"
                     onClick={() =>
                       setQuantidade(
-                        (q) => q + 1
+                        (q) =>
+                          q + 1
                       )
                     }
                     className={contadorClass}
                   >
                     +
                   </button>
+
                 </div>
+
               </Campo>
+
             </div>
 
-            {tipoDocumento === "estrangeiro" && (
-              <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
-                <strong>
-                  Visitante estrangeiro:
-                </strong>{" "}
-                você poderá seguir normalmente para o
-                pagamento. O documento informado ficará
-                vinculado ao pedido no lugar do CPF.
-              </div>
-            )}
+            {tipoDocumento ===
+              "estrangeiro" && (
+
+                <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+
+                  <strong>
+                    Visitante estrangeiro:
+                  </strong>{" "}
+
+                  você poderá seguir
+                  normalmente para o
+                  pagamento. O documento
+                  informado ficará
+                  vinculado ao pedido no
+                  lugar do CPF.
+
+                </div>
+
+              )}
+
           </div>
 
           <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Resumo
             </h2>
 
             <div className="space-y-3 text-base">
+
               <p>
-                <strong>Produto:</strong>{" "}
+                <strong>
+                  Produto:
+                </strong>{" "}
                 Ingresso Parque
               </p>
 
               <p>
-                <strong>Valor unitário:</strong>{" "}
-                {valorUnitarioFormatado}
+                <strong>
+                  Valor unitário:
+                </strong>{" "}
+                {
+                  valorUnitarioFormatado
+                }
               </p>
 
               <p>
-                <strong>Quantidade:</strong>{" "}
+                <strong>
+                  Quantidade:
+                </strong>{" "}
                 {quantidade}
               </p>
 
               <p>
-                <strong>Data da visita:</strong>{" "}
-                {dataVisita || "Não informada"}
+                <strong>
+                  Data da visita:
+                </strong>{" "}
+                {dataVisita ||
+                  "Não informada"}
               </p>
 
               <p>
-                <strong>Documento:</strong>{" "}
-                {tipoDocumento === "cpf"
+                <strong>
+                  Documento:
+                </strong>{" "}
+
+                {tipoDocumento ===
+                  "cpf"
                   ? "CPF"
-                  : "Passaporte / estrangeiro"}
+
+                  : tipoDocumentoEstrangeiro ===
+                    "passaporte"
+                    ? "Passaporte"
+
+                    : tipoDocumentoEstrangeiro ===
+                      "identidade_nacional"
+                      ? "Documento nacional de identidade"
+
+                      : "Outro documento oficial"}
+
               </p>
+
             </div>
 
             <hr className="my-6 border-gray-300" />
 
             <p className="mb-6 text-4xl font-bold text-[#166534]">
-              {valorTotalFormatado}
+              {
+                valorTotalFormatado
+              }
             </p>
 
             <button
               type="button"
-              onClick={continuarParaResumo}
+              onClick={
+                continuarParaResumo
+              }
               disabled={salvando}
               className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
+
               {salvando
                 ? "Salvando pedido..."
                 : "Continuar para pagamento"}
+
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso será liberado somente após
-              confirmação automática do pagamento.
+              O ingresso será liberado
+              somente após confirmação
+              automática do pagamento.
             </p>
 
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
-              Ao prosseguir com a compra, você declara estar
-              ciente das regras de utilização, da política
-              de cancelamento e das informações específicas
-              do ingresso selecionado.
+              Ao prosseguir com a
+              compra, você declara
+              estar ciente das regras
+              de utilização, da
+              política de cancelamento
+              e das informações
+              específicas do ingresso
+              selecionado.
             </p>
+
           </aside>
+
         </section>
+
       </div>
+
     </main>
   );
 }
@@ -681,11 +977,13 @@ function Campo({
 }) {
   return (
     <div>
+
       <label className="mb-2 block font-semibold text-gray-700">
         {label}
       </label>
 
       {children}
+
     </div>
   );
 }
