@@ -3,38 +3,97 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type TipoDocumento = "cpf" | "estrangeiro";
+type TipoDocumento =
+  | "cpf"
+  | "estrangeiro";
+
+type TipoDocumentoEstrangeiro =
+  | "identidade_nacional"
+  | "passaporte"
+  | "outro"
+  | "";
 
 export default function ResumoPage() {
-  const [pedidoId, setPedidoId] = useState("");
-  const [produto, setProduto] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [quantidade, setQuantidade] = useState("1");
-  const [valorTotal, setValorTotal] = useState("0");
+  const [pedidoId, setPedidoId] =
+    useState("");
 
-  const [nome, setNome] = useState("");
+  const [produto, setProduto] =
+    useState("");
 
-  const [cpf, setCpf] = useState("");
+  const [tipo, setTipo] =
+    useState("");
 
-  const [tipoDocumento, setTipoDocumento] =
-    useState<TipoDocumento>("cpf");
+  const [quantidade, setQuantidade] =
+    useState("1");
 
-  const [documento, setDocumento] = useState("");
+  const [valorTotal, setValorTotal] =
+    useState("0");
 
-  const [email, setEmail] = useState("");
-  const [telefone, setTelefone] = useState("");
+  const [nome, setNome] =
+    useState("");
 
-  const [dataVisita, setDataVisita] = useState("");
-  const [dataEntrada, setDataEntrada] = useState("");
+  const [cpf, setCpf] =
+    useState("");
 
-  const [diarias, setDiarias] = useState("");
+  const [
+    tipoDocumento,
+    setTipoDocumento,
+  ] =
+    useState<TipoDocumento>(
+      "cpf"
+    );
+
+  const [
+    documento,
+    setDocumento,
+  ] =
+    useState("");
+
+  const [
+    paisDocumento,
+    setPaisDocumento,
+  ] =
+    useState("");
+
+  const [
+    tipoDocumentoEstrangeiro,
+    setTipoDocumentoEstrangeiro,
+  ] =
+    useState<TipoDocumentoEstrangeiro>(
+      ""
+    );
+
+  const [email, setEmail] =
+    useState("");
+
+  const [telefone, setTelefone] =
+    useState("");
+
+  const [
+    dataVisita,
+    setDataVisita,
+  ] =
+    useState("");
+
+  const [
+    dataEntrada,
+    setDataEntrada,
+  ] =
+    useState("");
+
+  const [diarias, setDiarias] =
+    useState("");
 
   const [
     quantidadePessoas,
     setQuantidadePessoas,
-  ] = useState("");
+  ] =
+    useState("");
 
-  const [tipoCamping, setTipoCamping] =
+  const [
+    tipoCamping,
+    setTipoCamping,
+  ] =
     useState("");
 
   useEffect(() => {
@@ -44,19 +103,23 @@ export default function ResumoPage() {
       );
 
     setPedidoId(
-      params.get("pedidoId") || ""
+      params.get("pedidoId") ||
+      ""
     );
 
     setProduto(
-      params.get("produto") || ""
+      params.get("produto") ||
+      ""
     );
 
     setTipo(
-      params.get("tipo") || ""
+      params.get("tipo") ||
+      ""
     );
 
     setQuantidade(
-      params.get("quantidade") || "1"
+      params.get("quantidade") ||
+      "1"
     );
 
     setValorTotal(
@@ -66,17 +129,22 @@ export default function ResumoPage() {
     );
 
     setNome(
-      params.get("nome") || ""
+      params.get("nome") ||
+      ""
     );
 
     const cpfRecebido =
-      (params.get("cpf") || "")
-        .replace(/\D/g, "");
+      (
+        params.get("cpf") ||
+        ""
+      ).replace(/\D/g, "");
 
     setCpf(cpfRecebido);
 
     const tipoDocumentoRecebido =
-      params.get("tipoDocumento");
+      params.get(
+        "tipoDocumento"
+      );
 
     if (
       tipoDocumentoRecebido ===
@@ -86,7 +154,9 @@ export default function ResumoPage() {
         "estrangeiro"
       );
     } else {
-      setTipoDocumento("cpf");
+      setTipoDocumento(
+        "cpf"
+      );
     }
 
     setDocumento(
@@ -95,20 +165,54 @@ export default function ResumoPage() {
       ""
     );
 
+    setPaisDocumento(
+      params.get(
+        "paisDocumento"
+      ) || ""
+    );
+
+    const tipoEstrangeiro =
+      params.get(
+        "tipoDocumentoEstrangeiro"
+      );
+
+    if (
+      tipoEstrangeiro ===
+      "identidade_nacional" ||
+      tipoEstrangeiro ===
+      "passaporte" ||
+      tipoEstrangeiro ===
+      "outro"
+    ) {
+      setTipoDocumentoEstrangeiro(
+        tipoEstrangeiro
+      );
+    } else {
+      setTipoDocumentoEstrangeiro(
+        ""
+      );
+    }
+
     setEmail(
-      params.get("email") || ""
+      params.get("email") ||
+      ""
     );
 
     setTelefone(
-      params.get("telefone") || ""
+      params.get("telefone") ||
+      ""
     );
 
     setDataVisita(
-      params.get("dataVisita") || ""
+      params.get(
+        "dataVisita"
+      ) || ""
     );
 
     setDataEntrada(
-      params.get("dataEntrada") || ""
+      params.get(
+        "dataEntrada"
+      ) || ""
     );
 
     setDiarias(
@@ -124,7 +228,9 @@ export default function ResumoPage() {
     );
 
     setTipoCamping(
-      params.get("tipoCamping") || ""
+      params.get(
+        "tipoCamping"
+      ) || ""
     );
   }, []);
 
@@ -143,6 +249,10 @@ export default function ResumoPage() {
       tipoDocumento,
 
       documento,
+
+      paisDocumento,
+
+      tipoDocumentoEstrangeiro,
 
       email,
 
@@ -165,17 +275,30 @@ export default function ResumoPage() {
     dataEntrada ||
     "";
 
-  const documentoExibicao =
-    tipoDocumento ===
-      "estrangeiro"
-      ? documento
-      : cpf;
+  function nomeTipoDocumentoEstrangeiro() {
+    if (
+      tipoDocumentoEstrangeiro ===
+      "identidade_nacional"
+    ) {
+      return "Documento nacional de identidade";
+    }
 
-  const labelDocumento =
-    tipoDocumento ===
-      "estrangeiro"
-      ? "Passaporte / documento"
-      : "CPF";
+    if (
+      tipoDocumentoEstrangeiro ===
+      "passaporte"
+    ) {
+      return "Passaporte";
+    }
+
+    if (
+      tipoDocumentoEstrangeiro ===
+      "outro"
+    ) {
+      return "Outro documento oficial";
+    }
+
+    return "Documento estrangeiro";
+  }
 
   return (
     <main
@@ -188,45 +311,61 @@ export default function ResumoPage() {
       <div className="absolute inset-0 bg-black/50" />
 
       <div className="relative z-10 mx-auto max-w-5xl">
+
         <section className="rounded-3xl border border-white/20 bg-emerald-950/75 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+
             <div className="flex w-full max-w-[160px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
+
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
                 className="w-full max-w-[130px] rounded-xl"
               />
+
             </div>
 
             <div>
+
               <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
                 Resumo da compra
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg text-white/90">
-                Confira os dados antes de seguir
-                para o pagamento.
+                Confira os dados antes
+                de seguir para o
+                pagamento.
               </p>
 
               {tipoDocumento ===
                 "estrangeiro" && (
+
                   <div className="mt-4 inline-flex rounded-xl border border-cyan-300/30 bg-cyan-400/15 px-4 py-3 text-sm font-bold text-cyan-50">
-                    🌎 Compra de visitante
-                    estrangeiro — CPF não é
+                    🌎 Compra de
+                    visitante estrangeiro
+                    — CPF não é
                     necessário.
                   </div>
+
                 )}
+
             </div>
+
           </div>
+
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados do pedido
             </h2>
 
             <div className="grid gap-4 text-base sm:grid-cols-2">
+
               {pedidoId && (
                 <Info
                   label="Pedido"
@@ -251,7 +390,9 @@ export default function ResumoPage() {
               {dataPrincipal && (
                 <Info
                   label="Data"
-                  value={dataPrincipal}
+                  value={
+                    dataPrincipal
+                  }
                 />
               )}
 
@@ -262,13 +403,47 @@ export default function ResumoPage() {
                 />
               )}
 
-              {documentoExibicao && (
-                <Info
-                  label={labelDocumento}
-                  value={
-                    documentoExibicao
-                  }
-                />
+              {tipoDocumento ===
+                "cpf" ? (
+
+                cpf && (
+                  <Info
+                    label="CPF"
+                    value={cpf}
+                  />
+                )
+
+              ) : (
+
+                <>
+
+                  {paisDocumento && (
+                    <Info
+                      label="País"
+                      value={
+                        paisDocumento
+                      }
+                    />
+                  )}
+
+                  <Info
+                    label="Tipo de documento"
+                    value={
+                      nomeTipoDocumentoEstrangeiro()
+                    }
+                  />
+
+                  {documento && (
+                    <Info
+                      label="Número do documento"
+                      value={
+                        documento
+                      }
+                    />
+                  )}
+
+                </>
+
               )}
 
               {telefone && (
@@ -307,27 +482,36 @@ export default function ResumoPage() {
                   value={diarias}
                 />
               )}
+
             </div>
 
             {tipoDocumento ===
               "estrangeiro" && (
+
                 <div className="mt-6 rounded-2xl border border-cyan-300 bg-cyan-50 p-4 text-sm leading-relaxed text-cyan-950">
+
                   <p className="font-black">
-                    🌎 Visitante estrangeiro
+                    🌎 Visitante
+                    estrangeiro
                   </p>
 
                   <p className="mt-2">
-                    Seu passaporte ou documento
-                    estrangeiro ficará vinculado
-                    ao pedido. Não é necessário
-                    possuir CPF brasileiro para
+                    Seu documento oficial
+                    ficará vinculado ao
+                    pedido. Não é
+                    necessário possuir
+                    CPF brasileiro para
                     continuar a compra.
                   </p>
+
                 </div>
+
               )}
+
           </div>
 
           <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl lg:sticky lg:top-5">
+
             <h2 className="mb-5 text-3xl font-bold text-[#166534]">
               Total
             </h2>
@@ -345,21 +529,29 @@ export default function ResumoPage() {
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
               Após a confirmação do
-              pagamento, o ingresso será
-              liberado com QR Code.
+              pagamento, o ingresso
+              será liberado com QR
+              Code.
             </p>
 
             {tipoDocumento ===
               "estrangeiro" && (
+
                 <p className="mt-4 rounded-xl border border-cyan-200 bg-cyan-50 p-3 text-xs font-semibold leading-relaxed text-cyan-900">
-                  Estrangeiros podem continuar
-                  normalmente para o pagamento
-                  sem CPF.
+                  Estrangeiros podem
+                  continuar normalmente
+                  para o pagamento sem
+                  CPF brasileiro.
                 </p>
+
               )}
+
           </aside>
+
         </section>
+
       </div>
+
     </main>
   );
 }
@@ -373,6 +565,7 @@ function Info({
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+
       <p className="text-sm font-semibold text-gray-500">
         {label}
       </p>
@@ -380,6 +573,7 @@ function Info({
       <p className="mt-1 break-words font-bold text-gray-900">
         {value}
       </p>
+
     </div>
   );
 }
