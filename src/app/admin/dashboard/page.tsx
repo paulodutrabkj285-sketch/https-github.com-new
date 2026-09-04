@@ -1,25 +1,110 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-
 import {
   calcularResumoFinanceiro,
   listarPedidos,
   Pedido,
 } from "@/lib/pedidos";
 
+type PeriodoEntradas = "hoje" | "semana";
+
+type CategoriaEntrada =
+  | "todos"
+  | "parque"
+  | "elevador"
+  | "camping";
+
+type FiltroStatus =
+  | "todos"
+  | "pago"
+  | "pendente"
+  | "expirado"
+  | "bloqueado"
+  | "utilizado";
+
+type EntradaRegistro = {
+  key: string;
+  pedidoId: string;
+  nome: string;
+  produto: string;
+  categoria: Exclude<
+    CategoriaEntrada,
+    "todos"
+  >;
+  quantidade: number;
+  codigo: string;
+  funcionario: string;
+  dataEntrada: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
 
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [carregando, setCarregando] = useState(true);
+  const [pedidos, setPedidos] =
+    useState<Pedido[]>([]);
+
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(true);
+
+  const [
+    periodoEntradas,
+    setPeriodoEntradas,
+  ] =
+    useState<PeriodoEntradas>(
+      "hoje"
+    );
+
+  const [
+    categoriaEntrada,
+    setCategoriaEntrada,
+  ] =
+    useState<CategoriaEntrada>(
+      "todos"
+    );
+
+  const [
+    buscaPedidos,
+    setBuscaPedidos,
+  ] = useState("");
+
+  const [
+    filtroProduto,
+    setFiltroProduto,
+  ] = useState("todos");
+
+  const [
+    filtroStatus,
+    setFiltroStatus,
+  ] =
+    useState<FiltroStatus>(
+      "todos"
+    );
+
+  const [
+    dataInicial,
+    setDataInicial,
+  ] = useState("");
+
+  const [
+    dataFinal,
+    setDataFinal,
+  ] = useState("");
+
+  const [
+    limiteHistorico,
+    setLimiteHistorico,
+  ] = useState(25);
 
   useEffect(() => {
     async function carregarDados() {
       try {
-        const lista = await listarPedidos();
-        setPedidos(lista);
+        setPedidos(
+          await listarPedidos()
+        );
       } catch (error) {
         console.error(
           "DASHBOARD: erro ao carregar pedidos:",
@@ -33,117 +118,181 @@ export default function DashboardPage() {
     carregarDados();
   }, []);
 
-  const resumo = calcularResumoFinanceiro(pedidos);
+  useEffect(() => {
+    setLimiteHistorico(25);
+  }, [
+    buscaPedidos,
+    filtroProduto,
+    filtroStatus,
+    dataInicial,
+    dataFinal,
+  ]);
+
+  const resumo =
+    calcularResumoFinanceiro(
+      pedidos
+    );
 
   const desdeLancamento =
-    gerarResumoDesdeLancamento(pedidos);
+    gerarResumoDesdeLancamento(
+      pedidos
+    );
 
   const operacional =
-    gerarDashboardOperacional(pedidos);
+    gerarDashboardOperacional(
+      pedidos
+    );
 
   const estatisticas =
-    gerarEstatisticasProdutos(pedidos);
+    gerarEstatisticasProdutos(
+      pedidos
+    );
 
   const faturamentoPorDia =
-    gerarFaturamentoPorDia(pedidos);
+    gerarFaturamentoPorDia(
+      pedidos
+    );
 
   const entradasHoje =
-    gerarEntradasHoje(pedidos);
+    gerarEntradasHoje(
+      pedidos
+    );
 
-  const visitantesEntradasHoje =
-    entradasHoje.reduce(
-      (total, pedido) =>
-        total + obterQuantidade(pedido),
-      0
+  const entradasSemana =
+    gerarEntradasSemana(
+      pedidos
+    );
+
+  const entradasPeriodo =
+    periodoEntradas === "hoje"
+      ? entradasHoje
+      : entradasSemana;
+
+  const entradasFiltradas =
+    entradasPeriodo.filter(
+      (entrada) =>
+        categoriaEntrada ===
+          "todos"
+          ? true
+          : entrada.categoria ===
+          categoriaEntrada
+    );
+
+  const resumoEntradas =
+    gerarResumoEntradas(
+      entradasPeriodo
+    );
+
+  const pedidosFiltrados =
+    filtrarPedidosHistorico(
+      pedidos,
+      {
+        busca: buscaPedidos,
+        produto:
+          filtroProduto,
+        status:
+          filtroStatus,
+        dataInicial,
+        dataFinal,
+      }
+    );
+
+  const pedidosVisiveis =
+    pedidosFiltrados.slice(
+      0,
+      limiteHistorico
     );
 
   const dicasFinanceiras =
     gerarDicasFinanceiras(
       resumo,
-      pedidos,
       desdeLancamento
     );
 
-  function formatarMoeda(valor: number) {
-    return valor.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-  }
-
-  function imprimirRelatorio() {
-    window.print();
-  }
+  const formatarMoeda = (
+    valor: number
+  ) =>
+    valor.toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
 
   function exportarCSV() {
     const cabecalho = [
       "Nome",
+      "CPF / Documento",
+      "Telefone",
       "Produto",
       "Quantidade",
       "Valor",
       "Pagamento",
+      "Status Operacional",
       "Forma Pagamento",
       "Data",
       "Email",
-      "Telefone",
       "Codigo Ingresso",
+      "Pedido",
     ];
 
-    const linhas = pedidos.map(
-      (pedido: any) => [
-        pedido.nome || "",
-        pedido.produto || "",
-        obterQuantidade(pedido),
-        pedido.valorTotal || "",
-        pedido.statusPagamento || "",
-        pedido.formaPagamento || "",
-        pedido.createdAt
-          ? new Date(
-            pedido.createdAt
-          ).toLocaleDateString("pt-BR")
-          : "",
-        pedido.email || "",
-        pedido.telefone || "",
-        pedido.codigoIngresso || "",
-      ]
+    const linhas =
+      pedidosFiltrados.map(
+        (pedido: any) => [
+          pedido.nome || "",
+          obterDocumentoPedido(
+            pedido
+          ),
+          pedido.telefone ||
+          "",
+          pedido.produto ||
+          "",
+          obterQuantidade(
+            pedido
+          ),
+          pedido.valorTotal ||
+          "",
+          pedido.statusPagamento ||
+          "",
+          pedido.statusOperacional ||
+          "",
+          pedido.formaPagamento ||
+          "",
+          pedido.createdAt
+            ? new Date(
+              pedido.createdAt
+            ).toLocaleString(
+              "pt-BR"
+            )
+            : "",
+          pedido.email || "",
+          pedido.codigoIngresso ||
+          "",
+          pedido.id || "",
+        ]
+      );
+
+    baixarCSV(
+      [
+        cabecalho.join(";"),
+        ...linhas.map(
+          (linha) =>
+            linha.join(";")
+        ),
+      ].join("\n"),
+      `vendas-parque-${new Date()
+        .toLocaleDateString(
+          "pt-BR"
+        )
+        .replace(
+          /\//g,
+          "-"
+        )}.csv`
     );
-
-    const csv = [
-      cabecalho.join(";"),
-      ...linhas.map((linha) =>
-        linha.join(";")
-      ),
-    ].join("\n");
-
-    const blob = new Blob(
-      ["\ufeff" + csv],
-      {
-        type: "text/csv;charset=utf-8;",
-      }
-    );
-
-    const url =
-      URL.createObjectURL(blob);
-
-    const link =
-      document.createElement("a");
-
-    link.href = url;
-
-    link.download = `vendas-parque-${new Date()
-      .toLocaleDateString("pt-BR")
-      .replace(/\//g, "-")}.csv`;
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
   }
 
-  function exportarEntradasHoje() {
+  function exportarEntradas() {
     const cabecalho = [
       "Cliente",
       "Produto",
@@ -154,59 +303,44 @@ export default function DashboardPage() {
     ];
 
     const linhas =
-      entradasHoje.map(
-        (pedido: any) => [
-          pedido.nome || "",
-          pedido.produto || "",
-          obterQuantidade(pedido),
-          pedido.codigoIngresso || "",
-          pedido.validadoPor || "",
-          pedido.utilizadoEm ||
-          pedido.validadoEm ||
-          "",
+      entradasFiltradas.map(
+        (entrada) => [
+          entrada.nome,
+          entrada.produto,
+          entrada.quantidade,
+          entrada.codigo,
+          entrada.funcionario,
+          entrada.dataEntrada,
         ]
       );
 
-    const csv = [
-      cabecalho.join(";"),
-      ...linhas.map((linha) =>
-        linha.join(";")
-      ),
-    ].join("\n");
-
-    const blob = new Blob(
-      ["\ufeff" + csv],
-      {
-        type: "text/csv;charset=utf-8;",
-      }
+    baixarCSV(
+      [
+        cabecalho.join(";"),
+        ...linhas.map(
+          (linha) =>
+            linha.join(";")
+        ),
+      ].join("\n"),
+      `entradas-${periodoEntradas}-${categoriaEntrada}.csv`
     );
+  }
 
-    const url =
-      URL.createObjectURL(blob);
-
-    const link =
-      document.createElement("a");
-
-    link.href = url;
-    link.download =
-      "entradas-hoje.csv";
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
+  function limparFiltrosHistorico() {
+    setBuscaPedidos("");
+    setFiltroProduto(
+      "todos"
+    );
+    setFiltroStatus(
+      "todos"
+    );
+    setDataInicial("");
+    setDataFinal("");
   }
 
   return (
     <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
       <div className="mx-auto max-w-7xl">
-
-        {/* ======================================
-            CABEÇALHO
-        ====================================== */}
 
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between print:hidden">
           <div>
@@ -215,82 +349,81 @@ export default function DashboardPage() {
             </h1>
 
             <p className="mt-2 text-gray-600">
-              Acompanhamento operacional e
-              financeiro das vendas online.
+              Acompanhamento
+              operacional e
+              financeiro das vendas
+              online.
             </p>
           </div>
 
-          <section className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3">
 
-            {/* NOVO BOTÃO DAS AGÊNCIAS */}
-
-            <button
+            <Botao
+              texto="🏢 Agências e Reservas"
+              classe="bg-amber-600 hover:bg-amber-700"
               onClick={() =>
                 router.push(
                   "/admin/reservas-agencias"
                 )
               }
-              className="rounded-xl bg-amber-600 px-5 py-3 font-bold text-white shadow-md hover:bg-amber-700"
-            >
-              🏢 Agências e Reservas
-            </button>
+            />
 
-            <button
+            <Botao
+              texto="📧 Envio de Ingressos"
+              classe="bg-[#166534] hover:bg-green-800"
               onClick={() =>
                 router.push(
                   "/admin/envio-ingressos"
                 )
               }
-              className="rounded-xl bg-[#166534] px-5 py-3 font-bold text-white shadow-md hover:bg-green-800"
-            >
-              📧 Envio de Ingressos
-            </button>
+            />
 
-            <button
-              onClick={imprimirRelatorio}
-              className="rounded-xl bg-green-700 px-5 py-3 font-bold text-white"
-            >
-              📄 Relatório Financeiro
-            </button>
+            <Botao
+              texto="📄 Relatório Financeiro"
+              classe="bg-green-700 hover:bg-green-800"
+              onClick={() =>
+                window.print()
+              }
+            />
 
-            <button
-              onClick={imprimirRelatorio}
-              className="rounded-xl bg-blue-700 px-5 py-3 font-bold text-white"
-            >
-              📄 Vendas do Dia
-            </button>
+            <Botao
+              texto="📄 Vendas do Dia"
+              classe="bg-blue-700 hover:bg-blue-800"
+              onClick={() =>
+                window.print()
+              }
+            />
 
-            <button
-              onClick={imprimirRelatorio}
-              className="rounded-xl bg-purple-700 px-5 py-3 font-bold text-white"
-            >
-              📄 Vendas do Mês
-            </button>
+            <Botao
+              texto="📄 Vendas do Mês"
+              classe="bg-purple-700 hover:bg-purple-800"
+              onClick={() =>
+                window.print()
+              }
+            />
 
-            <button
-              onClick={exportarEntradasHoje}
-              className="rounded-xl bg-orange-600 px-5 py-3 font-bold text-white"
-            >
-              📋 Exportar Entradas
-            </button>
+            <Botao
+              texto="📋 Exportar Entradas"
+              classe="bg-orange-600 hover:bg-orange-700"
+              onClick={
+                exportarEntradas
+              }
+            />
 
-            <button
+            <Botao
+              texto="📊 Exportar Excel"
+              classe="bg-emerald-700 hover:bg-emerald-800"
               onClick={exportarCSV}
-              className="rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white"
-            >
-              📊 Exportar Excel
-            </button>
-          </section>
-        </div>
+            />
 
-        {/* ======================================
-            IMPRESSÃO
-        ====================================== */}
+          </div>
+        </div>
 
         <div className="hidden print:block">
           <h1 className="text-3xl font-bold text-[#166534]">
-            Relatório Financeiro -
-            Parque Mundo Novo
+            Relatório
+            Financeiro - Parque
+            Mundo Novo
           </h1>
 
           <p className="mt-2 text-gray-600">
@@ -308,31 +441,28 @@ export default function DashboardPage() {
         ) : (
           <>
 
-            {/* ======================================
-                DESDE O LANÇAMENTO
-            ====================================== */}
-
             <section className="mt-7 rounded-3xl border border-green-200 bg-gradient-to-br from-green-950 to-green-800 p-5 shadow-xl">
-              <div className="mb-5">
-                <p className="text-sm font-black uppercase tracking-[0.2em] text-green-200">
-                  Visão Geral
-                </p>
 
-                <h2 className="mt-1 text-2xl font-black text-white">
-                  Desde o lançamento
-                </h2>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-green-200">
+                Visão Geral
+              </p>
 
-                <p className="mt-1 text-sm text-green-100/80">
-                  Somente vendas com
-                  pagamento confirmado.
-                </p>
-              </div>
+              <h2 className="mt-1 text-2xl font-black text-white">
+                Desde o lançamento
+              </h2>
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+              <p className="mt-1 text-sm text-green-100/80">
+                Somente vendas com
+                pagamento confirmado.
+              </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+
                 <CardDestaque
                   titulo="Total vendido"
                   valor={formatarMoeda(
-                    desdeLancamento.totalVendido
+                    desdeLancamento
+                      .totalVendido
                   )}
                   icone="💰"
                 />
@@ -340,7 +470,8 @@ export default function DashboardPage() {
                 <CardDestaque
                   titulo="Pedidos pagos"
                   valor={
-                    desdeLancamento.pedidosPagos
+                    desdeLancamento
+                      .pedidosPagos
                   }
                   icone="✅"
                 />
@@ -348,7 +479,8 @@ export default function DashboardPage() {
                 <CardDestaque
                   titulo="Ingressos vendidos"
                   valor={
-                    desdeLancamento.totalIngressos
+                    desdeLancamento
+                      .totalIngressos
                   }
                   icone="🎟️"
                 />
@@ -356,7 +488,8 @@ export default function DashboardPage() {
                 <CardDestaque
                   titulo="Ticket médio"
                   valor={formatarMoeda(
-                    desdeLancamento.ticketMedio
+                    desdeLancamento
+                      .ticketMedio
                   )}
                   icone="💳"
                 />
@@ -364,31 +497,35 @@ export default function DashboardPage() {
                 <CardDestaque
                   titulo="Vendido hoje"
                   valor={formatarMoeda(
-                    operacional.receitaHoje
+                    operacional
+                      .receitaHoje
                   )}
                   icone="📈"
                 />
+
               </div>
             </section>
 
-            {/* ======================================
-                VENDAS POR PRODUTO
-            ====================================== */}
-
             <section className="mt-6">
+
               <h2 className="mb-4 text-2xl font-bold text-[#166534]">
                 Vendas por categoria
               </h2>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
                 <CardProduto
                   titulo="Ingresso Parque"
                   icone="🌲"
                   quantidade={
-                    desdeLancamento.parque.quantidade
+                    desdeLancamento
+                      .parque
+                      .quantidade
                   }
                   receita={formatarMoeda(
-                    desdeLancamento.parque.receita
+                    desdeLancamento
+                      .parque
+                      .receita
                   )}
                 />
 
@@ -396,10 +533,14 @@ export default function DashboardPage() {
                   titulo="Elevador Panorâmico"
                   icone="🛗"
                   quantidade={
-                    desdeLancamento.elevador.quantidade
+                    desdeLancamento
+                      .elevador
+                      .quantidade
                   }
                   receita={formatarMoeda(
-                    desdeLancamento.elevador.receita
+                    desdeLancamento
+                      .elevador
+                      .receita
                   )}
                   destaque
                 />
@@ -408,10 +549,14 @@ export default function DashboardPage() {
                   titulo="Meia Entrada Idoso"
                   icone="👴"
                   quantidade={
-                    desdeLancamento.idoso.quantidade
+                    desdeLancamento
+                      .idoso
+                      .quantidade
                   }
                   receita={formatarMoeda(
-                    desdeLancamento.idoso.receita
+                    desdeLancamento
+                      .idoso
+                      .receita
                   )}
                 />
 
@@ -419,53 +564,61 @@ export default function DashboardPage() {
                   titulo="Camping"
                   icone="🏕️"
                   quantidade={
-                    desdeLancamento.camping.quantidade
+                    desdeLancamento
+                      .camping
+                      .quantidade
                   }
                   receita={formatarMoeda(
-                    desdeLancamento.camping.receita
+                    desdeLancamento
+                      .camping
+                      .receita
                   )}
                 />
+
               </div>
             </section>
 
-            {/* ======================================
-                STATUS DOS PEDIDOS
-            ====================================== */}
-
             <section className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+
               <Card
                 titulo="Pedidos registrados"
-                valor={resumo.totalPedidos}
+                valor={
+                  resumo.totalPedidos
+                }
               />
 
               <Card
                 titulo="Pagos"
-                valor={resumo.totalPagos}
+                valor={
+                  resumo.totalPagos
+                }
               />
 
               <Card
                 titulo="Pendentes"
-                valor={resumo.totalPendentes}
+                valor={
+                  resumo.totalPendentes
+                }
               />
 
               <Card
                 titulo="Expirados"
                 valor={
                   (resumo as any)
-                    .totalExpirados || 0
+                    .totalExpirados ||
+                  0
                 }
               />
+
             </section>
 
-            {/* ======================================
-                FINANCEIRO
-            ====================================== */}
-
             <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+
               <Card
                 titulo="Faturamento bruto"
                 valor={formatarMoeda(
-                  resumo.faturamentoBruto
+                  resumo
+                    .faturamentoBruto
                 )}
               />
 
@@ -479,64 +632,70 @@ export default function DashboardPage() {
               <Card
                 titulo="Valor líquido estimado"
                 valor={formatarMoeda(
-                  resumo.faturamentoLiquido
+                  resumo
+                    .faturamentoLiquido
                 )}
               />
+
             </section>
 
-            {/* ======================================
-                OPERAÇÃO
-            ====================================== */}
-
             <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+
               <Card
                 titulo="Visitantes Hoje"
                 valor={
-                  operacional.visitantesHoje
+                  operacional
+                    .visitantesHoje
                 }
               />
 
               <Card
                 titulo="Visitantes Mês"
                 valor={
-                  operacional.visitantesMes
+                  operacional
+                    .visitantesMes
                 }
               />
 
               <Card
                 titulo="Receita Hoje"
                 valor={formatarMoeda(
-                  operacional.receitaHoje
+                  operacional
+                    .receitaHoje
                 )}
               />
 
               <Card
                 titulo="Receita Mês"
                 valor={formatarMoeda(
-                  operacional.receitaMes
+                  operacional
+                    .receitaMes
                 )}
               />
 
               <Card
                 titulo="Ticket Médio"
                 valor={formatarMoeda(
-                  desdeLancamento.ticketMedio
+                  desdeLancamento
+                    .ticketMedio
                 )}
               />
+
             </section>
 
-            {/* ======================================
-                ASSISTENTE
-            ====================================== */}
-
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
+
               <h2 className="text-2xl font-bold text-[#166534]">
                 Assistente Financeiro
               </h2>
 
               <div className="mt-5 grid gap-3">
+
                 {dicasFinanceiras.map(
-                  (dica, index) => (
+                  (
+                    dica,
+                    index
+                  ) => (
                     <div
                       key={index}
                       className="rounded-xl border border-green-100 bg-green-50 p-4 text-gray-700"
@@ -545,18 +704,17 @@ export default function DashboardPage() {
                     </div>
                   )
                 )}
+
               </div>
             </section>
 
-            {/* ======================================
-                INDICADORES
-            ====================================== */}
-
             <section className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
+
               <Card
                 titulo="Produto mais vendido"
                 valor={
-                  estatisticas.produtoMaisVendido
+                  estatisticas
+                    .produtoMaisVendido
                 }
               />
 
@@ -568,73 +726,88 @@ export default function DashboardPage() {
               <Card
                 titulo="Ingressos do Elevador"
                 valor={
-                  desdeLancamento.elevador.quantidade
+                  desdeLancamento
+                    .elevador
+                    .quantidade
                 }
               />
-            </section>
 
-            {/* ======================================
-                GRÁFICOS
-            ====================================== */}
+            </section>
 
             <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
 
               <div className="rounded-2xl bg-white p-5 shadow-md">
+
                 <h2 className="text-2xl font-bold text-[#166534]">
-                  Ingressos vendidos por Produto
+                  Ingressos vendidos
+                  por Produto
                 </h2>
 
                 <p className="mt-2 text-sm text-gray-500">
                   Considera somente
-                  pagamentos confirmados.
+                  pagamentos
+                  confirmados.
                 </p>
 
                 <div className="mt-6 grid gap-4">
-                  {estatisticas.produtos.length ===
-                    0 ? (
+
+                  {estatisticas
+                    .produtos
+                    .length === 0 ? (
                     <p className="text-gray-500">
-                      Ainda não há vendas
-                      pagas.
+                      Ainda não há
+                      vendas pagas.
                     </p>
                   ) : (
-                    estatisticas.produtos.map(
-                      (produto) => (
-                        <div
-                          key={produto.nome}
-                        >
-                          <div className="mb-1 flex justify-between text-sm font-semibold">
-                            <span>
-                              {produto.nome}
-                            </span>
+                    estatisticas
+                      .produtos
+                      .map(
+                        (
+                          produto
+                        ) => (
+                          <div
+                            key={
+                              produto.nome
+                            }
+                          >
+                            <div className="mb-1 flex justify-between text-sm font-semibold">
+                              <span>
+                                {
+                                  produto.nome
+                                }
+                              </span>
 
-                            <span>
-                              {
-                                produto.quantidade
-                              }
-                            </span>
-                          </div>
+                              <span>
+                                {
+                                  produto.quantidade
+                                }
+                              </span>
+                            </div>
 
-                          <div className="h-4 overflow-hidden rounded-full bg-gray-200">
-                            <div
-                              className="h-full rounded-full bg-[#166534]"
-                              style={{
-                                width: `${produto.percentual}%`,
-                              }}
-                            />
+                            <div className="h-4 overflow-hidden rounded-full bg-gray-200">
+                              <div
+                                className="h-full rounded-full bg-[#166534]"
+                                style={{
+                                  width: `${produto.percentual}%`,
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )
                       )
-                    )
                   )}
+
                 </div>
               </div>
 
               <div className="rounded-2xl bg-white p-5 shadow-md">
+
                 <h2 className="text-2xl font-bold text-[#166534]">
                   Situação dos Pedidos
                 </h2>
 
                 <div className="mt-8 flex items-end gap-5">
+
                   <BarraStatus
                     titulo="Pagos"
                     quantidade={
@@ -647,7 +820,8 @@ export default function DashboardPage() {
                   <BarraStatus
                     titulo="Pendentes"
                     quantidade={
-                      resumo.totalPendentes
+                      resumo
+                        .totalPendentes
                     }
                     classe="bg-yellow-500"
                     texto="text-yellow-700"
@@ -657,20 +831,20 @@ export default function DashboardPage() {
                     titulo="Expirados"
                     quantidade={
                       (resumo as any)
-                        .totalExpirados || 0
+                        .totalExpirados ||
+                      0
                     }
                     classe="bg-orange-500"
                     texto="text-orange-700"
                   />
+
                 </div>
               </div>
+
             </section>
 
-            {/* ======================================
-                FATURAMENTO POR DIA
-            ====================================== */}
-
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
+
               <h2 className="text-2xl font-bold text-[#166534]">
                 Faturamento por Dia
               </h2>
@@ -681,21 +855,27 @@ export default function DashboardPage() {
               </p>
 
               <div className="mt-6 grid gap-4">
-                {faturamentoPorDia.length ===
-                  0 ? (
+
+                {faturamentoPorDia
+                  .length === 0 ? (
                   <p className="text-gray-500">
-                    Ainda não há vendas
-                    pagas suficientes.
+                    Ainda não há
+                    vendas pagas
+                    suficientes.
                   </p>
                 ) : (
                   faturamentoPorDia.map(
                     (item) => (
                       <div
-                        key={item.data}
+                        key={
+                          item.data
+                        }
                       >
                         <div className="mb-1 flex justify-between text-sm font-semibold">
                           <span>
-                            {item.data}
+                            {
+                              item.data
+                            }
                           </span>
 
                           <span>
@@ -717,34 +897,170 @@ export default function DashboardPage() {
                     )
                   )
                 )}
+
               </div>
             </section>
 
-            {/* ======================================
-                ENTRADAS DE HOJE
-            ====================================== */}
-
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
 
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold text-[#166534]">
-                  Entradas de Hoje
-                </h2>
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-                <span className="rounded-full bg-green-100 px-4 py-2 font-bold text-green-800">
-                  {visitantesEntradasHoje}{" "}
-                  visitante
-                  {visitantesEntradasHoje !==
-                    1
-                    ? "s"
-                    : ""}
-                </span>
+                <div>
+                  <h2 className="text-2xl font-bold text-[#166534]">
+                    Controle de
+                    Entradas
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Consulte as
+                    entradas do dia
+                    ou de toda a
+                    semana.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 print:hidden">
+
+                  <Aba
+                    ativo={
+                      periodoEntradas ===
+                      "hoje"
+                    }
+                    texto="Hoje"
+                    onClick={() =>
+                      setPeriodoEntradas(
+                        "hoje"
+                      )
+                    }
+                  />
+
+                  <Aba
+                    ativo={
+                      periodoEntradas ===
+                      "semana"
+                    }
+                    texto="Esta semana"
+                    onClick={() =>
+                      setPeriodoEntradas(
+                        "semana"
+                      )
+                    }
+                  />
+
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+
+                <CardEntrada
+                  titulo="Total"
+                  valor={
+                    resumoEntradas
+                      .total
+                  }
+                  icone="👥"
+                />
+
+                <CardEntrada
+                  titulo="Parque"
+                  valor={
+                    resumoEntradas
+                      .parque
+                  }
+                  icone="🌲"
+                />
+
+                <CardEntrada
+                  titulo="Elevador"
+                  valor={
+                    resumoEntradas
+                      .elevador
+                  }
+                  icone="🛗"
+                />
+
+                <CardEntrada
+                  titulo="Camping"
+                  valor={
+                    resumoEntradas
+                      .camping
+                  }
+                  icone="🏕️"
+                />
+
+              </div>
+
+              <p className="mt-3 text-xs text-gray-500">
+                Parque inclui
+                Ingresso Parque e
+                Meia Entrada Idoso.
+                O Elevador usa a
+                validação própria
+                do aplicativo do
+                elevador.
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-2 print:hidden">
+
+                {(
+                  [
+                    "todos",
+                    "parque",
+                    "elevador",
+                    "camping",
+                  ] as CategoriaEntrada[]
+                ).map(
+                  (
+                    categoria
+                  ) => (
+                    <Aba
+                      key={
+                        categoria
+                      }
+                      ativo={
+                        categoriaEntrada ===
+                        categoria
+                      }
+                      texto={
+                        categoria ===
+                          "todos"
+                          ? "Todos"
+                          : categoria
+                            .charAt(
+                              0
+                            )
+                            .toUpperCase() +
+                          categoria.slice(
+                            1
+                          )
+                      }
+                      onClick={() =>
+                        setCategoriaEntrada(
+                          categoria
+                        )
+                      }
+                    />
+                  )
+                )}
+
+                <button
+                  onClick={
+                    exportarEntradas
+                  }
+                  className="ml-auto rounded-xl bg-orange-600 px-4 py-2 font-bold text-white hover:bg-orange-700"
+                >
+                  Exportar período
+                </button>
+
               </div>
 
               <div className="mt-5 overflow-x-auto">
-                <table className="w-full min-w-[850px] border-collapse text-left">
+
+                <table className="w-full min-w-[900px] border-collapse text-left">
+
                   <thead>
                     <tr className="border-b bg-gray-50 text-sm text-gray-600">
+
                       <th className="p-3">
                         Cliente
                       </th>
@@ -768,89 +1084,306 @@ export default function DashboardPage() {
                       <th className="p-3">
                         Entrada
                       </th>
+
                     </tr>
                   </thead>
 
                   <tbody>
-                    {entradasHoje.length ===
-                      0 ? (
+
+                    {entradasFiltradas
+                      .length === 0 ? (
                       <tr>
                         <td
                           className="p-3 text-gray-500"
                           colSpan={6}
                         >
-                          Nenhuma entrada
-                          registrada hoje.
+                          Nenhuma
+                          entrada
+                          encontrada
+                          para esse
+                          período e
+                          filtro.
                         </td>
                       </tr>
                     ) : (
-                      entradasHoje.map(
-                        (pedido: any) => (
+                      entradasFiltradas.map(
+                        (
+                          entrada
+                        ) => (
                           <tr
-                            key={pedido.id}
+                            key={
+                              entrada.key
+                            }
                             className="border-b text-sm"
                           >
                             <td className="p-3 font-semibold">
-                              {pedido.nome}
+                              {entrada.nome ||
+                                "-"}
+                            </td>
+
+                            <td className="p-3">
+                              {entrada.produto ||
+                                "-"}
                             </td>
 
                             <td className="p-3">
                               {
-                                pedido.produto
+                                entrada.quantidade
                               }
                             </td>
 
                             <td className="p-3">
-                              {obterQuantidade(
-                                pedido
+                              {entrada.codigo ||
+                                "-"}
+                            </td>
+
+                            <td className="p-3">
+                              {entrada.funcionario ||
+                                "-"}
+                            </td>
+
+                            <td className="p-3">
+                              {formatarDataHora(
+                                entrada.dataEntrada
                               )}
-                            </td>
-
-                            <td className="p-3">
-                              {pedido.codigoIngresso ||
-                                "-"}
-                            </td>
-
-                            <td className="p-3">
-                              {pedido.validadoPor ||
-                                "-"}
-                            </td>
-
-                            <td className="p-3">
-                              {pedido.utilizadoEm ||
-                                pedido.validadoEm
-                                ? new Date(
-                                  pedido.utilizadoEm ||
-                                  pedido.validadoEm
-                                ).toLocaleString(
-                                  "pt-BR"
-                                )
-                                : "-"}
                             </td>
                           </tr>
                         )
                       )
                     )}
+
                   </tbody>
                 </table>
               </div>
             </section>
 
-            {/* ======================================
-                ÚLTIMOS PEDIDOS
-            ====================================== */}
-
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
-              <h2 className="mb-4 text-2xl font-bold text-[#166534]">
-                Últimos pedidos
-              </h2>
 
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[700px] border-collapse text-left">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+
+                <div>
+                  <h2 className="text-2xl font-bold text-[#166534]">
+                    Histórico de
+                    pedidos
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Busque vendas
+                    antigas por
+                    nome, CPF,
+                    telefone,
+                    documento,
+                    código do
+                    ingresso ou
+                    número do
+                    pedido.
+                  </p>
+                </div>
+
+                <span className="w-fit rounded-full bg-green-100 px-4 py-2 text-sm font-bold text-green-800">
+                  {
+                    pedidosFiltrados.length
+                  }{" "}
+                  pedido
+                  {pedidosFiltrados
+                    .length !== 1
+                    ? "s"
+                    : ""}
+                </span>
+
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-6 print:hidden">
+
+                <Campo
+                  label="Buscar"
+                  classe="lg:col-span-2"
+                >
+                  <input
+                    value={
+                      buscaPedidos
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setBuscaPedidos(
+                        e.target
+                          .value
+                      )
+                    }
+                    placeholder="Nome, CPF, telefone, documento, código ou pedido"
+                    className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600"
+                  />
+                </Campo>
+
+                <Campo label="Produto">
+
+                  <select
+                    value={
+                      filtroProduto
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setFiltroProduto(
+                        e.target
+                          .value
+                      )
+                    }
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 outline-none focus:border-green-600"
+                  >
+
+                    <option value="todos">
+                      Todos
+                    </option>
+
+                    <option value="Ingresso Parque">
+                      Ingresso Parque
+                    </option>
+
+                    <option value="Meia Entrada Idoso">
+                      Meia Entrada
+                      Idoso
+                    </option>
+
+                    <option value="Elevador Panorâmico">
+                      Elevador
+                      Panorâmico
+                    </option>
+
+                    <option value="Camping">
+                      Camping
+                    </option>
+
+                  </select>
+                </Campo>
+
+                <Campo label="Situação">
+
+                  <select
+                    value={
+                      filtroStatus
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setFiltroStatus(
+                        e.target
+                          .value as
+                        FiltroStatus
+                      )
+                    }
+                    className="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 outline-none focus:border-green-600"
+                  >
+
+                    <option value="todos">
+                      Todos
+                    </option>
+
+                    <option value="pago">
+                      Pago
+                    </option>
+
+                    <option value="pendente">
+                      Pendente
+                    </option>
+
+                    <option value="expirado">
+                      Expirado
+                    </option>
+
+                    <option value="bloqueado">
+                      Bloqueado
+                    </option>
+
+                    <option value="utilizado">
+                      Utilizado
+                    </option>
+
+                  </select>
+                </Campo>
+
+                <Campo label="Data inicial">
+
+                  <input
+                    type="date"
+                    value={
+                      dataInicial
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setDataInicial(
+                        e.target
+                          .value
+                      )
+                    }
+                    className="w-full rounded-xl border border-gray-300 px-3 py-3 outline-none focus:border-green-600"
+                  />
+
+                </Campo>
+
+                <Campo label="Data final">
+
+                  <input
+                    type="date"
+                    value={
+                      dataFinal
+                    }
+                    onChange={(
+                      e
+                    ) =>
+                      setDataFinal(
+                        e.target
+                          .value
+                      )
+                    }
+                    className="w-full rounded-xl border border-gray-300 px-3 py-3 outline-none focus:border-green-600"
+                  />
+
+                </Campo>
+
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 print:hidden">
+
+                <button
+                  onClick={
+                    limparFiltrosHistorico
+                  }
+                  className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50"
+                >
+                  Limpar filtros
+                </button>
+
+                <button
+                  onClick={
+                    exportarCSV
+                  }
+                  className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
+                >
+                  Exportar resultado
+                </button>
+
+              </div>
+
+              <div className="mt-5 overflow-x-auto">
+
+                <table className="w-full min-w-[1350px] border-collapse text-left">
+
                   <thead>
                     <tr className="border-b bg-gray-50 text-sm text-gray-600">
+
                       <th className="p-3">
                         Cliente
+                      </th>
+
+                      <th className="p-3">
+                        Documento
+                      </th>
+
+                      <th className="p-3">
+                        Telefone
                       </th>
 
                       <th className="p-3">
@@ -870,76 +1403,250 @@ export default function DashboardPage() {
                       </th>
 
                       <th className="p-3">
+                        Operacional
+                      </th>
+
+                      <th className="p-3">
                         Data
                       </th>
+
+                      <th className="p-3 print:hidden">
+                        Ação
+                      </th>
+
                     </tr>
                   </thead>
 
                   <tbody>
-                    {pedidos
-                      .slice(0, 10)
-                      .map((pedido) => (
-                        <tr
-                          key={pedido.id}
-                          className="border-b text-sm"
+
+                    {pedidosVisiveis
+                      .length === 0 ? (
+                      <tr>
+                        <td
+                          className="p-3 text-gray-500"
+                          colSpan={10}
                         >
-                          <td className="p-3 font-semibold">
-                            {pedido.nome}
-                          </td>
+                          Nenhum pedido
+                          encontrado com
+                          esses filtros.
+                        </td>
+                      </tr>
+                    ) : (
+                      pedidosVisiveis.map(
+                        (
+                          pedido: any
+                        ) => (
+                          <tr
+                            key={
+                              pedido.id
+                            }
+                            className={`border-b text-sm ${pedido.statusOperacional ===
+                              "bloqueado"
+                              ? "bg-red-50"
+                              : ""
+                              }`}
+                          >
 
-                          <td className="p-3">
-                            {pedido.produto}
-                          </td>
+                            <td className="p-3 font-semibold">
 
-                          <td className="p-3">
-                            {obterQuantidade(
-                              pedido
-                            )}
-                          </td>
+                              <div>
+                                {pedido.nome ||
+                                  "-"}
+                              </div>
 
-                          <td className="p-3">
-                            {formatarMoeda(
-                              Number(
-                                pedido.valorTotal ||
-                                0
-                              )
-                            )}
-                          </td>
+                              <div className="mt-1 text-xs font-normal text-gray-500">
+                                {pedido.codigoIngresso ||
+                                  pedido.id ||
+                                  ""}
+                              </div>
 
-                          <td className="p-3">
-                            <StatusPagamento
-                              status={
-                                pedido.statusPagamento ||
-                                "pendente"
-                              }
-                            />
-                          </td>
+                            </td>
 
-                          <td className="p-3">
-                            {pedido.createdAt
-                              ? new Date(
+                            <td className="p-3">
+                              {obterDocumentoPedido(
+                                pedido
+                              ) ||
+                                "-"}
+                            </td>
+
+                            <td className="p-3">
+                              {pedido.telefone ||
+                                "-"}
+                            </td>
+
+                            <td className="p-3">
+                              {pedido.produto ||
+                                "-"}
+                            </td>
+
+                            <td className="p-3">
+                              {obterQuantidade(
+                                pedido
+                              )}
+                            </td>
+
+                            <td className="p-3">
+                              {formatarMoeda(
+                                Number(
+                                  pedido.valorTotal ||
+                                  0
+                                )
+                              )}
+                            </td>
+
+                            <td className="p-3">
+                              <StatusPagamento
+                                status={
+                                  pedido.statusPagamento ||
+                                  "pendente"
+                                }
+                              />
+                            </td>
+
+                            <td className="p-3">
+                              <StatusOperacionalPedido
+                                pedido={
+                                  pedido
+                                }
+                              />
+                            </td>
+
+                            <td className="p-3">
+                              {formatarData(
                                 pedido.createdAt
-                              ).toLocaleDateString(
-                                "pt-BR"
-                              )
-                              : "-"}
-                          </td>
-                        </tr>
-                      ))}
+                              )}
+                            </td>
+
+                            <td className="p-3 print:hidden">
+                              <button
+                                onClick={() =>
+                                  router.push(
+                                    `/admin/pedidos/${pedido.id}`
+                                  )
+                                }
+                                className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
+                              >
+                                Abrir pedido
+                              </button>
+                            </td>
+
+                          </tr>
+                        )
+                      )
+                    )}
+
                   </tbody>
                 </table>
               </div>
+
+              {pedidosFiltrados
+                .length >
+                limiteHistorico && (
+                  <div className="mt-5 flex justify-center print:hidden">
+                    <button
+                      onClick={() =>
+                        setLimiteHistorico(
+                          (
+                            atual
+                          ) =>
+                            atual +
+                            25
+                        )
+                      }
+                      className="rounded-xl bg-[#166534] px-6 py-3 font-bold text-white hover:bg-green-800"
+                    >
+                      Mostrar mais
+                      pedidos
+                    </button>
+                  </div>
+                )}
+
+              {pedidosFiltrados
+                .length > 0 && (
+                  <p className="mt-4 text-center text-xs text-gray-500">
+                    Exibindo{" "}
+                    {Math.min(
+                      limiteHistorico,
+                      pedidosFiltrados.length
+                    )}{" "}
+                    de{" "}
+                    {
+                      pedidosFiltrados.length
+                    }{" "}
+                    pedido(s).
+                  </p>
+                )}
+
             </section>
+
           </>
         )}
+
       </div>
     </main>
   );
 }
 
-/* ==========================================
-   COMPONENTES
-========================================== */
+function Botao({
+  texto,
+  classe,
+  onClick,
+}: {
+  texto: string;
+  classe: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-xl px-5 py-3 font-bold text-white shadow-md ${classe}`}
+    >
+      {texto}
+    </button>
+  );
+}
+
+function Campo({
+  label,
+  classe = "",
+  children,
+}: {
+  label: string;
+  classe?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={classe}>
+      <label className="mb-1 block text-xs font-bold uppercase text-gray-500">
+        {label}
+      </label>
+
+      {children}
+    </div>
+  );
+}
+
+function Aba({
+  ativo,
+  texto,
+  onClick,
+}: {
+  ativo: boolean;
+  texto: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-xl px-4 py-2 text-sm font-bold ${ativo
+        ? "bg-[#166534] text-white"
+        : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+        }`}
+    >
+      {texto}
+    </button>
+  );
+}
 
 function Card({
   titulo,
@@ -950,6 +1657,7 @@ function Card({
 }) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md">
+
       <p className="text-sm font-semibold text-gray-500">
         {titulo}
       </p>
@@ -957,6 +1665,7 @@ function Card({
       <h2 className="mt-3 text-2xl font-bold text-[#166534]">
         {valor}
       </h2>
+
     </div>
   );
 }
@@ -972,6 +1681,7 @@ function CardDestaque({
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+
       <p className="text-2xl">
         {icone}
       </p>
@@ -983,6 +1693,7 @@ function CardDestaque({
       <p className="mt-2 text-xl font-black text-white">
         {valor}
       </p>
+
     </div>
   );
 }
@@ -1003,11 +1714,13 @@ function CardProduto({
   return (
     <div
       className={`rounded-2xl border p-5 shadow-md ${destaque
-          ? "border-cyan-200 bg-gradient-to-br from-cyan-50 to-white"
-          : "border-gray-100 bg-white"
+        ? "border-cyan-200 bg-gradient-to-br from-cyan-50 to-white"
+        : "border-gray-100 bg-white"
         }`}
     >
+
       <div className="flex items-center justify-between">
+
         <span className="text-3xl">
           {icone}
         </span>
@@ -1017,6 +1730,7 @@ function CardProduto({
             ELEVADOR
           </span>
         )}
+
       </div>
 
       <h3 className="mt-4 font-black text-gray-800">
@@ -1035,6 +1749,7 @@ function CardProduto({
       </p>
 
       <div className="mt-4 border-t pt-3">
+
         <p className="text-xs text-gray-500">
           Receita
         </p>
@@ -1042,7 +1757,48 @@ function CardProduto({
         <p className="font-black text-gray-800">
           {receita}
         </p>
+
       </div>
+
+    </div>
+  );
+}
+
+function CardEntrada({
+  titulo,
+  valor,
+  icone,
+}: {
+  titulo: string;
+  valor: number;
+  icone: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
+
+      <div className="flex items-center justify-between">
+
+        <p className="text-sm font-bold text-gray-600">
+          {titulo}
+        </p>
+
+        <span className="text-xl">
+          {icone}
+        </span>
+
+      </div>
+
+      <p className="mt-2 text-3xl font-black text-[#166534]">
+        {valor}
+      </p>
+
+      <p className="text-xs text-gray-500">
+        visitante
+        {valor !== 1
+          ? "s"
+          : ""}
+      </p>
+
     </div>
   );
 }
@@ -1060,6 +1816,7 @@ function BarraStatus({
 }) {
   return (
     <div className="flex flex-1 flex-col items-center">
+
       <div
         className={`w-full max-w-20 rounded-t-2xl ${classe}`}
         style={{
@@ -1079,6 +1836,7 @@ function BarraStatus({
       <span className="font-semibold">
         {quantidade}
       </span>
+
     </div>
   );
 }
@@ -1096,14 +1854,19 @@ function StatusPagamento({
       "bg-green-100 text-green-800";
   }
 
-  if (status === "expirado") {
+  if (
+    status ===
+    "expirado"
+  ) {
     classes =
       "bg-orange-100 text-orange-800";
   }
 
   if (
-    status === "cancelado" ||
-    status === "valor_divergente"
+    status ===
+    "cancelado" ||
+    status ===
+    "valor_divergente"
   ) {
     classes =
       "bg-red-100 text-red-800";
@@ -1118,13 +1881,113 @@ function StatusPagamento({
   );
 }
 
-/* ==========================================
-   AUXILIARES
-========================================== */
+function StatusOperacionalPedido({
+  pedido,
+}: {
+  pedido: any;
+}) {
+  if (
+    pedido.statusOperacional ===
+    "bloqueado"
+  ) {
+    return (
+      <StatusChip
+        texto="bloqueado"
+        classe="bg-red-100 text-red-800"
+      />
+    );
+  }
+
+  if (
+    pedido.statusOperacional ===
+    "utilizado"
+  ) {
+    return (
+      <StatusChip
+        texto="utilizado"
+        classe="bg-blue-100 text-blue-800"
+      />
+    );
+  }
+
+  if (
+    pedido.elevadorValidado ===
+    true
+  ) {
+    return (
+      <StatusChip
+        texto="elevador utilizado"
+        classe="bg-cyan-100 text-cyan-800"
+      />
+    );
+  }
+
+  if (
+    pedido.statusOperacional ===
+    "expirado" ||
+    pedido.statusPagamento ===
+    "expirado"
+  ) {
+    return (
+      <StatusChip
+        texto="expirado"
+        classe="bg-orange-100 text-orange-800"
+      />
+    );
+  }
+
+  if (
+    pedido.statusPagamento !==
+    "pago"
+  ) {
+    return (
+      <StatusChip
+        texto="aguardando"
+        classe="bg-yellow-100 text-yellow-800"
+      />
+    );
+  }
+
+  return (
+    <StatusChip
+      texto="disponível"
+      classe="bg-green-100 text-green-800"
+    />
+  );
+}
+
+function StatusChip({
+  texto,
+  classe,
+}: {
+  texto: string;
+  classe: string;
+}) {
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-bold ${classe}`}
+    >
+      {texto}
+    </span>
+  );
+}
 
 function obterQuantidade(
   pedido: any
 ) {
+  if (
+    pedido.produto ===
+    "Camping" ||
+    pedido.tipo ===
+    "camping"
+  ) {
+    return Number(
+      pedido.quantidadePessoas ||
+      pedido.quantidade ||
+      1
+    );
+  }
+
   return Number(
     pedido.quantidade ||
     pedido.quantidadePessoas ||
@@ -1132,10 +1995,132 @@ function obterQuantidade(
   );
 }
 
+function obterDocumentoPedido(
+  pedido: any
+) {
+  if (
+    pedido.tipoDocumento ===
+    "estrangeiro"
+  ) {
+    return (
+      pedido.documento ||
+      pedido.documentoEstrangeiro ||
+      ""
+    );
+  }
+
+  return (
+    pedido.cpf ||
+    pedido.documento ||
+    ""
+  );
+}
+
+function normalizarTexto(
+  valor: unknown
+) {
+  return String(
+    valor || ""
+  )
+    .normalize("NFD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
+    .toLowerCase()
+    .replace(
+      /[^a-z0-9]/g,
+      ""
+    );
+}
+
+function formatarData(
+  valor?: string
+) {
+  if (!valor) {
+    return "-";
+  }
+
+  const data =
+    new Date(valor);
+
+  return Number.isNaN(
+    data.getTime()
+  )
+    ? "-"
+    : data.toLocaleDateString(
+      "pt-BR"
+    );
+}
+
+function formatarDataHora(
+  valor?: string
+) {
+  if (!valor) {
+    return "-";
+  }
+
+  const data =
+    new Date(valor);
+
+  return Number.isNaN(
+    data.getTime()
+  )
+    ? "-"
+    : data.toLocaleString(
+      "pt-BR"
+    );
+}
+
+function baixarCSV(
+  conteudo: string,
+  nomeArquivo: string
+) {
+  const blob =
+    new Blob(
+      [
+        "\ufeff" +
+        conteudo,
+      ],
+      {
+        type: "text/csv;charset=utf-8;",
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  link.href = url;
+
+  link.download =
+    nomeArquivo;
+
+  document.body.appendChild(
+    link
+  );
+
+  link.click();
+
+  document.body.removeChild(
+    link
+  );
+
+  URL.revokeObjectURL(url);
+}
+
 function ehHoje(
   valor?: string
 ) {
-  if (!valor) return false;
+  if (!valor) {
+    return false;
+  }
 
   const hoje =
     new Date();
@@ -1156,7 +2141,9 @@ function ehHoje(
 function ehMesAtual(
   valor?: string
 ) {
-  if (!valor) return false;
+  if (!valor) {
+    return false;
+  }
 
   const hoje =
     new Date();
@@ -1172,9 +2159,508 @@ function ehMesAtual(
   );
 }
 
-/* ==========================================
-   RESUMO DESDE O LANÇAMENTO
-========================================== */
+function ehSemanaAtual(
+  valor?: string
+) {
+  if (!valor) {
+    return false;
+  }
+
+  const data =
+    new Date(valor);
+
+  if (
+    Number.isNaN(
+      data.getTime()
+    )
+  ) {
+    return false;
+  }
+
+  const agora =
+    new Date();
+
+  const inicio =
+    new Date(agora);
+
+  const diaSemana =
+    inicio.getDay();
+
+  inicio.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+  inicio.setDate(
+    inicio.getDate() -
+    (diaSemana === 0
+      ? 6
+      : diaSemana - 1)
+  );
+
+  const fim =
+    new Date(inicio);
+
+  fim.setDate(
+    fim.getDate() + 6
+  );
+
+  fim.setHours(
+    23,
+    59,
+    59,
+    999
+  );
+
+  return (
+    data >= inicio &&
+    data <= fim
+  );
+}
+
+function categoriaPrincipalDoPedido(
+  pedido: any
+):
+  | Exclude<
+    CategoriaEntrada,
+    "todos"
+  >
+  | "outro" {
+  if (
+    pedido.produto ===
+    "Camping" ||
+    pedido.tipo ===
+    "camping"
+  ) {
+    return "camping";
+  }
+
+  if (
+    pedido.produto ===
+    "Ingresso Parque" ||
+    pedido.produto ===
+    "Meia Entrada Idoso" ||
+    pedido.tipo ===
+    "ingresso" ||
+    pedido.tipo ===
+    "idoso"
+  ) {
+    return "parque";
+  }
+
+  if (
+    pedido.produto ===
+    "Elevador Panorâmico" ||
+    pedido.tipo ===
+    "elevador"
+  ) {
+    return "elevador";
+  }
+
+  return "outro";
+}
+
+function obterQuantidadePrincipal(
+  pedido: any
+) {
+  if (
+    pedido.produto ===
+    "Camping" ||
+    pedido.tipo ===
+    "camping"
+  ) {
+    return Number(
+      pedido.quantidadeValidada ||
+      pedido.quantidadePessoas ||
+      pedido.quantidade ||
+      1
+    );
+  }
+
+  return Number(
+    pedido.quantidadeValidada ||
+    pedido.quantidade ||
+    1
+  );
+}
+
+function obterQuantidadeElevador(
+  pedido: any
+) {
+  return Number(
+    pedido.elevadorQuantidadeValidada ||
+    pedido.qtdElevador ||
+    pedido.quantidade ||
+    1
+  );
+}
+
+function gerarRegistrosEntradas(
+  pedidos: Pedido[]
+) {
+  const registros:
+    EntradaRegistro[] = [];
+
+  pedidos.forEach(
+    (pedido: any) => {
+      const elevadorStandalone =
+        pedido.produto ===
+        "Elevador Panorâmico" ||
+        pedido.tipo ===
+        "elevador";
+
+      if (
+        elevadorStandalone
+      ) {
+        if (
+          pedido.elevadorValidado ===
+          true &&
+          pedido.elevadorValidadoEm
+        ) {
+          registros.push({
+            key: `${pedido.id}-elevador`,
+            pedidoId:
+              pedido.id,
+            nome:
+              pedido.nome ||
+              "",
+            produto:
+              "Elevador Panorâmico",
+            categoria:
+              "elevador",
+            quantidade:
+              obterQuantidadeElevador(
+                pedido
+              ),
+            codigo:
+              pedido.codigoIngresso ||
+              "",
+            funcionario:
+              pedido.elevadorValidadoPor ||
+              "",
+            dataEntrada:
+              pedido.elevadorValidadoEm,
+          });
+        } else if (
+          pedido.statusOperacional ===
+          "utilizado" &&
+          (
+            pedido.utilizadoEm ||
+            pedido.validadoEm
+          )
+        ) {
+          registros.push({
+            key: `${pedido.id}-elevador-legado`,
+            pedidoId:
+              pedido.id,
+            nome:
+              pedido.nome ||
+              "",
+            produto:
+              "Elevador Panorâmico",
+            categoria:
+              "elevador",
+            quantidade:
+              obterQuantidadeElevador(
+                pedido
+              ),
+            codigo:
+              pedido.codigoIngresso ||
+              "",
+            funcionario:
+              pedido.validadoPor ||
+              "",
+            dataEntrada:
+              pedido.utilizadoEm ||
+              pedido.validadoEm,
+          });
+        }
+
+        return;
+      }
+
+      if (
+        pedido.statusOperacional ===
+        "utilizado" &&
+        (
+          pedido.utilizadoEm ||
+          pedido.validadoEm
+        )
+      ) {
+        const categoria =
+          categoriaPrincipalDoPedido(
+            pedido
+          );
+
+        if (
+          categoria !==
+          "outro" &&
+          categoria !==
+          "elevador"
+        ) {
+          registros.push({
+            key: `${pedido.id}-principal`,
+            pedidoId:
+              pedido.id,
+            nome:
+              pedido.nome ||
+              "",
+            produto:
+              pedido.produto ||
+              "",
+            categoria,
+            quantidade:
+              obterQuantidadePrincipal(
+                pedido
+              ),
+            codigo:
+              pedido.codigoIngresso ||
+              "",
+            funcionario:
+              pedido.validadoPor ||
+              "",
+            dataEntrada:
+              pedido.utilizadoEm ||
+              pedido.validadoEm,
+          });
+        }
+      }
+
+      if (
+        pedido.elevadorValidado ===
+        true &&
+        pedido.elevadorValidadoEm
+      ) {
+        registros.push({
+          key: `${pedido.id}-elevador`,
+          pedidoId:
+            pedido.id,
+          nome:
+            pedido.nome ||
+            "",
+          produto:
+            "Elevador Panorâmico",
+          categoria:
+            "elevador",
+          quantidade:
+            obterQuantidadeElevador(
+              pedido
+            ),
+          codigo:
+            pedido.codigoIngresso ||
+            "",
+          funcionario:
+            pedido.elevadorValidadoPor ||
+            "",
+          dataEntrada:
+            pedido.elevadorValidadoEm,
+        });
+      }
+    }
+  );
+
+  return registros.sort(
+    (
+      a,
+      b
+    ) =>
+      new Date(
+        b.dataEntrada
+      ).getTime() -
+      new Date(
+        a.dataEntrada
+      ).getTime()
+  );
+}
+
+function gerarEntradasHoje(
+  pedidos: Pedido[]
+) {
+  return gerarRegistrosEntradas(
+    pedidos
+  ).filter(
+    (entrada) =>
+      ehHoje(
+        entrada.dataEntrada
+      )
+  );
+}
+
+function gerarEntradasSemana(
+  pedidos: Pedido[]
+) {
+  return gerarRegistrosEntradas(
+    pedidos
+  ).filter(
+    (entrada) =>
+      ehSemanaAtual(
+        entrada.dataEntrada
+      )
+  );
+}
+
+function gerarResumoEntradas(
+  entradas: EntradaRegistro[]
+) {
+  return entradas.reduce(
+    (
+      resumo,
+      entrada
+    ) => {
+      resumo.total +=
+        entrada.quantidade;
+
+      resumo[
+        entrada.categoria
+      ] +=
+        entrada.quantidade;
+
+      return resumo;
+    },
+    {
+      total: 0,
+      parque: 0,
+      elevador: 0,
+      camping: 0,
+    }
+  );
+}
+
+function filtrarPedidosHistorico(
+  pedidos: Pedido[],
+  filtros: {
+    busca: string;
+    produto: string;
+    status: FiltroStatus;
+    dataInicial: string;
+    dataFinal: string;
+  }
+) {
+  const busca =
+    normalizarTexto(
+      filtros.busca
+    );
+
+  return pedidos.filter(
+    (pedido: any) => {
+      if (busca) {
+        const texto =
+          normalizarTexto(
+            [
+              pedido.nome,
+              pedido.cpf,
+              pedido.documento,
+              pedido.documentoEstrangeiro,
+              pedido.telefone,
+              pedido.codigoIngresso,
+              pedido.qrCodeIngresso,
+              pedido.id,
+              pedido.email,
+            ].join(" ")
+          );
+
+        if (
+          !texto.includes(
+            busca
+          )
+        ) {
+          return false;
+        }
+      }
+
+      if (
+        filtros.produto !==
+        "todos" &&
+        pedido.produto !==
+        filtros.produto
+      ) {
+        return false;
+      }
+
+      if (
+        filtros.status ===
+        "bloqueado" &&
+        pedido.statusOperacional !==
+        "bloqueado"
+      ) {
+        return false;
+      }
+
+      if (
+        filtros.status ===
+        "utilizado" &&
+        pedido.statusOperacional !==
+        "utilizado" &&
+        pedido.elevadorValidado !==
+        true
+      ) {
+        return false;
+      }
+
+      if (
+        ![
+          "todos",
+          "bloqueado",
+          "utilizado",
+        ].includes(
+          filtros.status
+        ) &&
+        pedido.statusPagamento !==
+        filtros.status
+      ) {
+        return false;
+      }
+
+      if (
+        filtros.dataInicial ||
+        filtros.dataFinal
+      ) {
+        if (
+          !pedido.createdAt
+        ) {
+          return false;
+        }
+
+        const data =
+          new Date(
+            pedido.createdAt
+          );
+
+        if (
+          Number.isNaN(
+            data.getTime()
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          filtros.dataInicial &&
+          data <
+          new Date(
+            `${filtros.dataInicial}T00:00:00`
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          filtros.dataFinal &&
+          data >
+          new Date(
+            `${filtros.dataFinal}T23:59:59.999`
+          )
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+  );
+}
 
 function gerarResumoDesdeLancamento(
   pedidos: Pedido[]
@@ -1188,42 +2674,54 @@ function gerarResumoDesdeLancamento(
 
   const totalVendido =
     pagos.reduce(
-      (total, pedido) =>
+      (
+        total,
+        pedido
+      ) =>
         total +
         Number(
-          pedido.valorTotal || 0
+          pedido.valorTotal ||
+          0
         ),
       0
     );
 
   const totalIngressos =
     pagos.reduce(
-      (total, pedido) =>
+      (
+        total,
+        pedido
+      ) =>
         total +
-        obterQuantidade(pedido),
+        obterQuantidade(
+          pedido
+        ),
       0
     );
 
   const ticketMedio =
-    pagos.length > 0
+    pagos.length
       ? totalVendido /
       pagos.length
       : 0;
 
   function resumoProduto(
-    nomeProduto: string
+    nome: string
   ) {
     const lista =
       pagos.filter(
         (pedido) =>
           pedido.produto ===
-          nomeProduto
+          nome
       );
 
     return {
       quantidade:
         lista.reduce(
-          (total, pedido) =>
+          (
+            total,
+            pedido
+          ) =>
             total +
             obterQuantidade(
               pedido
@@ -1233,7 +2731,10 @@ function gerarResumoDesdeLancamento(
 
       receita:
         lista.reduce(
-          (total, pedido) =>
+          (
+            total,
+            pedido
+          ) =>
             total +
             Number(
               pedido.valorTotal ||
@@ -1241,20 +2742,14 @@ function gerarResumoDesdeLancamento(
             ),
           0
         ),
-
-      pedidos:
-        lista.length,
     };
   }
 
   return {
     totalVendido,
-
     totalIngressos,
-
     pedidosPagos:
       pagos.length,
-
     ticketMedio,
 
     parque:
@@ -1279,37 +2774,6 @@ function gerarResumoDesdeLancamento(
   };
 }
 
-/* ==========================================
-   ENTRADAS DE HOJE
-========================================== */
-
-function gerarEntradasHoje(
-  pedidos: Pedido[]
-) {
-  return pedidos.filter(
-    (pedido: any) => {
-      if (
-        pedido.statusOperacional !==
-        "utilizado"
-      ) {
-        return false;
-      }
-
-      const dataEntrada =
-        pedido.utilizadoEm ||
-        pedido.validadoEm;
-
-      return ehHoje(
-        dataEntrada
-      );
-    }
-  );
-}
-
-/* ==========================================
-   OPERACIONAL
-========================================== */
-
 function gerarDashboardOperacional(
   pedidos: Pedido[]
 ) {
@@ -1330,7 +2794,10 @@ function gerarDashboardOperacional(
           )
       )
       .reduce(
-        (total, pedido) =>
+        (
+          total,
+          pedido
+        ) =>
           total +
           obterQuantidade(
             pedido
@@ -1348,7 +2815,10 @@ function gerarDashboardOperacional(
           )
       )
       .reduce(
-        (total, pedido) =>
+        (
+          total,
+          pedido
+        ) =>
           total +
           obterQuantidade(
             pedido
@@ -1365,13 +2835,17 @@ function gerarDashboardOperacional(
 
   const receitaHoje =
     pagos
-      .filter((pedido) =>
-        ehHoje(
-          pedido.createdAt
-        )
+      .filter(
+        (pedido) =>
+          ehHoje(
+            pedido.createdAt
+          )
       )
       .reduce(
-        (total, pedido) =>
+        (
+          total,
+          pedido
+        ) =>
           total +
           Number(
             pedido.valorTotal ||
@@ -1382,13 +2856,17 @@ function gerarDashboardOperacional(
 
   const receitaMes =
     pagos
-      .filter((pedido) =>
-        ehMesAtual(
-          pedido.createdAt
-        )
+      .filter(
+        (pedido) =>
+          ehMesAtual(
+            pedido.createdAt
+          )
       )
       .reduce(
-        (total, pedido) =>
+        (
+          total,
+          pedido
+        ) =>
           total +
           Number(
             pedido.valorTotal ||
@@ -1405,44 +2883,47 @@ function gerarDashboardOperacional(
   };
 }
 
-/* ==========================================
-   ESTATÍSTICAS POR PRODUTO
-========================================== */
-
 function gerarEstatisticasProdutos(
   pedidos: Pedido[]
 ) {
-  const pagos =
-    pedidos.filter(
+  const contagem:
+    Record<
+      string,
+      number
+    > = {};
+
+  pedidos
+    .filter(
       (pedido) =>
         pedido.statusPagamento ===
         "pago"
+    )
+    .forEach(
+      (pedido) => {
+        const nome =
+          pedido.produto ||
+          "Não informado";
+
+        contagem[nome] =
+          (
+            contagem[nome] ||
+            0
+          ) +
+          obterQuantidade(
+            pedido
+          );
+      }
     );
 
-  const contagem:
-    Record<string, number> = {};
-
-  pagos.forEach(
-    (pedido) => {
-      const nome =
-        pedido.produto ||
-        "Não informado";
-
-      contagem[nome] =
-        (contagem[nome] ||
-          0) +
-        obterQuantidade(
-          pedido
-        );
-    }
-  );
-
-  const totalIngressos =
+  const total =
     Object.values(
       contagem
     ).reduce(
-      (total, quantidade) =>
-        total +
+      (
+        soma,
+        quantidade
+      ) =>
+        soma +
         quantidade,
       0
     );
@@ -1457,63 +2938,62 @@ function gerarEstatisticasProdutos(
           quantidade,
         ]) => ({
           nome,
-
           quantidade,
-
           percentual:
-            totalIngressos >
-              0
+            total
               ? Math.round(
-                (quantidade /
-                  totalIngressos) *
+                (
+                  quantidade /
+                  total
+                ) *
                 100
               )
               : 0,
         })
       )
       .sort(
-        (a, b) =>
+        (
+          a,
+          b
+        ) =>
           b.quantidade -
           a.quantidade
       );
 
-  const produtoMaisVendido =
-    produtos[0]?.nome ||
-    "Sem vendas";
-
-  const quantidadeCamping =
+  const camping =
     contagem[
     "Camping"
     ] || 0;
 
-  const percentualCamping =
-    totalIngressos > 0
-      ? Math.round(
-        (quantidadeCamping /
-          totalIngressos) *
-        100
-      )
-      : 0;
-
   return {
-    produtoMaisVendido,
+    produtoMaisVendido:
+      produtos[0]
+        ?.nome ||
+      "Sem vendas",
 
-    percentualCamping,
+    percentualCamping:
+      total
+        ? Math.round(
+          (
+            camping /
+            total
+          ) *
+          100
+        )
+        : 0,
 
     produtos,
   };
 }
 
-/* ==========================================
-   FATURAMENTO POR DIA
-========================================== */
-
 function gerarFaturamentoPorDia(
   pedidos: Pedido[]
 ) {
   const agrupado:
-    Record<string, number> =
-    {};
+    Record<
+      string,
+      number
+    > = {};
 
   pedidos
     .filter(
@@ -1537,8 +3017,11 @@ function gerarFaturamentoPorDia(
           );
 
         agrupado[data] =
-          (agrupado[data] ||
-            0) +
+          (
+            agrupado[
+            data
+            ] || 0
+          ) +
           Number(
             pedido.valorTotal ||
             0
@@ -1551,28 +3034,40 @@ function gerarFaturamentoPorDia(
       agrupado
     )
       .map(
-        ([data, valor]) => ({
+        ([
+          data,
+          valor,
+        ]) => ({
           data,
           valor,
         })
       )
       .sort(
-        (a, b) => {
+        (
+          a,
+          b
+        ) => {
           const [
             diaA,
             mesA,
             anoA,
-          ] = a.data
-            .split("/")
-            .map(Number);
+          ] =
+            a.data
+              .split("/")
+              .map(
+                Number
+              );
 
           const [
             diaB,
             mesB,
             anoB,
-          ] = b.data
-            .split("/")
-            .map(Number);
+          ] =
+            b.data
+              .split("/")
+              .map(
+                Number
+              );
 
           return (
             new Date(
@@ -1589,7 +3084,7 @@ function gerarFaturamentoPorDia(
         }
       );
 
-  const maiorValor =
+  const maior =
     Math.max(
       ...lista.map(
         (item) =>
@@ -1604,21 +3099,18 @@ function gerarFaturamentoPorDia(
 
       percentual:
         Math.round(
-          (item.valor /
-            maiorValor) *
+          (
+            item.valor /
+            maior
+          ) *
           100
         ),
     })
   );
 }
 
-/* ==========================================
-   DICAS FINANCEIRAS
-========================================== */
-
 function gerarDicasFinanceiras(
   resumo: any,
-  pedidos: Pedido[],
   lancamento: ReturnType<
     typeof gerarResumoDesdeLancamento
   >
@@ -1636,8 +3128,10 @@ function gerarDicasFinanceiras(
   }
 
   if (
-    (resumo.totalExpirados ||
-      0) > 0
+    (
+      resumo.totalExpirados ||
+      0
+    ) > 0
   ) {
     dicas.push(
       `${resumo.totalExpirados} pedido(s) tiveram o prazo do Pix expirado e não estão sendo considerados como faturamento.`
@@ -1658,7 +3152,9 @@ function gerarDicasFinanceiras(
       .quantidade > 0
   ) {
     dicas.push(
-      `O Elevador Panorâmico já vendeu ${lancamento.elevador.quantidade} ingresso(s), gerando ${lancamento.elevador.receita.toLocaleString(
+      `O Elevador Panorâmico já vendeu ${lancamento.elevador
+        .quantidade
+      } ingresso(s), gerando ${lancamento.elevador.receita.toLocaleString(
         "pt-BR",
         {
           style:
