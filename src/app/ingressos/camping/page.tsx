@@ -9,7 +9,22 @@ import {
 import { useRouter } from "next/navigation";
 import { criarPedido } from "@/lib/pedidos";
 
-type TipoDocumento = "cpf" | "estrangeiro";
+/* ==========================================
+   CONTROLE DE VENDAS DO CAMPING
+
+   true  = vendas bloqueadas
+   false = vendas liberadas
+
+   IMPORTANTE:
+   Quando o Camping voltar a ter vagas,
+   basta alterar para false.
+========================================== */
+
+const VENDAS_CAMPING_SUSPENSAS = true;
+
+type TipoDocumento =
+  | "cpf"
+  | "estrangeiro";
 
 type TipoDocumentoEstrangeiro =
   | "identidade_nacional"
@@ -19,14 +34,24 @@ type TipoDocumentoEstrangeiro =
 export default function CampingPage() {
   const router = useRouter();
 
-  const [nome, setNome] = useState("");
+  const [nome, setNome] =
+    useState("");
 
-  const [tipoDocumento, setTipoDocumento] =
-    useState<TipoDocumento>("cpf");
+  const [
+    tipoDocumento,
+    setTipoDocumento,
+  ] =
+    useState<TipoDocumento>(
+      "cpf"
+    );
 
-  const [cpf, setCpf] = useState("");
+  const [cpf, setCpf] =
+    useState("");
 
-  const [paisDocumento, setPaisDocumento] =
+  const [
+    paisDocumento,
+    setPaisDocumento,
+  ] =
     useState("");
 
   const [
@@ -40,15 +65,22 @@ export default function CampingPage() {
   const [
     documentoEstrangeiro,
     setDocumentoEstrangeiro,
-  ] = useState("");
+  ] =
+    useState("");
 
-  const [telefone, setTelefone] =
+  const [
+    telefone,
+    setTelefone,
+  ] =
     useState("");
 
   const [email, setEmail] =
     useState("");
 
-  const [dataEntrada, setDataEntrada] =
+  const [
+    dataEntrada,
+    setDataEntrada,
+  ] =
     useState("");
 
   const [diarias, setDiarias] =
@@ -57,38 +89,50 @@ export default function CampingPage() {
   const [
     quantidadePessoas,
     setQuantidadePessoas,
-  ] = useState(1);
+  ] =
+    useState(1);
 
-  const [tipoCamping, setTipoCamping] =
+  const [
+    tipoCamping,
+    setTipoCamping,
+  ] =
     useState("Barraca");
 
-  const [salvando, setSalvando] =
+  const [
+    salvando,
+    setSalvando,
+  ] =
     useState(false);
 
-  const valorPrimeiraDiaria = 100;
-  const valorDemaisDiarias = 80;
+  const valorPrimeiraDiaria =
+    100;
 
-  const valorPorPessoa = useMemo(() => {
-    if (diarias <= 1) {
-      return valorPrimeiraDiaria;
-    }
+  const valorDemaisDiarias =
+    80;
 
-    return (
-      valorPrimeiraDiaria +
-      (diarias - 1) *
-      valorDemaisDiarias
-    );
-  }, [diarias]);
+  const valorPorPessoa =
+    useMemo(() => {
+      if (diarias <= 1) {
+        return valorPrimeiraDiaria;
+      }
 
-  const valorTotal = useMemo(() => {
-    return (
-      valorPorPessoa *
-      quantidadePessoas
-    );
-  }, [
-    valorPorPessoa,
-    quantidadePessoas,
-  ]);
+      return (
+        valorPrimeiraDiaria +
+        (diarias - 1) *
+        valorDemaisDiarias
+      );
+    }, [diarias]);
+
+  const valorTotal =
+    useMemo(() => {
+      return (
+        valorPorPessoa *
+        quantidadePessoas
+      );
+    }, [
+      valorPorPessoa,
+      quantidadePessoas,
+    ]);
 
   const valorPorPessoaFormatado =
     valorPorPessoa.toLocaleString(
@@ -108,14 +152,21 @@ export default function CampingPage() {
       }
     );
 
-  function limparCpf(valor: string) {
-    return valor.replace(/\D/g, "");
+  function limparCpf(
+    valor: string
+  ) {
+    return valor.replace(
+      /\D/g,
+      ""
+    );
   }
 
   function normalizarDocumentoEstrangeiro(
     valor: string
   ) {
-    return String(valor || "")
+    return String(
+      valor || ""
+    )
       .trim()
       .replace(/\s+/g, " ");
   }
@@ -123,7 +174,9 @@ export default function CampingPage() {
   function normalizarPais(
     valor: string
   ) {
-    return String(valor || "")
+    return String(
+      valor || ""
+    )
       .trim()
       .replace(/\s+/g, " ");
   }
@@ -131,7 +184,9 @@ export default function CampingPage() {
   function normalizarEmail(
     valor: string
   ) {
-    return String(valor || "")
+    return String(
+      valor || ""
+    )
       .trim()
       .toLowerCase()
       .replace(/\s+/g, "");
@@ -158,14 +213,19 @@ export default function CampingPage() {
       normalizarEmail(valor);
 
     const partes =
-      emailNormalizado.split("@");
+      emailNormalizado.split(
+        "@"
+      );
 
     if (partes.length !== 2) {
       return null;
     }
 
-    const usuario = partes[0];
-    const dominio = partes[1];
+    const usuario =
+      partes[0];
+
+    const dominio =
+      partes[1];
 
     const correcoes: Record<
       string,
@@ -180,33 +240,54 @@ export default function CampingPage() {
       "gmail.om": "gmail.com",
       "gmail.cim": "gmail.com",
       "gmail.comm": "gmail.com",
-      "gmail.com.br": "gmail.com",
+      "gmail.com.br":
+        "gmail.com",
 
-      "hotmai.com": "hotmail.com",
-      "hotmal.com": "hotmail.com",
-      "hotamil.com": "hotmail.com",
-      "hotmail.con": "hotmail.com",
-      "hotmail.co": "hotmail.com",
-      "hotmail.cm": "hotmail.com",
-      "hotmail.om": "hotmail.com",
+      "hotmai.com":
+        "hotmail.com",
+      "hotmal.com":
+        "hotmail.com",
+      "hotamil.com":
+        "hotmail.com",
+      "hotmail.con":
+        "hotmail.com",
+      "hotmail.co":
+        "hotmail.com",
+      "hotmail.cm":
+        "hotmail.com",
+      "hotmail.om":
+        "hotmail.com",
 
-      "outlok.com": "outlook.com",
-      "outloo.com": "outlook.com",
-      "outlook.con": "outlook.com",
-      "outlook.co": "outlook.com",
-      "outlook.cm": "outlook.com",
+      "outlok.com":
+        "outlook.com",
+      "outloo.com":
+        "outlook.com",
+      "outlook.con":
+        "outlook.com",
+      "outlook.co":
+        "outlook.com",
+      "outlook.cm":
+        "outlook.com",
 
       "yaho.com": "yahoo.com",
       "yahho.com": "yahoo.com",
-      "yahoo.con": "yahoo.com",
-      "yahoo.co": "yahoo.com",
-      "yahoo.cm": "yahoo.com",
+      "yahoo.con":
+        "yahoo.com",
+      "yahoo.co":
+        "yahoo.com",
+      "yahoo.cm":
+        "yahoo.com",
 
-      "iclod.com": "icloud.com",
-      "icoud.com": "icloud.com",
-      "icloud.con": "icloud.com",
-      "icloud.co": "icloud.com",
-      "icloud.cm": "icloud.com",
+      "iclod.com":
+        "icloud.com",
+      "icoud.com":
+        "icloud.com",
+      "icloud.con":
+        "icloud.com",
+      "icloud.co":
+        "icloud.com",
+      "icloud.cm":
+        "icloud.com",
     };
 
     const dominioCorreto =
@@ -238,6 +319,27 @@ export default function CampingPage() {
   }
 
   async function continuarParaResumo() {
+    /* ========================================
+       TRAVA DE SEGURANÇA
+
+       Mesmo que alguém tente acionar a função
+       manualmente, nenhuma nova reserva será
+       criada enquanto o Camping estiver
+       suspenso.
+    ======================================== */
+
+    if (
+      VENDAS_CAMPING_SUSPENSAS
+    ) {
+      alert(
+        "Camping temporariamente lotado.\n\n" +
+        "As novas reservas online estão suspensas no momento devido à lotação.\n\n" +
+        "A disponibilidade será reavaliada a partir de segunda-feira."
+      );
+
+      return;
+    }
+
     const nomeFinal =
       nome.trim();
 
@@ -272,11 +374,13 @@ export default function CampingPage() {
       return;
     }
 
-    /*
-     * BRASILEIRO
-     */
+    /* ========================================
+       BRASILEIRO
+    ======================================== */
+
     if (
-      tipoDocumento === "cpf"
+      tipoDocumento ===
+      "cpf"
     ) {
       if (!cpfLimpo) {
         alert(
@@ -287,7 +391,8 @@ export default function CampingPage() {
       }
 
       if (
-        cpfLimpo.length !== 11
+        cpfLimpo.length !==
+        11
       ) {
         alert(
           "CPF inválido. Digite os 11 números do CPF."
@@ -297,9 +402,10 @@ export default function CampingPage() {
       }
     }
 
-    /*
-     * ESTRANGEIRO
-     */
+    /* ========================================
+       ESTRANGEIRO
+    ======================================== */
+
     if (
       tipoDocumento ===
       "estrangeiro"
@@ -321,7 +427,8 @@ export default function CampingPage() {
       }
 
       if (
-        documentoFinal.length < 3
+        documentoFinal.length <
+        3
       ) {
         alert(
           "Documento inválido. Confira o número informado."
@@ -331,9 +438,10 @@ export default function CampingPage() {
       }
     }
 
-    /*
-     * E-MAIL
-     */
+    /* ========================================
+       E-MAIL
+    ======================================== */
+
     if (
       !emailTemFormatoValido(
         emailNormalizado
@@ -359,13 +467,16 @@ export default function CampingPage() {
         `Corrija o e-mail para continuar.`
       );
 
-      setEmail(emailSugerido);
+      setEmail(
+        emailSugerido
+      );
 
       return;
     }
 
     if (
-      email !== emailNormalizado
+      email !==
+      emailNormalizado
     ) {
       setEmail(
         emailNormalizado
@@ -386,7 +497,8 @@ export default function CampingPage() {
           nomeFinal,
 
         cpf:
-          tipoDocumento === "cpf"
+          tipoDocumento ===
+            "cpf"
             ? cpfLimpo
             : "",
 
@@ -396,7 +508,8 @@ export default function CampingPage() {
           documentoFinal,
 
         paisDocumento:
-          tipoDocumento === "cpf"
+          tipoDocumento ===
+            "cpf"
             ? "Brasil"
             : paisFinal,
 
@@ -418,9 +531,10 @@ export default function CampingPage() {
           diarias,
 
         /*
-         * Quantidade real de pessoas
-         * hospedadas.
+         * Quantidade real
+         * de pessoas hospedadas.
          */
+
         quantidadePessoas,
 
         /*
@@ -428,6 +542,7 @@ export default function CampingPage() {
          * conforme a estrutura atual
          * do Camping.
          */
+
         quantidade: 1,
 
         valorUnitario:
@@ -510,14 +625,10 @@ export default function CampingPage() {
           dataEntrada,
 
           diarias:
-            String(
-              diarias
-            ),
+            String(diarias),
 
           noites:
-            String(
-              diarias
-            ),
+            String(diarias),
 
           quantidadePessoas:
             String(
@@ -568,103 +679,171 @@ export default function CampingPage() {
       <div className="absolute inset-0 bg-black/45" />
 
       <div className="relative z-10 mx-auto max-w-6xl">
+
+        {/* ======================================
+            CABEÇALHO
+        ====================================== */}
+
         <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+
             <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
+
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
                 className="w-full max-w-[140px] rounded-xl"
               />
+
             </div>
 
             <div>
+
               <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
                 Camping
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
-                Reserve sua experiência de
-                camping no Parque Mundo Novo.
+                Reserve sua experiência de camping no Parque Mundo Novo.
               </p>
 
               <p className="mt-3 text-sm text-white/80">
-                O QR Code da reserva será
-                liberado após confirmação do
-                pagamento.
+                O QR Code da reserva será liberado após confirmação do pagamento.
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🔒 Compra segura via Pix ou
-                  cartão, com confirmação
-                  automática.
+                  🔒 Compra segura via Pix ou cartão, com confirmação automática.
                 </div>
 
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
-                  🌎 Visitantes estrangeiros
-                  podem reservar sem CPF
-                  brasileiro.
+                  🌎 Visitantes estrangeiros podem reservar sem CPF brasileiro.
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         </section>
 
+        {/* ======================================
+            AVISO DE LOTAÇÃO
+        ====================================== */}
+
+        {VENDAS_CAMPING_SUSPENSAS && (
+          <section className="mt-6 rounded-3xl border-2 border-amber-300 bg-amber-50 p-6 text-gray-900 shadow-2xl">
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+
+              <div className="text-4xl">
+                🏕️
+              </div>
+
+              <div>
+
+                <p className="text-sm font-black uppercase tracking-wider text-amber-700">
+                  Aviso de lotação
+                </p>
+
+                <h2 className="mt-1 text-2xl font-black text-red-700 sm:text-3xl">
+                  Camping temporariamente lotado
+                </h2>
+
+                <p className="mt-3 text-base leading-relaxed text-gray-700">
+                  Devido à lotação do camping, as
+                  <strong> novas reservas online estão temporariamente suspensas</strong>.
+                </p>
+
+                <p className="mt-2 text-base leading-relaxed text-gray-700">
+                  A disponibilidade será reavaliada
+                  <strong> a partir de segunda-feira</strong>.
+                </p>
+
+                <p className="mt-3 rounded-xl bg-green-100 p-3 text-sm font-semibold text-green-900">
+                  ✅ Reservas já confirmadas continuam válidas normalmente.
+                </p>
+
+              </div>
+
+            </div>
+
+          </section>
+        )}
+
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+
+          {/* ======================================
+              FORMULÁRIO
+          ====================================== */}
+
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados da reserva
             </h2>
 
+            {VENDAS_CAMPING_SUSPENSAS && (
+              <div className="mb-6 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm leading-relaxed text-red-900">
+
+                <p className="font-black">
+                  🚫 Novas reservas suspensas
+                </p>
+
+                <p className="mt-2">
+                  O formulário permanece disponível apenas para consulta de valores e informações.
+                </p>
+
+                <p className="mt-1">
+                  Não será possível gerar uma nova reserva ou pagamento enquanto o Camping estiver lotado.
+                </p>
+
+              </div>
+            )}
+
             <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
+
               <p className="mb-2 font-black">
                 🏕️ Informações importantes
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
+
                 <li>
-                  O camping pertence ao Parque
-                  Mundo Novo e utiliza voucher
-                  próprio.
+                  O camping pertence ao Parque Mundo Novo e utiliza voucher próprio.
                 </li>
 
                 <li>
-                  A diária inclui acesso ao parque
-                  durante o período contratado.
+                  A diária inclui acesso ao parque durante o período contratado.
                 </li>
 
                 <li>
-                  O voucher deverá ser apresentado
-                  no check-in juntamente com um
-                  documento oficial de
-                  identificação.
+                  O voucher deverá ser apresentado no check-in juntamente com um documento oficial de identificação.
                 </li>
 
                 <li>
-                  Visitantes estrangeiros podem
-                  apresentar documento nacional de
-                  identidade, passaporte ou outro
-                  documento oficial.
+                  Visitantes estrangeiros podem apresentar documento nacional de identidade, passaporte ou outro documento oficial.
                 </li>
 
                 <li>
-                  Permanências superiores às
-                  diárias contratadas deverão ser
-                  regularizadas diretamente na
-                  recepção do parque.
+                  Permanências superiores às diárias contratadas deverão ser regularizadas diretamente na recepção do parque.
                 </li>
 
                 <li>
-                  Motorhomes são aceitos conforme
-                  disponibilidade e orientação da
-                  equipe do parque.
+                  Motorhomes são aceitos conforme disponibilidade e orientação da equipe do parque.
                 </li>
+
               </ul>
+
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
               <Campo label="Nome completo">
+
                 <input
                   type="text"
                   value={nome}
@@ -677,9 +856,11 @@ export default function CampingPage() {
                   autoComplete="name"
                   className={inputClass}
                 />
+
               </Campo>
 
               <Campo label="Nacionalidade / documento">
+
                 <select
                   value={
                     tipoDocumento
@@ -695,7 +876,9 @@ export default function CampingPage() {
 
                     setCpf("");
 
-                    setPaisDocumento("");
+                    setPaisDocumento(
+                      ""
+                    );
 
                     setDocumentoEstrangeiro(
                       ""
@@ -709,6 +892,7 @@ export default function CampingPage() {
                     inputClass
                   }
                 >
+
                   <option value="cpf">
                     Brasileiro — CPF
                   </option>
@@ -716,12 +900,16 @@ export default function CampingPage() {
                   <option value="estrangeiro">
                     Estrangeiro — Documento de identificação
                   </option>
+
                 </select>
+
               </Campo>
 
               {tipoDocumento ===
                 "cpf" ? (
+
                 <Campo label="CPF">
+
                   <input
                     type="text"
                     value={cpf}
@@ -745,10 +933,15 @@ export default function CampingPage() {
                       inputClass
                     }
                   />
+
                 </Campo>
+
               ) : (
+
                 <>
+
                   <Campo label="País de origem">
+
                     <input
                       type="text"
                       value={
@@ -770,12 +963,13 @@ export default function CampingPage() {
                     />
 
                     <p className="mt-2 text-xs text-gray-500">
-                      Informe o país do documento
-                      utilizado na reserva.
+                      Informe o país do documento utilizado na reserva.
                     </p>
+
                   </Campo>
 
                   <Campo label="Tipo de documento">
+
                     <select
                       value={
                         tipoDocumentoEstrangeiro
@@ -790,6 +984,7 @@ export default function CampingPage() {
                         inputClass
                       }
                     >
+
                       <option value="identidade_nacional">
                         Documento nacional de identidade
                       </option>
@@ -801,10 +996,13 @@ export default function CampingPage() {
                       <option value="outro">
                         Outro documento oficial
                       </option>
+
                     </select>
+
                   </Campo>
 
                   <Campo label="Número do documento">
+
                     <input
                       type="text"
                       value={
@@ -828,16 +1026,17 @@ export default function CampingPage() {
                     />
 
                     <p className="mt-2 text-xs text-gray-500">
-                      Digite exatamente como
-                      aparece no documento.
-                      Letras, números e hífens são
-                      aceitos.
+                      Digite exatamente como aparece no documento. Letras, números e hífens são aceitos.
                     </p>
+
                   </Campo>
+
                 </>
+
               )}
 
               <Campo label="Telefone / WhatsApp">
+
                 <input
                   type="tel"
                   value={telefone}
@@ -853,20 +1052,24 @@ export default function CampingPage() {
                       : "Digite seu telefone"
                   }
                   autoComplete="tel"
-                  className={inputClass}
+                  className={
+                    inputClass
+                  }
                 />
 
                 {tipoDocumento ===
                   "estrangeiro" && (
+
                     <p className="mt-2 text-xs text-gray-500">
-                      Pode informar telefone
-                      internacional com código do
-                      país.
+                      Pode informar telefone internacional com código do país.
                     </p>
+
                   )}
+
               </Campo>
 
               <Campo label="E-mail">
+
                 <input
                   type="email"
                   value={email}
@@ -888,17 +1091,19 @@ export default function CampingPage() {
                   inputMode="email"
                   autoComplete="email"
                   placeholder="Digite seu e-mail"
-                  className={inputClass}
+                  className={
+                    inputClass
+                  }
                 />
 
                 <p className="mt-2 text-xs text-gray-500">
-                  Confira o e-mail. O voucher
-                  também será enviado para este
-                  endereço.
+                  Confira o e-mail. O voucher também será enviado para este endereço.
                 </p>
+
               </Campo>
 
               <Campo label="Data de entrada">
+
                 <input
                   type="date"
                   value={dataEntrada}
@@ -907,20 +1112,29 @@ export default function CampingPage() {
                       e.target.value
                     )
                   }
-                  className={inputClass}
+                  className={
+                    inputClass
+                  }
                 />
+
               </Campo>
 
               <Campo label="Tipo de camping">
+
                 <select
-                  value={tipoCamping}
+                  value={
+                    tipoCamping
+                  }
                   onChange={(e) =>
                     setTipoCamping(
                       e.target.value
                     )
                   }
-                  className={inputClass}
+                  className={
+                    inputClass
+                  }
                 >
+
                   <option>
                     Barraca
                   </option>
@@ -928,11 +1142,15 @@ export default function CampingPage() {
                   <option>
                     Motorhome
                   </option>
+
                 </select>
+
               </Campo>
 
               <Campo label="Quantidade de pessoas">
+
                 <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
+
                   <button
                     type="button"
                     onClick={() =>
@@ -969,11 +1187,15 @@ export default function CampingPage() {
                   >
                     +
                   </button>
+
                 </div>
+
               </Campo>
 
               <Campo label="Quantidade de diárias">
+
                 <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
+
                   <button
                     type="button"
                     onClick={() =>
@@ -1010,39 +1232,48 @@ export default function CampingPage() {
                   >
                     +
                   </button>
+
                 </div>
+
               </Campo>
+
             </div>
 
             {tipoDocumento ===
               "estrangeiro" && (
+
                 <div className="mt-6 rounded-2xl border border-cyan-300 bg-cyan-50 p-4 text-sm leading-relaxed text-cyan-950">
+
                   <p className="font-black">
                     🌎 Visitante estrangeiro
                   </p>
 
                   <p className="mt-2">
-                    Não é necessário possuir CPF
-                    brasileiro para realizar a
-                    reserva do camping.
+                    Não é necessário possuir CPF brasileiro para realizar a reserva do camping.
                   </p>
 
                   <p className="mt-2">
-                    Informe seu país e um documento
-                    oficial de identificação. O
-                    documento deverá ser apresentado
-                    no check-in.
+                    Informe seu país e um documento oficial de identificação. O documento deverá ser apresentado no check-in.
                   </p>
+
                 </div>
+
               )}
+
           </div>
 
+          {/* ======================================
+              RESUMO
+          ====================================== */}
+
           <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Resumo
             </h2>
 
             <div className="space-y-3 text-base">
+
               <p>
                 <strong>
                   Produto:
@@ -1099,18 +1330,20 @@ export default function CampingPage() {
               {tipoDocumento ===
                 "estrangeiro" &&
                 paisDocumento && (
+
                   <p>
                     <strong>
                       País:
                     </strong>{" "}
                     {paisDocumento}
                   </p>
+
                 )}
 
               <p className="text-sm text-gray-500">
-                1ª diária R$ 100,00 +
-                demais R$ 80,00 por pessoa.
+                1ª diária R$ 100,00 + demais R$ 80,00 por pessoa.
               </p>
+
             </div>
 
             <hr className="my-6 border-gray-300" />
@@ -1119,35 +1352,57 @@ export default function CampingPage() {
               {valorTotalFormatado}
             </p>
 
-            <button
-              type="button"
-              onClick={
-                continuarParaResumo
-              }
-              disabled={salvando}
-              className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {salvando
-                ? "Salvando pedido..."
-                : "Continuar para pagamento"}
-            </button>
+            {VENDAS_CAMPING_SUSPENSAS ? (
+
+              <div>
+
+                <button
+                  type="button"
+                  disabled
+                  className="w-full cursor-not-allowed rounded-2xl bg-gray-400 px-5 py-4 text-lg font-bold text-white shadow-lg opacity-90"
+                >
+                  🏕️ Camping temporariamente lotado
+                </button>
+
+                <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold leading-relaxed text-amber-900">
+                  Novas reservas online estão suspensas devido à lotação. A disponibilidade será reavaliada a partir de segunda-feira.
+                </p>
+
+              </div>
+
+            ) : (
+
+              <button
+                type="button"
+                onClick={
+                  continuarParaResumo
+                }
+                disabled={
+                  salvando
+                }
+                className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {salvando
+                  ? "Salvando pedido..."
+                  : "Continuar para pagamento"}
+              </button>
+
+            )}
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              A reserva será liberada somente
-              após confirmação automática do
-              pagamento.
+              A reserva será liberada somente após confirmação automática do pagamento.
             </p>
 
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
-              Ao prosseguir com a compra, você
-              declara estar ciente das regras de
-              utilização, da política de
-              cancelamento e das informações
-              específicas da reserva de camping.
+              Ao prosseguir com a compra, você declara estar ciente das regras de utilização, da política de cancelamento e das informações específicas da reserva de camping.
             </p>
+
           </aside>
+
         </section>
+
       </div>
+
     </main>
   );
 }
@@ -1161,11 +1416,13 @@ function Campo({
 }) {
   return (
     <div>
+
       <label className="mb-2 block font-semibold text-gray-700">
         {label}
       </label>
 
       {children}
+
     </div>
   );
 }
