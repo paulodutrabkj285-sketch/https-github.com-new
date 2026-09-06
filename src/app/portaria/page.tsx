@@ -721,11 +721,26 @@ export default function PortariaPage() {
             return 1;
         }
 
+        const produto =
+            String(
+                item.produto ||
+                item.tipo ||
+                ""
+            ).toLowerCase();
+
         const quantidade =
             Number(
-                item.quantidade ||
-                item.quantidadePessoas ||
-                1
+                produto.includes("camping")
+                    ? (
+                        item.quantidadePessoas ||
+                        item.quantidade ||
+                        1
+                    )
+                    : (
+                        item.quantidade ||
+                        item.quantidadePessoas ||
+                        1
+                    )
             );
 
         if (
