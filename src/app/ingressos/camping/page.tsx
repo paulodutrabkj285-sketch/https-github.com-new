@@ -20,7 +20,7 @@ import { criarPedido } from "@/lib/pedidos";
    basta alterar para false.
 ========================================== */
 
-const VENDAS_CAMPING_SUSPENSAS = true;
+const VENDAS_CAMPING_SUSPENSAS = false;
 
 type TipoDocumento =
   | "cpf"
