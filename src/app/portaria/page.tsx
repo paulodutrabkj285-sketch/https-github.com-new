@@ -55,6 +55,8 @@ const FUNCIONARIOS = [
     "PEDRO",
     "FRANCISCO",
     "Perteson",
+    "Matheus matias",
+
 ];
 
 /* ======================================
