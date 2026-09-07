@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { useRouter } from "next/navigation";
+
 import { criarPedido } from "@/lib/pedidos";
 
 /* ==========================================
@@ -103,6 +104,40 @@ export default function CampingPage() {
     setSalvando,
   ] =
     useState(false);
+
+  /*
+   * Data mínima permitida para
+   * entrada no Camping.
+   *
+   * Hoje e datas futuras são
+   * permitidas.
+   */
+  const dataMinimaEntrada =
+    useMemo(() => {
+      const agora =
+        new Date();
+
+      const ano =
+        agora.getFullYear();
+
+      const mes =
+        String(
+          agora.getMonth() + 1
+        ).padStart(
+          2,
+          "0"
+        );
+
+      const dia =
+        String(
+          agora.getDate()
+        ).padStart(
+          2,
+          "0"
+        );
+
+      return `${ano}-${mes}-${dia}`;
+    }, []);
 
   const valorPrimeiraDiaria =
     100;
@@ -375,6 +410,23 @@ export default function CampingPage() {
     }
 
     /* ========================================
+       DATA DE ENTRADA
+    ======================================== */
+
+    if (
+      dataEntrada <
+      dataMinimaEntrada
+    ) {
+      alert(
+        "A data de entrada não pode ser anterior a hoje.\n\nEscolha a data de hoje ou uma data futura."
+      );
+
+      setDataEntrada("");
+
+      return;
+    }
+
+    /* ========================================
        BRASILEIRO
     ======================================== */
 
@@ -534,7 +586,6 @@ export default function CampingPage() {
          * Quantidade real
          * de pessoas hospedadas.
          */
-
         quantidadePessoas,
 
         /*
@@ -542,7 +593,6 @@ export default function CampingPage() {
          * conforme a estrutura atual
          * do Camping.
          */
-
         quantidade: 1,
 
         valorUnitario:
@@ -735,6 +785,7 @@ export default function CampingPage() {
         ====================================== */}
 
         {VENDAS_CAMPING_SUSPENSAS && (
+
           <section className="mt-6 rounded-3xl border-2 border-amber-300 bg-amber-50 p-6 text-gray-900 shadow-2xl">
 
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -754,13 +805,19 @@ export default function CampingPage() {
                 </h2>
 
                 <p className="mt-3 text-base leading-relaxed text-gray-700">
-                  Devido à lotação do camping, as
-                  <strong> novas reservas online estão temporariamente suspensas</strong>.
+                  Devido à lotação do camping, as{" "}
+                  <strong>
+                    novas reservas online estão temporariamente suspensas
+                  </strong>
+                  .
                 </p>
 
                 <p className="mt-2 text-base leading-relaxed text-gray-700">
-                  A disponibilidade será reavaliada
-                  <strong> a partir de segunda-feira</strong>.
+                  A disponibilidade será reavaliada{" "}
+                  <strong>
+                    a partir de segunda-feira
+                  </strong>
+                  .
                 </p>
 
                 <p className="mt-3 rounded-xl bg-green-100 p-3 text-sm font-semibold text-green-900">
@@ -772,6 +829,7 @@ export default function CampingPage() {
             </div>
 
           </section>
+
         )}
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
@@ -787,6 +845,7 @@ export default function CampingPage() {
             </h2>
 
             {VENDAS_CAMPING_SUSPENSAS && (
+
               <div className="mb-6 rounded-2xl border border-red-300 bg-red-50 p-4 text-sm leading-relaxed text-red-900">
 
                 <p className="font-black">
@@ -802,6 +861,7 @@ export default function CampingPage() {
                 </p>
 
               </div>
+
             )}
 
             <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
@@ -1107,6 +1167,7 @@ export default function CampingPage() {
                 <input
                   type="date"
                   value={dataEntrada}
+                  min={dataMinimaEntrada}
                   onChange={(e) =>
                     setDataEntrada(
                       e.target.value
@@ -1116,6 +1177,10 @@ export default function CampingPage() {
                     inputClass
                   }
                 />
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Selecione a data de hoje ou uma data futura.
+                </p>
 
               </Campo>
 
@@ -1382,9 +1447,11 @@ export default function CampingPage() {
                 }
                 className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
               >
+
                 {salvando
                   ? "Salvando pedido..."
                   : "Continuar para pagamento"}
+
               </button>
 
             )}

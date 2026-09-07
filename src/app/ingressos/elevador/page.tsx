@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { useRouter } from "next/navigation";
+
 import { criarPedido } from "@/lib/pedidos";
 
 type TipoDocumento = "cpf" | "estrangeiro";
@@ -42,8 +43,12 @@ export default function ElevadorPage() {
     setDocumentoEstrangeiro,
   ] = useState("");
 
-  const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] =
+    useState("");
+
+  const [email, setEmail] =
+    useState("");
+
   const [dataVisita, setDataVisita] =
     useState("");
 
@@ -52,6 +57,33 @@ export default function ElevadorPage() {
 
   const [salvando, setSalvando] =
     useState(false);
+
+  const dataMinimaVisita =
+    useMemo(() => {
+      const agora =
+        new Date();
+
+      const ano =
+        agora.getFullYear();
+
+      const mes =
+        String(
+          agora.getMonth() + 1
+        ).padStart(
+          2,
+          "0"
+        );
+
+      const dia =
+        String(
+          agora.getDate()
+        ).padStart(
+          2,
+          "0"
+        );
+
+      return `${ano}-${mes}-${dia}`;
+    }, []);
 
   const valorUnitario = 75;
 
@@ -130,7 +162,6 @@ export default function ElevadorPage() {
       string,
       string
     > = {
-      // Gmail
       "gmai.com": "gmail.com",
       "gmial.com": "gmail.com",
       "gamil.com": "gmail.com",
@@ -142,7 +173,6 @@ export default function ElevadorPage() {
       "gmail.comm": "gmail.com",
       "gmail.com.br": "gmail.com",
 
-      // Hotmail
       "hotmai.com": "hotmail.com",
       "hotmal.com": "hotmail.com",
       "hotamil.com": "hotmail.com",
@@ -151,21 +181,18 @@ export default function ElevadorPage() {
       "hotmail.cm": "hotmail.com",
       "hotmail.om": "hotmail.com",
 
-      // Outlook
       "outlok.com": "outlook.com",
       "outloo.com": "outlook.com",
       "outlook.con": "outlook.com",
       "outlook.co": "outlook.com",
       "outlook.cm": "outlook.com",
 
-      // Yahoo
       "yaho.com": "yahoo.com",
       "yahho.com": "yahoo.com",
       "yahoo.con": "yahoo.com",
       "yahoo.co": "yahoo.com",
       "yahoo.cm": "yahoo.com",
 
-      // iCloud
       "iclod.com": "icloud.com",
       "icoud.com": "icloud.com",
       "icloud.con": "icloud.com",
@@ -202,7 +229,8 @@ export default function ElevadorPage() {
   }
 
   async function continuarParaResumo() {
-    const nomeFinal = nome.trim();
+    const nomeFinal =
+      nome.trim();
 
     const cpfLimpo =
       limparCpf(cpf);
@@ -231,6 +259,19 @@ export default function ElevadorPage() {
       alert(
         "Preencha todos os campos antes de continuar."
       );
+
+      return;
+    }
+
+    if (
+      dataVisita <
+      dataMinimaVisita
+    ) {
+      alert(
+        "A data da visita não pode ser anterior a hoje.\n\nEscolha a data de hoje ou uma data futura."
+      );
+
+      setDataVisita("");
 
       return;
     }
@@ -338,25 +379,6 @@ export default function ElevadorPage() {
 
     try {
       setSalvando(true);
-
-      /*
-       * BRASILEIRO:
-       *
-       * tipoDocumento = cpf
-       * cpf = CPF
-       * documento = CPF
-       * paisDocumento = Brasil
-       *
-       *
-       * ESTRANGEIRO:
-       *
-       * tipoDocumento = estrangeiro
-       * cpf = ""
-       * documento = documento informado
-       * paisDocumento = país informado
-       * tipoDocumentoEstrangeiro =
-       * identidade_nacional / passaporte / outro
-       */
 
       const dadosPedido = {
         produto:
@@ -521,17 +543,23 @@ export default function ElevadorPage() {
       <div className="absolute inset-0 bg-black/45" />
 
       <div className="relative z-10 mx-auto max-w-6xl">
+
         <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+
             <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
+
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
                 className="w-full max-w-[140px] rounded-xl"
               />
+
             </div>
 
             <div>
+
               <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
                 Elevador Panorâmico
               </h1>
@@ -549,6 +577,7 @@ export default function ElevadorPage() {
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
                   🔒 Compra segura via Pix ou
                   cartão, com confirmação
@@ -560,23 +589,31 @@ export default function ElevadorPage() {
                   podem comprar sem CPF
                   brasileiro.
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         </section>
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados da compra
             </h2>
 
             <div className="mb-6 rounded-2xl border border-orange-300 bg-orange-50 p-4 text-sm leading-relaxed text-orange-950">
+
               <p className="mb-2 font-black">
                 ⚠️ Atenção
               </p>
 
               <ul className="list-disc space-y-2 pl-5">
+
                 <li>
                   Este ingresso é válido
                   exclusivamente para o{" "}
@@ -598,11 +635,15 @@ export default function ElevadorPage() {
                   ingresso válido de acesso ao
                   parque.
                 </li>
+
               </ul>
+
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
               <Campo label="Nome completo">
+
                 <input
                   type="text"
                   value={nome}
@@ -615,9 +656,11 @@ export default function ElevadorPage() {
                   autoComplete="name"
                   className={inputClass}
                 />
+
               </Campo>
 
               <Campo label="Nacionalidade / documento">
+
                 <select
                   value={
                     tipoDocumento
@@ -647,6 +690,7 @@ export default function ElevadorPage() {
                     inputClass
                   }
                 >
+
                   <option value="cpf">
                     Brasileiro — CPF
                   </option>
@@ -655,12 +699,16 @@ export default function ElevadorPage() {
                     Estrangeiro — Documento de
                     identificação
                   </option>
+
                 </select>
+
               </Campo>
 
               {tipoDocumento ===
                 "cpf" ? (
+
                 <Campo label="CPF">
+
                   <input
                     type="text"
                     value={cpf}
@@ -684,10 +732,15 @@ export default function ElevadorPage() {
                       inputClass
                     }
                   />
+
                 </Campo>
+
               ) : (
+
                 <>
+
                   <Campo label="País de origem">
+
                     <input
                       type="text"
                       value={
@@ -712,9 +765,11 @@ export default function ElevadorPage() {
                       Informe o país do documento
                       utilizado na compra.
                     </p>
+
                   </Campo>
 
                   <Campo label="Tipo de documento">
+
                     <select
                       value={
                         tipoDocumentoEstrangeiro
@@ -729,6 +784,7 @@ export default function ElevadorPage() {
                         inputClass
                       }
                     >
+
                       <option value="identidade_nacional">
                         Documento nacional de
                         identidade
@@ -741,10 +797,13 @@ export default function ElevadorPage() {
                       <option value="outro">
                         Outro documento oficial
                       </option>
+
                     </select>
+
                   </Campo>
 
                   <Campo label="Número do documento">
+
                     <input
                       type="text"
                       value={
@@ -773,11 +832,15 @@ export default function ElevadorPage() {
                       Letras, números e hífens são
                       aceitos.
                     </p>
+
                   </Campo>
+
                 </>
+
               )}
 
               <Campo label="Telefone / WhatsApp">
+
                 <input
                   type="tel"
                   value={telefone}
@@ -798,15 +861,19 @@ export default function ElevadorPage() {
 
                 {tipoDocumento ===
                   "estrangeiro" && (
+
                     <p className="mt-2 text-xs text-gray-500">
                       Pode informar telefone
                       internacional com código do
                       país.
                     </p>
+
                   )}
+
               </Campo>
 
               <Campo label="E-mail">
+
                 <input
                   type="email"
                   value={email}
@@ -836,12 +903,15 @@ export default function ElevadorPage() {
                   também será enviado para este
                   endereço.
                 </p>
+
               </Campo>
 
               <Campo label="Data da visita">
+
                 <input
                   type="date"
                   value={dataVisita}
+                  min={dataMinimaVisita}
                   onChange={(e) =>
                     setDataVisita(
                       e.target.value
@@ -849,10 +919,18 @@ export default function ElevadorPage() {
                   }
                   className={inputClass}
                 />
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Selecione a data de hoje ou uma
+                  data futura.
+                </p>
+
               </Campo>
 
               <Campo label="Quantidade de ingressos">
+
                 <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
+
                   <button
                     type="button"
                     onClick={() =>
@@ -889,13 +967,18 @@ export default function ElevadorPage() {
                   >
                     +
                   </button>
+
                 </div>
+
               </Campo>
+
             </div>
 
             {tipoDocumento ===
               "estrangeiro" && (
+
                 <div className="mt-6 rounded-2xl border border-cyan-300 bg-cyan-50 p-4 text-sm leading-relaxed text-cyan-950">
+
                   <p className="font-black">
                     🌎 Visitante estrangeiro
                   </p>
@@ -913,16 +996,21 @@ export default function ElevadorPage() {
                     identidade, passaporte ou outro
                     documento oficial.
                   </p>
+
                 </div>
+
               )}
+
           </div>
 
           <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Resumo
             </h2>
 
             <div className="space-y-3 text-base">
+
               <p>
                 <strong>
                   Produto:
@@ -965,13 +1053,16 @@ export default function ElevadorPage() {
               {tipoDocumento ===
                 "estrangeiro" &&
                 paisDocumento && (
+
                   <p>
                     <strong>
                       País:
                     </strong>{" "}
                     {paisDocumento}
                   </p>
+
                 )}
+
             </div>
 
             <hr className="my-6 border-gray-300" />
@@ -988,9 +1079,11 @@ export default function ElevadorPage() {
               disabled={salvando}
               className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
+
               {salvando
                 ? "Salvando pedido..."
                 : "Continuar para pagamento"}
+
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
@@ -1006,9 +1099,13 @@ export default function ElevadorPage() {
               cancelamento e das informações
               específicas do ingresso selecionado.
             </p>
+
           </aside>
+
         </section>
+
       </div>
+
     </main>
   );
 }
@@ -1022,11 +1119,13 @@ function Campo({
 }) {
   return (
     <div>
+
       <label className="mb-2 block font-semibold text-gray-700">
         {label}
       </label>
 
       {children}
+
     </div>
   );
 }

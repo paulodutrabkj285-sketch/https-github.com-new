@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { criarPedido } from "@/lib/pedidos";
 
 type TipoDocumento = "cpf" | "estrangeiro";
+
 type TipoDocumentoEstrangeiro =
   | "identidade_nacional"
   | "passaporte"
@@ -14,11 +15,23 @@ export default function ParquePage() {
   const router = useRouter();
 
   const [nome, setNome] = useState("");
-  const [tipoDocumento, setTipoDocumento] =
-    useState<TipoDocumento>("cpf");
-  const [cpf, setCpf] = useState("");
 
-  const [paisDocumento, setPaisDocumento] = useState("");
+  const [
+    tipoDocumento,
+    setTipoDocumento,
+  ] =
+    useState<TipoDocumento>(
+      "cpf"
+    );
+
+  const [cpf, setCpf] =
+    useState("");
+
+  const [
+    paisDocumento,
+    setPaisDocumento,
+  ] =
+    useState("");
 
   const [
     tipoDocumentoEstrangeiro,
@@ -31,56 +44,166 @@ export default function ParquePage() {
   const [
     documentoEstrangeiro,
     setDocumentoEstrangeiro,
-  ] = useState("");
+  ] =
+    useState("");
 
-  const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
-  const [dataVisita, setDataVisita] = useState("");
-  const [quantidade, setQuantidade] = useState(1);
-  const [salvando, setSalvando] = useState(false);
+  const [
+    telefone,
+    setTelefone,
+  ] =
+    useState("");
 
-  const valorUnitario = 60;
+  const [
+    email,
+    setEmail,
+  ] =
+    useState("");
 
-  const valorTotal = useMemo(
-    () => quantidade * valorUnitario,
-    [quantidade]
-  );
+  const [
+    dataVisita,
+    setDataVisita,
+  ] =
+    useState("");
+
+  const [
+    quantidade,
+    setQuantidade,
+  ] =
+    useState(1);
+
+  const [
+    salvando,
+    setSalvando,
+  ] =
+    useState(false);
+
+  /*
+   * DATA MÍNIMA PERMITIDA
+   *
+   * Usa a data local do aparelho
+   * do visitante.
+   *
+   * Exemplo:
+   * 2026-09-07
+   */
+  const dataMinimaVisita =
+    useMemo(
+      () => {
+        const agora =
+          new Date();
+
+        const ano =
+          agora.getFullYear();
+
+        const mes =
+          String(
+            agora.getMonth() +
+            1
+          ).padStart(
+            2,
+            "0"
+          );
+
+        const dia =
+          String(
+            agora.getDate()
+          ).padStart(
+            2,
+            "0"
+          );
+
+        return `${ano}-${mes}-${dia}`;
+      },
+      []
+    );
+
+  const valorUnitario =
+    60;
+
+  const valorTotal =
+    useMemo(
+      () =>
+        quantidade *
+        valorUnitario,
+      [
+        quantidade,
+      ]
+    );
 
   const valorUnitarioFormatado =
-    valorUnitario.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+    valorUnitario.toLocaleString(
+      "pt-BR",
+      {
+        style:
+          "currency",
+
+        currency:
+          "BRL",
+      }
+    );
 
   const valorTotalFormatado =
-    valorTotal.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+    valorTotal.toLocaleString(
+      "pt-BR",
+      {
+        style:
+          "currency",
 
-  function limparCpf(valor: string) {
-    return valor.replace(/\D/g, "");
+        currency:
+          "BRL",
+      }
+    );
+
+  function limparCpf(
+    valor:
+      string
+  ) {
+    return valor.replace(
+      /\D/g,
+      ""
+    );
   }
 
   function normalizarDocumentoEstrangeiro(
-    valor: string
+    valor:
+      string
   ) {
-    return String(valor || "")
+    return String(
+      valor ||
+      ""
+    )
       .trim()
       .toUpperCase()
-      .replace(/\s+/g, " ");
+      .replace(
+        /\s+/g,
+        " "
+      );
   }
 
-  function normalizarEmail(valor: string) {
-    return String(valor || "")
+  function normalizarEmail(
+    valor:
+      string
+  ) {
+    return String(
+      valor ||
+      ""
+    )
       .trim()
       .toLowerCase()
-      .replace(/\s+/g, "");
+      .replace(
+        /\s+/g,
+        ""
+      );
   }
 
-  function emailTemFormatoValido(valor: string) {
+  function emailTemFormatoValido(
+    valor:
+      string
+  ) {
     const emailNormalizado =
-      normalizarEmail(valor);
+      normalizarEmail(
+        valor
+      );
 
     const regexEmail =
       /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -91,67 +214,141 @@ export default function ParquePage() {
   }
 
   function sugerirCorrecaoEmail(
-    valor: string
+    valor:
+      string
   ) {
     const emailNormalizado =
-      normalizarEmail(valor);
+      normalizarEmail(
+        valor
+      );
 
     const partes =
-      emailNormalizado.split("@");
+      emailNormalizado.split(
+        "@"
+      );
 
-    if (partes.length !== 2) {
+    if (
+      partes.length !==
+      2
+    ) {
       return null;
     }
 
-    const usuario = partes[0];
-    const dominio = partes[1];
+    const usuario =
+      partes[0];
+
+    const dominio =
+      partes[1];
 
     const correcoes: Record<
       string,
       string
     > = {
-      "gmai.com": "gmail.com",
-      "gmial.com": "gmail.com",
-      "gamil.com": "gmail.com",
-      "gmail.con": "gmail.com",
-      "gmail.co": "gmail.com",
-      "gmail.cm": "gmail.com",
-      "gmail.om": "gmail.com",
-      "gmail.cim": "gmail.com",
-      "gmail.comm": "gmail.com",
-      "gmail.com.br": "gmail.com",
+      "gmai.com":
+        "gmail.com",
 
-      "hotmai.com": "hotmail.com",
-      "hotmal.com": "hotmail.com",
-      "hotamil.com": "hotmail.com",
-      "hotmail.con": "hotmail.com",
-      "hotmail.co": "hotmail.com",
-      "hotmail.cm": "hotmail.com",
-      "hotmail.om": "hotmail.com",
+      "gmial.com":
+        "gmail.com",
 
-      "outlok.com": "outlook.com",
-      "outloo.com": "outlook.com",
-      "outlook.con": "outlook.com",
-      "outlook.co": "outlook.com",
-      "outlook.cm": "outlook.com",
+      "gamil.com":
+        "gmail.com",
 
-      "yaho.com": "yahoo.com",
-      "yahho.com": "yahoo.com",
-      "yahoo.con": "yahoo.com",
-      "yahoo.co": "yahoo.com",
-      "yahoo.cm": "yahoo.com",
+      "gmail.con":
+        "gmail.com",
 
-      "iclod.com": "icloud.com",
-      "icoud.com": "icloud.com",
-      "icloud.con": "icloud.com",
-      "icloud.co": "icloud.com",
-      "icloud.cm": "icloud.com",
+      "gmail.co":
+        "gmail.com",
+
+      "gmail.cm":
+        "gmail.com",
+
+      "gmail.om":
+        "gmail.com",
+
+      "gmail.cim":
+        "gmail.com",
+
+      "gmail.comm":
+        "gmail.com",
+
+      "gmail.com.br":
+        "gmail.com",
+
+      "hotmai.com":
+        "hotmail.com",
+
+      "hotmal.com":
+        "hotmail.com",
+
+      "hotamil.com":
+        "hotmail.com",
+
+      "hotmail.con":
+        "hotmail.com",
+
+      "hotmail.co":
+        "hotmail.com",
+
+      "hotmail.cm":
+        "hotmail.com",
+
+      "hotmail.om":
+        "hotmail.com",
+
+      "outlok.com":
+        "outlook.com",
+
+      "outloo.com":
+        "outlook.com",
+
+      "outlook.con":
+        "outlook.com",
+
+      "outlook.co":
+        "outlook.com",
+
+      "outlook.cm":
+        "outlook.com",
+
+      "yaho.com":
+        "yahoo.com",
+
+      "yahho.com":
+        "yahoo.com",
+
+      "yahoo.con":
+        "yahoo.com",
+
+      "yahoo.co":
+        "yahoo.com",
+
+      "yahoo.cm":
+        "yahoo.com",
+
+      "iclod.com":
+        "icloud.com",
+
+      "icoud.com":
+        "icloud.com",
+
+      "icloud.con":
+        "icloud.com",
+
+      "icloud.co":
+        "icloud.com",
+
+      "icloud.cm":
+        "icloud.com",
     };
 
     const dominioCorreto =
-      correcoes[dominio];
+      correcoes[
+      dominio
+      ];
 
-    if (!dominioCorreto) {
+    if (
+      !dominioCorreto
+    ) {
       return null;
     }
 
@@ -159,19 +356,30 @@ export default function ParquePage() {
   }
 
   async function continuarParaResumo() {
-    const nomeFinal = nome.trim();
-    const cpfLimpo = limparCpf(cpf);
+    const nomeFinal =
+      nome.trim();
+
+    const cpfLimpo =
+      limparCpf(
+        cpf
+      );
 
     const documentoFinal =
-      tipoDocumento === "cpf"
+      tipoDocumento ===
+        "cpf"
         ? cpfLimpo
         : normalizarDocumentoEstrangeiro(
           documentoEstrangeiro
         );
 
     const emailNormalizado =
-      normalizarEmail(email);
+      normalizarEmail(
+        email
+      );
 
+    /*
+     * CAMPOS OBRIGATÓRIOS
+     */
     if (
       !nomeFinal ||
       !telefone.trim() ||
@@ -181,46 +389,99 @@ export default function ParquePage() {
       alert(
         "Preencha todos os campos antes de continuar."
       );
+
       return;
     }
 
-    if (tipoDocumento === "cpf") {
-      if (!cpfLimpo) {
+    /*
+     * PROTEÇÃO CONTRA DATA PASSADA
+     *
+     * Mesmo que alguém consiga
+     * digitar manualmente uma data
+     * antiga no navegador, o pedido
+     * não será criado.
+     */
+    if (
+      dataVisita <
+      dataMinimaVisita
+    ) {
+      alert(
+        "A data da visita não pode ser anterior a hoje.\n\nEscolha a data de hoje ou uma data futura."
+      );
+
+      setDataVisita(
+        ""
+      );
+
+      return;
+    }
+
+    /*
+     * DOCUMENTO BRASILEIRO
+     */
+    if (
+      tipoDocumento ===
+      "cpf"
+    ) {
+      if (
+        !cpfLimpo
+      ) {
         alert(
           "Informe o CPF do comprador."
         );
+
         return;
       }
 
-      if (cpfLimpo.length !== 11) {
+      if (
+        cpfLimpo.length !==
+        11
+      ) {
         alert(
           "CPF inválido. Digite os 11 números do CPF."
         );
+
         return;
       }
     } else {
-      if (!paisDocumento.trim()) {
+      /*
+       * DOCUMENTO ESTRANGEIRO
+       */
+      if (
+        !paisDocumento.trim()
+      ) {
         alert(
           "Informe o país do documento."
         );
+
         return;
       }
 
-      if (!documentoFinal) {
+      if (
+        !documentoFinal
+      ) {
         alert(
           "Informe o número do documento estrangeiro."
         );
+
         return;
       }
 
-      if (documentoFinal.length < 3) {
+      if (
+        documentoFinal.length <
+        3
+      ) {
         alert(
           "Documento estrangeiro inválido. Confira o número informado."
         );
+
         return;
       }
     }
 
+    /*
+     * VALIDAÇÃO DO E-MAIL
+     */
     if (
       !emailTemFormatoValido(
         emailNormalizado
@@ -229,6 +490,7 @@ export default function ParquePage() {
       alert(
         "E-mail inválido.\n\nConfira o endereço informado antes de continuar."
       );
+
       return;
     }
 
@@ -237,7 +499,9 @@ export default function ParquePage() {
         emailNormalizado
       );
 
-    if (emailSugerido) {
+    if (
+      emailSugerido
+    ) {
       alert(
         `Confira seu e-mail antes de continuar.\n\n` +
         `Você informou:\n${emailNormalizado}\n\n` +
@@ -245,45 +509,66 @@ export default function ParquePage() {
         `Corrija o e-mail para continuar.`
       );
 
-      setEmail(emailSugerido);
+      setEmail(
+        emailSugerido
+      );
+
       return;
     }
 
-    if (email !== emailNormalizado) {
-      setEmail(emailNormalizado);
+    if (
+      email !==
+      emailNormalizado
+    ) {
+      setEmail(
+        emailNormalizado
+      );
     }
 
     try {
-      setSalvando(true);
+      setSalvando(
+        true
+      );
 
-      const dadosPedido = {
-        produto: "Ingresso Parque",
-        tipo: "ingresso",
+      const dadosPedido =
+      {
+        produto:
+          "Ingresso Parque",
 
-        nome: nomeFinal,
+        tipo:
+          "ingresso",
+
+        nome:
+          nomeFinal,
 
         cpf:
-          tipoDocumento === "cpf"
+          tipoDocumento ===
+            "cpf"
             ? cpfLimpo
             : "",
 
         tipoDocumento,
 
-        documento: documentoFinal,
+        documento:
+          documentoFinal,
 
         paisDocumento:
-          tipoDocumento === "estrangeiro"
+          tipoDocumento ===
+            "estrangeiro"
             ? paisDocumento.trim()
             : "Brasil",
 
         tipoDocumentoEstrangeiro:
-          tipoDocumento === "estrangeiro"
+          tipoDocumento ===
+            "estrangeiro"
             ? tipoDocumentoEstrangeiro
             : "",
 
-        telefone: telefone.trim(),
+        telefone:
+          telefone.trim(),
 
-        email: emailNormalizado,
+        email:
+          emailNormalizado,
 
         dataVisita,
 
@@ -299,17 +584,23 @@ export default function ParquePage() {
         statusOperacional:
           "ativo",
 
-        pagbankCheckoutId: "",
+        pagbankCheckoutId:
+          "",
 
-        pagbankReferenceId: "",
+        pagbankReferenceId:
+          "",
 
-        pagbankPayUrl: "",
+        pagbankPayUrl:
+          "",
 
-        pagbankStatus: "",
+        pagbankStatus:
+          "",
 
-        codigoIngresso: "",
+        codigoIngresso:
+          "",
 
-        qrCodeIngresso: "",
+        qrCodeIngresso:
+          "",
       };
 
       const pedidoId =
@@ -318,64 +609,73 @@ export default function ParquePage() {
         );
 
       const params =
-        new URLSearchParams({
-          pedidoId,
+        new URLSearchParams(
+          {
+            pedidoId,
 
-          produto:
-            "Ingresso Parque",
+            produto:
+              "Ingresso Parque",
 
-          tipo:
-            "ingresso",
+            tipo:
+              "ingresso",
 
-          nome:
-            nomeFinal,
+            nome:
+              nomeFinal,
 
-          cpf:
-            tipoDocumento === "cpf"
-              ? cpfLimpo
-              : "",
+            cpf:
+              tipoDocumento ===
+                "cpf"
+                ? cpfLimpo
+                : "",
 
-          tipoDocumento,
+            tipoDocumento,
 
-          documento:
-            documentoFinal,
+            documento:
+              documentoFinal,
 
-          paisDocumento:
-            tipoDocumento ===
-              "estrangeiro"
-              ? paisDocumento.trim()
-              : "Brasil",
+            paisDocumento:
+              tipoDocumento ===
+                "estrangeiro"
+                ? paisDocumento.trim()
+                : "Brasil",
 
-          tipoDocumentoEstrangeiro:
-            tipoDocumento ===
-              "estrangeiro"
-              ? tipoDocumentoEstrangeiro
-              : "",
+            tipoDocumentoEstrangeiro:
+              tipoDocumento ===
+                "estrangeiro"
+                ? tipoDocumentoEstrangeiro
+                : "",
 
-          telefone:
-            telefone.trim(),
+            telefone:
+              telefone.trim(),
 
-          email:
-            emailNormalizado,
+            email:
+              emailNormalizado,
 
-          dataVisita,
+            dataVisita,
 
-          quantidade:
-            String(quantidade),
+            quantidade:
+              String(
+                quantidade
+              ),
 
-          valorUnitario:
-            String(
-              valorUnitario
-            ),
+            valorUnitario:
+              String(
+                valorUnitario
+              ),
 
-          valorTotal:
-            String(valorTotal),
-        });
+            valorTotal:
+              String(
+                valorTotal
+              ),
+          }
+        );
 
       router.push(
         `/checkout/resumo?${params.toString()}`
       );
-    } catch (error) {
+    } catch (
+    error
+    ) {
       console.error(
         "Erro ao salvar pedido:",
         error
@@ -385,7 +685,9 @@ export default function ParquePage() {
         "Não foi possível salvar o pedido."
       );
     } finally {
-      setSalvando(false);
+      setSalvando(
+        false
+      );
     }
   }
 
@@ -560,9 +862,13 @@ export default function ParquePage() {
                       novoTipo
                     );
 
-                    setCpf("");
+                    setCpf(
+                      ""
+                    );
 
-                    setPaisDocumento("");
+                    setPaisDocumento(
+                      ""
+                    );
 
                     setTipoDocumentoEstrangeiro(
                       "identidade_nacional"
@@ -760,7 +1066,9 @@ export default function ParquePage() {
                   }
                   autoCapitalize="none"
                   autoCorrect="off"
-                  spellCheck={false}
+                  spellCheck={
+                    false
+                  }
                   inputMode="email"
                   autoComplete="email"
                   placeholder="Digite seu e-mail"
@@ -780,14 +1088,28 @@ export default function ParquePage() {
 
                 <input
                   type="date"
-                  value={dataVisita}
+                  value={
+                    dataVisita
+                  }
+                  min={
+                    dataMinimaVisita
+                  }
                   onChange={(e) =>
                     setDataVisita(
-                      e.target.value
+                      e.target
+                        .value
                     )
                   }
-                  className={inputClass}
+                  className={
+                    inputClass
+                  }
                 />
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Selecione a data de
+                  hoje ou uma data
+                  futura.
+                </p>
 
               </Campo>
 
@@ -799,31 +1121,43 @@ export default function ParquePage() {
                     type="button"
                     onClick={() =>
                       setQuantidade(
-                        (q) =>
+                        (
+                          q
+                        ) =>
                           Math.max(
                             1,
-                            q - 1
+                            q -
+                            1
                           )
                       )
                     }
-                    className={contadorClass}
+                    className={
+                      contadorClass
+                    }
                   >
                     -
                   </button>
 
                   <span className="text-2xl font-bold text-gray-900">
-                    {quantidade}
+                    {
+                      quantidade
+                    }
                   </span>
 
                   <button
                     type="button"
                     onClick={() =>
                       setQuantidade(
-                        (q) =>
-                          q + 1
+                        (
+                          q
+                        ) =>
+                          q +
+                          1
                       )
                     }
-                    className={contadorClass}
+                    className={
+                      contadorClass
+                    }
                   >
                     +
                   </button>
@@ -845,10 +1179,11 @@ export default function ParquePage() {
 
                   você poderá seguir
                   normalmente para o
-                  pagamento. O documento
-                  informado ficará
-                  vinculado ao pedido no
-                  lugar do CPF.
+                  pagamento. O
+                  documento informado
+                  ficará vinculado ao
+                  pedido no lugar do
+                  CPF.
 
                 </div>
 
@@ -884,7 +1219,9 @@ export default function ParquePage() {
                 <strong>
                   Quantidade:
                 </strong>{" "}
-                {quantidade}
+                {
+                  quantidade
+                }
               </p>
 
               <p>
@@ -931,7 +1268,9 @@ export default function ParquePage() {
               onClick={
                 continuarParaResumo
               }
-              disabled={salvando}
+              disabled={
+                salvando
+              }
               className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
 
@@ -942,9 +1281,10 @@ export default function ParquePage() {
             </button>
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso será liberado
-              somente após confirmação
-              automática do pagamento.
+              O ingresso será
+              liberado somente após
+              confirmação automática
+              do pagamento.
             </p>
 
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
@@ -952,10 +1292,10 @@ export default function ParquePage() {
               compra, você declara
               estar ciente das regras
               de utilização, da
-              política de cancelamento
-              e das informações
-              específicas do ingresso
-              selecionado.
+              política de
+              cancelamento e das
+              informações específicas
+              do ingresso selecionado.
             </p>
 
           </aside>
@@ -972,17 +1312,24 @@ function Campo({
   label,
   children,
 }: {
-  label: string;
-  children: React.ReactNode;
+  label:
+  string;
+
+  children:
+  React.ReactNode;
 }) {
   return (
     <div>
 
       <label className="mb-2 block font-semibold text-gray-700">
-        {label}
+        {
+          label
+        }
       </label>
 
-      {children}
+      {
+        children
+      }
 
     </div>
   );
