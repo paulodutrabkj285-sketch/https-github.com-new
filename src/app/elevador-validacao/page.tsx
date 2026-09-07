@@ -58,20 +58,50 @@ const FUNCIONARIOS = [
    TIPOS
 ========================================== */
 
+type ResultadoEntradaPrincipal = {
+    valido: boolean;
+
+    mensagem: string;
+
+    totalEntradas:
+    number;
+
+    totalElevadorJaUtilizado:
+    number;
+
+    saldo:
+    number;
+};
+
 type EntidadeElevador =
     | {
-        tipo: "pedido";
-        pedido: Pedido;
+        tipo:
+        "pedido";
+
+        pedido:
+        Pedido;
+
+        entradaPrincipal:
+        ResultadoEntradaPrincipal;
     }
     | {
-        tipo: "reserva_agencia";
-        reserva: ReservaAgenciaCache;
+        tipo:
+        "reserva_agencia";
+
+        reserva:
+        ReservaAgenciaCache;
     };
 
 type QrExtraido = {
-    codigo: string;
-    pedidoId: string;
-    codigoGrupo: string;
+    codigo:
+    string;
+
+    pedidoId:
+    string;
+
+    codigoGrupo:
+    string;
+
     tipo:
     | "pedido"
     | "reserva_agencia"
@@ -111,6 +141,45 @@ function numeroSeguro(
     )
         ? numero
         : 0;
+}
+
+function campoPedido(
+    pedido:
+        Pedido,
+
+    campo:
+        string
+) {
+    return (
+        pedido as unknown as
+        Record<
+            string,
+            unknown
+        >
+    )[campo];
+}
+
+function somenteNumeros(
+    valor:
+        unknown
+) {
+    return String(
+        valor || ""
+    ).replace(
+        /\D/g,
+        ""
+    );
+}
+
+function normalizarEmailComparacao(
+    valor:
+        unknown
+) {
+    return String(
+        valor || ""
+    )
+        .trim()
+        .toLowerCase();
 }
 
 function formatarData(
@@ -156,13 +225,164 @@ function formatarDataHora(
     return data.toLocaleString(
         "pt-BR",
         {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
+            day:
+                "2-digit",
+
+            month:
+                "2-digit",
+
+            year:
+                "numeric",
+
+            hour:
+                "2-digit",
+
+            minute:
+                "2-digit",
         }
     );
+}
+
+/* ==========================================
+   DATA DO PEDIDO
+========================================== */
+
+function dataDoPedido(
+    pedido:
+        Pedido
+) {
+    return limpar(
+        pedido.dataVisita ||
+        pedido.dataEntrada ||
+        ""
+    );
+}
+
+/* ==========================================
+   MESMO VISITANTE / COMPRADOR
+========================================== */
+
+function pedidosDoMesmoVisitante(
+    pedidoA:
+        Pedido,
+
+    pedidoB:
+        Pedido
+) {
+    const cpfA =
+        somenteNumeros(
+            pedidoA.cpf
+        );
+
+    const cpfB =
+        somenteNumeros(
+            pedidoB.cpf
+        );
+
+    if (
+        cpfA &&
+        cpfB
+    ) {
+        return (
+            cpfA ===
+            cpfB
+        );
+    }
+
+    const documentoA =
+        normalizarCodigo(
+            campoPedido(
+                pedidoA,
+                "documento"
+            )
+        );
+
+    const documentoB =
+        normalizarCodigo(
+            campoPedido(
+                pedidoB,
+                "documento"
+            )
+        );
+
+    if (
+        documentoA &&
+        documentoB
+    ) {
+        return (
+            documentoA ===
+            documentoB
+        );
+    }
+
+    /*
+     * Compatibilidade:
+     * em pedidos brasileiros novos,
+     * documento também pode conter
+     * o próprio CPF.
+     */
+
+    if (
+        cpfA &&
+        somenteNumeros(
+            documentoB
+        ) ===
+        cpfA
+    ) {
+        return true;
+    }
+
+    if (
+        cpfB &&
+        somenteNumeros(
+            documentoA
+        ) ===
+        cpfB
+    ) {
+        return true;
+    }
+
+    const emailA =
+        normalizarEmailComparacao(
+            pedidoA.email
+        );
+
+    const emailB =
+        normalizarEmailComparacao(
+            pedidoB.email
+        );
+
+    if (
+        emailA &&
+        emailB &&
+        emailA ===
+        emailB
+    ) {
+        return true;
+    }
+
+    const telefoneA =
+        somenteNumeros(
+            pedidoA.telefone
+        );
+
+    const telefoneB =
+        somenteNumeros(
+            pedidoB.telefone
+        );
+
+    if (
+        telefoneA.length >=
+        8 &&
+        telefoneB.length >=
+        8 &&
+        telefoneA ===
+        telefoneB
+    ) {
+        return true;
+    }
+
+    return false;
 }
 
 /* ==========================================
@@ -170,7 +390,8 @@ function formatarDataHora(
 ========================================== */
 
 function pedidoTemElevador(
-    pedido: Pedido
+    pedido:
+        Pedido
 ) {
     const tipo =
         normalizarCodigo(
@@ -198,7 +419,10 @@ function pedidoTemElevador(
     }
 
     if (
-        pedido.elevador ===
+        campoPedido(
+            pedido,
+            "elevador"
+        ) ===
         true
     ) {
         return true;
@@ -206,9 +430,83 @@ function pedidoTemElevador(
 
     if (
         numeroSeguro(
-            pedido.qtdElevador
+            campoPedido(
+                pedido,
+                "qtdElevador"
+            )
         ) >
         0
+    ) {
+        return true;
+    }
+
+    return false;
+}
+
+/* ==========================================
+   É INGRESSO DE ENTRADA DO PARQUE?
+========================================== */
+
+function pedidoEhAcessoPrincipal(
+    pedido:
+        Pedido
+) {
+    const tipo =
+        normalizarCodigo(
+            pedido.tipo
+        );
+
+    const produto =
+        normalizarCodigo(
+            pedido.produto
+        );
+
+    /*
+     * Ingresso vendido somente
+     * para o Elevador não vale
+     * como entrada principal.
+     */
+
+    if (
+        tipo ===
+        "ELEVADOR"
+    ) {
+        return false;
+    }
+
+    if (
+        tipo ===
+        "INGRESSO" ||
+        tipo ===
+        "PARQUE" ||
+        tipo ===
+        "IDOSO" ||
+        tipo ===
+        "CAMPING"
+    ) {
+        return true;
+    }
+
+    if (
+        produto.includes(
+            "INGRESSO PARQUE"
+        )
+    ) {
+        return true;
+    }
+
+    if (
+        produto.includes(
+            "MEIA ENTRADA IDOSO"
+        )
+    ) {
+        return true;
+    }
+
+    if (
+        produto.includes(
+            "CAMPING"
+        )
     ) {
         return true;
     }
@@ -221,11 +519,15 @@ function pedidoTemElevador(
 ========================================== */
 
 function quantidadeElevadorPedido(
-    pedido: Pedido
+    pedido:
+        Pedido
 ) {
     const quantidadeEspecifica =
         numeroSeguro(
-            pedido.qtdElevador
+            campoPedido(
+                pedido,
+                "qtdElevador"
+            )
         );
 
     if (
@@ -248,6 +550,109 @@ function quantidadeElevadorPedido(
     }
 
     return 1;
+}
+
+/* ==========================================
+   QUANTIDADE DE ENTRADAS NO PARQUE
+========================================== */
+
+function quantidadeAcessoPrincipal(
+    pedido:
+        Pedido
+) {
+    const tipo =
+        normalizarCodigo(
+            pedido.tipo
+        );
+
+    const produto =
+        normalizarCodigo(
+            pedido.produto
+        );
+
+    /*
+     * Camping guarda a quantidade
+     * real de hóspedes em
+     * quantidadePessoas.
+     */
+
+    if (
+        tipo ===
+        "CAMPING" ||
+        produto.includes(
+            "CAMPING"
+        )
+    ) {
+        const pessoas =
+            numeroSeguro(
+                pedido.quantidadePessoas
+            );
+
+        if (
+            pessoas >
+            0
+        ) {
+            return pessoas;
+        }
+    }
+
+    const quantidade =
+        numeroSeguro(
+            pedido.quantidade
+        );
+
+    if (
+        quantidade >
+        0
+    ) {
+        return quantidade;
+    }
+
+    const pessoas =
+        numeroSeguro(
+            pedido.quantidadePessoas
+        );
+
+    if (
+        pessoas >
+        0
+    ) {
+        return pessoas;
+    }
+
+    return 1;
+}
+
+/* ==========================================
+   ENTRADA PRINCIPAL JÁ FOI VALIDADA?
+========================================== */
+
+function pedidoEntradaPrincipalUtilizada(
+    pedido:
+        Pedido
+) {
+    return (
+        normalizarCodigo(
+            pedido.statusOperacional
+        ) ===
+        "UTILIZADO"
+    );
+}
+
+/* ==========================================
+   RESERVA JÁ PASSOU NA PORTARIA?
+========================================== */
+
+function reservaEntradaPrincipalUtilizada(
+    reserva:
+        ReservaAgenciaCache
+) {
+    return (
+        normalizarCodigo(
+            reserva.statusOperacional
+        ) ===
+        "UTILIZADO"
+    );
 }
 
 /* ==========================================
@@ -277,22 +682,19 @@ function reservaTemElevador(
  * o aparelho do elevador utilizava o mesmo
  * sistema da portaria.
  *
- * Portanto existem ingressos antigos de
- * Elevador Panorâmico que já foram usados,
- * mas possuem somente:
+ * Os ingressos antigos exclusivos do
+ * Elevador podem possuir apenas:
  *
  * statusOperacional = "utilizado"
  *
- * e ainda não possuem:
+ * sem elevadorValidado = true.
  *
- * elevadorValidado = true
- *
- * Estes ingressos precisam continuar
- * bloqueados para impedir reutilização.
+ * Esses ingressos continuam bloqueados.
  */
 
 function pedidoFoiUtilizadoNoSistemaAntigo(
-    pedido: Pedido
+    pedido:
+        Pedido
 ) {
     if (
         !pedidoTemElevador(
@@ -303,8 +705,28 @@ function pedidoFoiUtilizadoNoSistemaAntigo(
     }
 
     if (
-        pedido.elevadorValidado ===
+        campoPedido(
+            pedido,
+            "elevadorValidado"
+        ) ===
         true
+    ) {
+        return false;
+    }
+
+    /*
+     * Se o pedido também é ingresso
+     * de acesso ao Parque, o status
+     * "utilizado" representa a
+     * Portaria Principal e NÃO deve
+     * sozinho significar que o
+     * Elevador já foi utilizado.
+     */
+
+    if (
+        pedidoEhAcessoPrincipal(
+            pedido
+        )
     ) {
         return false;
     }
@@ -322,10 +744,14 @@ function pedidoFoiUtilizadoNoSistemaAntigo(
 ========================================== */
 
 function pedidoElevadorJaUtilizado(
-    pedido: Pedido
+    pedido:
+        Pedido
 ) {
     if (
-        pedido.elevadorValidado ===
+        campoPedido(
+            pedido,
+            "elevadorValidado"
+        ) ===
         true
     ) {
         return true;
@@ -343,11 +769,230 @@ function pedidoElevadorJaUtilizado(
 }
 
 /* ==========================================
+   VERIFICAR ENTRADA PRINCIPAL
+========================================== */
+
+function verificarEntradaPrincipalPedido(
+    pedidoElevador:
+        Pedido,
+
+    todosPedidos:
+        Pedido[]
+): ResultadoEntradaPrincipal {
+    const quantidadeElevador =
+        quantidadeElevadorPedido(
+            pedidoElevador
+        );
+
+    const dataElevador =
+        dataDoPedido(
+            pedidoElevador
+        );
+
+    if (
+        !dataElevador
+    ) {
+        return {
+            valido:
+                false,
+
+            mensagem:
+                "DATA DO INGRESSO NÃO INFORMADA — NÃO LIBERAR",
+
+            totalEntradas:
+                0,
+
+            totalElevadorJaUtilizado:
+                0,
+
+            saldo:
+                0,
+        };
+    }
+
+    const relacionados =
+        todosPedidos.filter(
+            (
+                item
+            ) => {
+                if (
+                    !pedidosDoMesmoVisitante(
+                        pedidoElevador,
+                        item
+                    )
+                ) {
+                    return false;
+                }
+
+                const dataItem =
+                    dataDoPedido(
+                        item
+                    );
+
+                return (
+                    dataItem ===
+                    dataElevador
+                );
+            }
+        );
+
+    /*
+     * Soma somente ingressos de
+     * acesso ao Parque:
+     *
+     * - pagos
+     * - mesma pessoa/comprador
+     * - mesma data
+     * - já utilizados na Portaria
+     *   Principal
+     */
+
+    const acessosUtilizados =
+        relacionados.filter(
+            (
+                item
+            ) => {
+                return (
+                    item.statusPagamento ===
+                    "pago" &&
+                    pedidoEhAcessoPrincipal(
+                        item
+                    ) &&
+                    pedidoEntradaPrincipalUtilizada(
+                        item
+                    )
+                );
+            }
+        );
+
+    const totalEntradas =
+        acessosUtilizados.reduce(
+            (
+                total,
+                item
+            ) =>
+                total +
+                quantidadeAcessoPrincipal(
+                    item
+                ),
+            0
+        );
+
+    /*
+     * Também descontamos outros
+     * ingressos do Elevador que já
+     * tenham sido usados por esse
+     * mesmo visitante/data.
+     *
+     * Isso evita que uma entrada de
+     * 2 pessoas permita utilizar
+     * dois pedidos diferentes de
+     * Elevador com 2 pessoas cada.
+     */
+
+    const elevadoresJaUtilizados =
+        relacionados.filter(
+            (
+                item
+            ) => {
+                if (
+                    item.id ===
+                    pedidoElevador.id
+                ) {
+                    return false;
+                }
+
+                return (
+                    pedidoTemElevador(
+                        item
+                    ) &&
+                    pedidoElevadorJaUtilizado(
+                        item
+                    )
+                );
+            }
+        );
+
+    const totalElevadorJaUtilizado =
+        elevadoresJaUtilizados.reduce(
+            (
+                total,
+                item
+            ) =>
+                total +
+                quantidadeElevadorPedido(
+                    item
+                ),
+            0
+        );
+
+    const saldo =
+        Math.max(
+            0,
+            totalEntradas -
+            totalElevadorJaUtilizado
+        );
+
+    if (
+        totalEntradas <=
+        0
+    ) {
+        return {
+            valido:
+                false,
+
+            mensagem:
+                "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL — NÃO LIBERAR",
+
+            totalEntradas,
+
+            totalElevadorJaUtilizado,
+
+            saldo,
+        };
+    }
+
+    if (
+        saldo <
+        quantidadeElevador
+    ) {
+        return {
+            valido:
+                false,
+
+            mensagem:
+                `ENTRADA PRINCIPAL INSUFICIENTE — ${saldo} PESSOA(S) DISPONÍVEL(IS)`,
+
+            totalEntradas,
+
+            totalElevadorJaUtilizado,
+
+            saldo,
+        };
+    }
+
+    return {
+        valido:
+            true,
+
+        mensagem:
+            "ENTRADA PRINCIPAL CONFIRMADA",
+
+        totalEntradas,
+
+        totalElevadorJaUtilizado,
+
+        saldo,
+    };
+}
+
+/* ==========================================
    EXTRAIR QR
 ========================================== */
 
 function extrairQr(
-    texto: string
+    texto:
+        string
 ): QrExtraido {
     const valor =
         limpar(
@@ -356,9 +1001,15 @@ function extrairQr(
 
     if (!valor) {
         return {
-            codigo: "",
-            pedidoId: "",
-            codigoGrupo: "",
+            codigo:
+                "",
+
+            pedidoId:
+                "",
+
+            codigoGrupo:
+                "",
+
             tipo:
                 "desconhecido",
         };
@@ -384,9 +1035,14 @@ function extrairQr(
             )
         ) {
             return {
-                codigo: "",
-                pedidoId: "",
+                codigo:
+                    "",
+
+                pedidoId:
+                    "",
+
                 codigoGrupo,
+
                 tipo:
                     "reserva_agencia",
             };
@@ -408,8 +1064,12 @@ function extrairQr(
 
         return {
             codigo,
+
             pedidoId,
-            codigoGrupo: "",
+
+            codigoGrupo:
+                "",
+
             tipo:
                 "pedido",
         };
@@ -425,10 +1085,15 @@ function extrairQr(
             )
         ) {
             return {
-                codigo: "",
-                pedidoId: "",
+                codigo:
+                    "",
+
+                pedidoId:
+                    "",
+
                 codigoGrupo:
                     codigo,
+
                 tipo:
                     "reserva_agencia",
             };
@@ -436,8 +1101,13 @@ function extrairQr(
 
         return {
             codigo,
-            pedidoId: "",
-            codigoGrupo: "",
+
+            pedidoId:
+                "",
+
+            codigoGrupo:
+                "",
+
             tipo:
                 codigo.startsWith(
                     "PMN-"
@@ -457,7 +1127,10 @@ export default function ElevadorValidacaoPage() {
         entidade,
         setEntidade,
     ] =
-        useState<EntidadeElevador | null>(
+        useState<
+            EntidadeElevador |
+            null
+        >(
             null
         );
 
@@ -529,7 +1202,9 @@ export default function ElevadorValidacaoPage() {
         pedidosCache,
         setPedidosCache,
     ] =
-        useState<Pedido[]>(
+        useState<
+            Pedido[]
+        >(
             []
         );
 
@@ -552,7 +1227,10 @@ export default function ElevadorValidacaoPage() {
         );
 
     const leitorRef =
-        useRef<Html5Qrcode | null>(
+        useRef<
+            Html5Qrcode |
+            null
+        >(
             null
         );
 
@@ -652,7 +1330,8 @@ export default function ElevadorValidacaoPage() {
 
                 ...item.data(),
             })
-        ) as ReservaAgenciaCache[];
+        ) as
+            ReservaAgenciaCache[];
     }
 
     /* ======================================
@@ -876,7 +1555,9 @@ export default function ElevadorValidacaoPage() {
     ====================================== */
 
     function calcularContadorHoje(
-        pedidos: Pedido[],
+        pedidos:
+            Pedido[],
+
         reservas:
             ReservaAgenciaCache[]
     ) {
@@ -891,24 +1572,21 @@ export default function ElevadorValidacaoPage() {
         let total =
             0;
 
-        /*
-         * Aqui contamos somente validações
-         * feitas pelo NOVO app do elevador.
-         *
-         * Os registros antigos continuam
-         * bloqueados para reutilização,
-         * mas não entram no contador novo.
-         */
-
         pedidos.forEach(
             (
                 pedido
             ) => {
                 if (
-                    pedido.elevadorValidado ===
+                    campoPedido(
+                        pedido,
+                        "elevadorValidado"
+                    ) ===
                     true &&
                     String(
-                        pedido.elevadorValidadoEm ||
+                        campoPedido(
+                            pedido,
+                            "elevadorValidadoEm"
+                        ) ||
                         ""
                     ).startsWith(
                         hoje
@@ -916,7 +1594,10 @@ export default function ElevadorValidacaoPage() {
                 ) {
                     total +=
                         numeroSeguro(
-                            pedido.elevadorQuantidadeValidada
+                            campoPedido(
+                                pedido,
+                                "elevadorQuantidadeValidada"
+                            )
                         ) ||
                         quantidadeElevadorPedido(
                             pedido
@@ -1079,13 +1760,25 @@ export default function ElevadorValidacaoPage() {
     ====================================== */
 
     function validarPedidoEncontrado(
-        pedido: Pedido
+        pedido:
+            Pedido,
+
+        todosPedidos:
+            Pedido[]
     ) {
+        const entradaPrincipal =
+            verificarEntradaPrincipalPedido(
+                pedido,
+                todosPedidos
+            );
+
         setEntidade({
             tipo:
                 "pedido",
 
             pedido,
+
+            entradaPrincipal,
         });
 
         setCodigoManual(
@@ -1131,12 +1824,20 @@ export default function ElevadorValidacaoPage() {
         /* NOVO APP */
 
         if (
-            pedido.elevadorValidado ===
+            campoPedido(
+                pedido,
+                "elevadorValidado"
+            ) ===
             true
         ) {
             setMensagem(
                 `ELEVADOR JÁ UTILIZADO EM ${formatarDataHora(
-                    pedido.elevadorValidadoEm
+                    limpar(
+                        campoPedido(
+                            pedido,
+                            "elevadorValidadoEm"
+                        )
+                    )
                 )}`
             );
 
@@ -1156,6 +1857,22 @@ export default function ElevadorValidacaoPage() {
         ) {
             setMensagem(
                 "INGRESSO JÁ UTILIZADO NO SISTEMA ANTERIOR"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
+        /* PORTARIA PRINCIPAL */
+
+        if (
+            !entradaPrincipal.valido
+        ) {
+            setMensagem(
+                entradaPrincipal.mensagem
             );
 
             vibrar(
@@ -1249,6 +1966,27 @@ export default function ElevadorValidacaoPage() {
             return;
         }
 
+        /*
+         * A mesma reserva é validada
+         * primeiro na Portaria Principal.
+         */
+
+        if (
+            !reservaEntradaPrincipalUtilizada(
+                reserva
+            )
+        ) {
+            setMensagem(
+                "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL — NÃO LIBERAR"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
         const quantidade =
             numeroSeguro(
                 reserva.qtdElevador
@@ -1268,7 +2006,8 @@ export default function ElevadorValidacaoPage() {
     ====================================== */
 
     async function buscarCodigo(
-        textoQr: string
+        textoQr:
+            string
     ) {
         if (
             carregando ||
@@ -1408,8 +2147,6 @@ export default function ElevadorValidacaoPage() {
                                 item.id
                             );
 
-                        /* Código PMN */
-
                         if (
                             codigoQr &&
                             codigoIngresso ===
@@ -1418,8 +2155,6 @@ export default function ElevadorValidacaoPage() {
                             return true;
                         }
 
-                        /* pedidoId do QR */
-
                         if (
                             pedidoIdQr &&
                             id ===
@@ -1427,8 +2162,6 @@ export default function ElevadorValidacaoPage() {
                         ) {
                             return true;
                         }
-
-                        /* ID direto */
 
                         if (
                             codigoQr &&
@@ -1440,8 +2173,6 @@ export default function ElevadorValidacaoPage() {
                             return true;
                         }
 
-                        /* qrCodeIngresso */
-
                         if (
                             codigoQr &&
                             qrNormalizado &&
@@ -1450,8 +2181,6 @@ export default function ElevadorValidacaoPage() {
                         ) {
                             return true;
                         }
-
-                        /* QR bruto */
 
                         if (
                             qrCodeIngresso &&
@@ -1481,7 +2210,8 @@ export default function ElevadorValidacaoPage() {
             }
 
             validarPedidoEncontrado(
-                encontrado
+                encontrado,
+                pedidos
             );
         } catch (
         error
@@ -1665,7 +2395,10 @@ export default function ElevadorValidacaoPage() {
                         ) &&
                         !pedidoElevadorJaUtilizado(
                             pedido
-                        )
+                        ) &&
+                        entidade
+                            .entradaPrincipal
+                            .valido
                     );
                 }
 
@@ -1679,7 +2412,10 @@ export default function ElevadorValidacaoPage() {
                         reserva
                     ) &&
                     reserva.elevadorValidado !==
-                    true
+                    true &&
+                    reservaEntradaPrincipalUtilizada(
+                        reserva
+                    )
                 );
             },
             [
@@ -1726,24 +2462,95 @@ export default function ElevadorValidacaoPage() {
                 entidade.tipo ===
                 "pedido"
             ) {
-                const quantidade =
-                    quantidadeElevadorPedido(
-                        entidade.pedido
+                /*
+                 * Antes de gravar, consulta
+                 * novamente os pedidos.
+                 *
+                 * É uma segunda trava para
+                 * garantir que a entrada na
+                 * Portaria Principal continua
+                 * válida.
+                 */
+
+                const pedidosAtuais =
+                    await obterPedidosParaBusca();
+
+                const pedidoAtual =
+                    pedidosAtuais.find(
+                        (
+                            item
+                        ) =>
+                            item.id ===
+                            entidade.pedido.id
+                    ) ||
+                    entidade.pedido;
+
+                if (
+                    pedidoElevadorJaUtilizado(
+                        pedidoAtual
+                    )
+                ) {
+                    const entradaPrincipal =
+                        verificarEntradaPrincipalPedido(
+                            pedidoAtual,
+                            pedidosAtuais
+                        );
+
+                    setEntidade({
+                        tipo:
+                            "pedido",
+
+                        pedido:
+                            pedidoAtual,
+
+                        entradaPrincipal,
+                    });
+
+                    setMensagem(
+                        "ELEVADOR JÁ UTILIZADO — NÃO LIBERAR"
                     );
 
-                /*
-                 * SOMENTE campos do elevador.
-                 *
-                 * Não altera:
-                 *
-                 * statusPagamento
-                 * quantidade
-                 * valorTotal
-                 * statusOperacional
-                 * validadoPor
-                 * validadoEm
-                 * utilizadoEm
-                 */
+                    vibrar(
+                        "erro"
+                    );
+
+                    return;
+                }
+
+                const entradaPrincipal =
+                    verificarEntradaPrincipalPedido(
+                        pedidoAtual,
+                        pedidosAtuais
+                    );
+
+                if (
+                    !entradaPrincipal.valido
+                ) {
+                    setEntidade({
+                        tipo:
+                            "pedido",
+
+                        pedido:
+                            pedidoAtual,
+
+                        entradaPrincipal,
+                    });
+
+                    setMensagem(
+                        entradaPrincipal.mensagem
+                    );
+
+                    vibrar(
+                        "erro"
+                    );
+
+                    return;
+                }
+
+                const quantidade =
+                    quantidadeElevadorPedido(
+                        pedidoAtual
+                    );
 
                 const dados = {
                     elevadorValidado:
@@ -1768,23 +2575,23 @@ export default function ElevadorValidacaoPage() {
                     online
                 ) {
                     await atualizarPedido(
-                        entidade.pedido.id,
+                        pedidoAtual.id,
                         dados
                     );
                 } else {
                     await registrarValidacaoOffline(
-                        entidade.pedido.id,
+                        pedidoAtual.id,
                         "elevador",
                         dados
                     );
                 }
 
-                const atualizado:
-                    Pedido =
-                {
-                    ...entidade.pedido,
-                    ...dados,
-                };
+                const atualizado =
+                    {
+                        ...pedidoAtual,
+                        ...dados,
+                    } as
+                    Pedido;
 
                 setEntidade({
                     tipo:
@@ -1792,6 +2599,8 @@ export default function ElevadorValidacaoPage() {
 
                     pedido:
                         atualizado,
+
+                    entradaPrincipal,
                 });
 
                 setPedidosCache(
@@ -1834,9 +2643,74 @@ export default function ElevadorValidacaoPage() {
                 entidade.tipo ===
                 "reserva_agencia"
             ) {
+                /*
+                 * Também atualiza a reserva
+                 * antes de permitir o uso.
+                 */
+
+                const reservasAtuais =
+                    await obterReservasParaBusca();
+
+                const reservaAtual =
+                    reservasAtuais.find(
+                        (
+                            item
+                        ) =>
+                            item.id ===
+                            entidade.reserva.id
+                    ) ||
+                    entidade.reserva;
+
+                if (
+                    !reservaEntradaPrincipalUtilizada(
+                        reservaAtual
+                    )
+                ) {
+                    setEntidade({
+                        tipo:
+                            "reserva_agencia",
+
+                        reserva:
+                            reservaAtual,
+                    });
+
+                    setMensagem(
+                        "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL — NÃO LIBERAR"
+                    );
+
+                    vibrar(
+                        "erro"
+                    );
+
+                    return;
+                }
+
+                if (
+                    reservaAtual.elevadorValidado ===
+                    true
+                ) {
+                    setEntidade({
+                        tipo:
+                            "reserva_agencia",
+
+                        reserva:
+                            reservaAtual,
+                    });
+
+                    setMensagem(
+                        "ELEVADOR JÁ UTILIZADO — NÃO LIBERAR"
+                    );
+
+                    vibrar(
+                        "erro"
+                    );
+
+                    return;
+                }
+
                 const quantidade =
                     numeroSeguro(
-                        entidade.reserva.qtdElevador
+                        reservaAtual.qtdElevador
                     );
 
                 const dados = {
@@ -1865,13 +2739,13 @@ export default function ElevadorValidacaoPage() {
                         doc(
                             db,
                             "reservas_agencias",
-                            entidade.reserva.id
+                            reservaAtual.id
                         ),
                         dados
                     );
                 } else {
                     await registrarValidacaoReservaOffline(
-                        entidade.reserva.id,
+                        reservaAtual.id,
                         "elevador",
                         dados
                     );
@@ -1880,7 +2754,7 @@ export default function ElevadorValidacaoPage() {
                 const atualizada:
                     ReservaAgenciaCache =
                 {
-                    ...entidade.reserva,
+                    ...reservaAtual,
                     ...dados,
                 };
 
@@ -2030,7 +2904,10 @@ export default function ElevadorValidacaoPage() {
                     }
 
                     if (
-                        pedido.elevadorValidado ===
+                        campoPedido(
+                            pedido,
+                            "elevadorValidado"
+                        ) ===
                         true
                     ) {
                         return {
@@ -2053,6 +2930,23 @@ export default function ElevadorValidacaoPage() {
                         return {
                             titulo:
                                 "JÁ UTILIZADO",
+
+                            classe:
+                                "border-red-500 bg-red-50 text-red-950",
+
+                            icone:
+                                "⛔",
+                        };
+                    }
+
+                    if (
+                        !entidade
+                            .entradaPrincipal
+                            .valido
+                    ) {
+                        return {
+                            titulo:
+                                "ENTRADA NÃO VALIDADA",
 
                             classe:
                                 "border-red-500 bg-red-50 text-red-950",
@@ -2128,6 +3022,23 @@ export default function ElevadorValidacaoPage() {
                     };
                 }
 
+                if (
+                    !reservaEntradaPrincipalUtilizada(
+                        reserva
+                    )
+                ) {
+                    return {
+                        titulo:
+                            "ENTRADA NÃO VALIDADA",
+
+                        classe:
+                            "border-red-500 bg-red-50 text-red-950",
+
+                        icone:
+                            "⛔",
+                    };
+                }
+
                 return {
                     titulo:
                         "RESERVA VÁLIDA",
@@ -2163,6 +3074,7 @@ export default function ElevadorValidacaoPage() {
                 {/* TÍTULO */}
 
                 <header className="mb-4 text-center">
+
                     <h1 className="text-3xl font-black">
                         🚡 Elevador Panorâmico
                     </h1>
@@ -2170,14 +3082,17 @@ export default function ElevadorValidacaoPage() {
                     <p className="mt-1 text-sm text-white/75">
                         Validação exclusiva do elevador
                     </p>
+
                 </header>
 
                 {/* CONEXÃO */}
 
                 <section className="mb-4 rounded-2xl bg-slate-950/90 p-4 shadow-xl">
+
                     <div className="flex items-center justify-between gap-3">
 
                         <div className="flex items-center gap-2">
+
                             <span
                                 className={`h-3 w-3 rounded-full ${isOnline
                                         ? "bg-green-500"
@@ -2190,6 +3105,7 @@ export default function ElevadorValidacaoPage() {
                                     ? "ONLINE"
                                     : "OFFLINE"}
                             </span>
+
                         </div>
 
                         <button
@@ -2205,7 +3121,9 @@ export default function ElevadorValidacaoPage() {
                         >
                             🔄 SINCRONIZAR
                         </button>
+
                     </div>
+
                 </section>
 
                 {/* CONTADORES */}
@@ -2213,6 +3131,7 @@ export default function ElevadorValidacaoPage() {
                 <div className="mb-4 grid grid-cols-2 gap-3">
 
                     <div className="rounded-2xl bg-sky-600 p-4 text-center shadow-xl">
+
                         <p className="text-xs font-black uppercase">
                             Pessoas hoje
                         </p>
@@ -2220,9 +3139,11 @@ export default function ElevadorValidacaoPage() {
                         <p className="text-4xl font-black">
                             {pessoasHoje}
                         </p>
+
                     </div>
 
                     <div className="rounded-2xl bg-slate-900 p-4 text-center shadow-xl">
+
                         <p className="text-xs font-black uppercase">
                             Pendências
                         </p>
@@ -2230,7 +3151,9 @@ export default function ElevadorValidacaoPage() {
                         <p className="text-4xl font-black">
                             {pendentesCount}
                         </p>
+
                     </div>
+
                 </div>
 
                 {/* FUNCIONÁRIO */}
@@ -2254,6 +3177,7 @@ export default function ElevadorValidacaoPage() {
                         }
                         className="w-full rounded-2xl border-2 border-slate-300 px-4 py-4 text-lg font-black"
                     >
+
                         <option value="">
                             SELECIONE
                         </option>
@@ -2274,7 +3198,9 @@ export default function ElevadorValidacaoPage() {
                                 </option>
                             )
                         )}
+
                     </select>
+
                 </section>
 
                 {/* LEITOR */}
@@ -2282,6 +3208,7 @@ export default function ElevadorValidacaoPage() {
                 <section className="mb-4 rounded-3xl bg-white p-4 text-slate-900 shadow-xl">
 
                     {!cameraAtiva ? (
+
                         <button
                             type="button"
                             onClick={
@@ -2291,7 +3218,9 @@ export default function ElevadorValidacaoPage() {
                         >
                             📷 LER QR CODE
                         </button>
+
                     ) : (
+
                         <button
                             type="button"
                             onClick={
@@ -2301,14 +3230,19 @@ export default function ElevadorValidacaoPage() {
                         >
                             FECHAR CÂMERA
                         </button>
+
                     )}
 
                     {cameraAtiva && (
+
                         <div className="mt-4 overflow-hidden rounded-2xl bg-black p-2">
+
                             <div
                                 id="leitor-elevador"
                             />
+
                         </div>
+
                     )}
 
                     <div className="mt-4 border-t border-slate-300 pt-4">
@@ -2360,8 +3294,11 @@ export default function ElevadorValidacaoPage() {
                             >
                                 BUSCAR
                             </button>
+
                         </div>
+
                     </div>
+
                 </section>
 
                 {/* RESULTADO */}
@@ -2369,6 +3306,7 @@ export default function ElevadorValidacaoPage() {
                 <section
                     className={`rounded-3xl border-4 p-6 text-center shadow-2xl ${statusVisual.classe}`}
                 >
+
                     <p className="text-6xl">
                         {statusVisual.icone}
                     </p>
@@ -2382,12 +3320,14 @@ export default function ElevadorValidacaoPage() {
                             ? "CONSULTANDO..."
                             : mensagem}
                     </p>
+
                 </section>
 
                 {/* DADOS DO PEDIDO */}
 
                 {entidade?.tipo ===
                     "pedido" && (
+
                         <section className="mt-4 rounded-3xl bg-white p-5 text-slate-900 shadow-xl">
 
                             <p className="text-xs font-black uppercase text-slate-500">
@@ -2413,40 +3353,118 @@ export default function ElevadorValidacaoPage() {
                                 <p className="font-black">
                                     PESSOA(S)
                                 </p>
+
+                            </div>
+
+                            {/* PORTARIA PRINCIPAL */}
+
+                            <div
+                                className={`mt-4 rounded-2xl p-4 ${entidade
+                                        .entradaPrincipal
+                                        .valido
+                                        ? "bg-emerald-100 text-emerald-950"
+                                        : "bg-red-100 text-red-950"
+                                    }`}
+                            >
+
+                                <p className="font-black">
+                                    {entidade
+                                        .entradaPrincipal
+                                        .valido
+                                        ? "✅ PORTARIA PRINCIPAL VALIDADA"
+                                        : "⛔ PORTARIA PRINCIPAL NÃO VALIDADA"}
+                                </p>
+
+                                <p className="mt-2 text-sm font-bold">
+                                    {entidade
+                                        .entradaPrincipal
+                                        .mensagem}
+                                </p>
+
+                                <div className="mt-3 text-sm">
+
+                                    <p>
+                                        Entradas no parque validadas:{" "}
+                                        <strong>
+                                            {
+                                                entidade
+                                                    .entradaPrincipal
+                                                    .totalEntradas
+                                            }
+                                        </strong>
+                                    </p>
+
+                                    <p>
+                                        Elevador já utilizado:{" "}
+                                        <strong>
+                                            {
+                                                entidade
+                                                    .entradaPrincipal
+                                                    .totalElevadorJaUtilizado
+                                            }
+                                        </strong>
+                                    </p>
+
+                                    <p>
+                                        Saldo disponível:{" "}
+                                        <strong>
+                                            {
+                                                entidade
+                                                    .entradaPrincipal
+                                                    .saldo
+                                            }
+                                        </strong>
+                                    </p>
+
+                                </div>
+
                             </div>
 
                             <div className="mt-4 space-y-2 rounded-2xl bg-slate-100 p-4">
 
                                 <p>
-                                    <strong>Nome:</strong>{" "}
+                                    <strong>
+                                        Nome:
+                                    </strong>{" "}
                                     {entidade.pedido.nome}
                                 </p>
 
                                 <p>
-                                    <strong>Produto:</strong>{" "}
+                                    <strong>
+                                        Produto:
+                                    </strong>{" "}
                                     {entidade.pedido.produto}
                                 </p>
 
                                 <p>
-                                    <strong>Data da visita:</strong>{" "}
+                                    <strong>
+                                        Data da visita:
+                                    </strong>{" "}
                                     {formatarData(
                                         entidade.pedido.dataVisita
                                     )}
                                 </p>
 
                                 <p>
-                                    <strong>Pagamento:</strong>{" "}
+                                    <strong>
+                                        Pagamento:
+                                    </strong>{" "}
                                     {entidade.pedido.statusPagamento ===
                                         "pago"
                                         ? "CONFIRMADO"
                                         : entidade.pedido.statusPagamento}
                                 </p>
+
                             </div>
 
                             {/* USADO NO NOVO SISTEMA */}
 
-                            {entidade.pedido.elevadorValidado ===
+                            {campoPedido(
+                                entidade.pedido,
+                                "elevadorValidado"
+                            ) ===
                                 true && (
+
                                     <div className="mt-4 rounded-2xl bg-amber-100 p-4 text-amber-950">
 
                                         <p className="font-black">
@@ -2454,18 +3472,40 @@ export default function ElevadorValidacaoPage() {
                                         </p>
 
                                         <p className="mt-2">
-                                            <strong>Funcionário:</strong>{" "}
-                                            {entidade.pedido.elevadorValidadoPor ||
+
+                                            <strong>
+                                                Funcionário:
+                                            </strong>{" "}
+
+                                            {limpar(
+                                                campoPedido(
+                                                    entidade.pedido,
+                                                    "elevadorValidadoPor"
+                                                )
+                                            ) ||
                                                 "-"}
+
                                         </p>
 
                                         <p>
-                                            <strong>Data/hora:</strong>{" "}
+
+                                            <strong>
+                                                Data/hora:
+                                            </strong>{" "}
+
                                             {formatarDataHora(
-                                                entidade.pedido.elevadorValidadoEm
+                                                limpar(
+                                                    campoPedido(
+                                                        entidade.pedido,
+                                                        "elevadorValidadoEm"
+                                                    )
+                                                )
                                             )}
+
                                         </p>
+
                                     </div>
+
                                 )}
 
                             {/* LEGADO */}
@@ -2473,6 +3513,7 @@ export default function ElevadorValidacaoPage() {
                             {pedidoFoiUtilizadoNoSistemaAntigo(
                                 entidade.pedido
                             ) && (
+
                                     <div className="mt-4 rounded-2xl bg-red-100 p-4 text-red-950">
 
                                         <p className="text-lg font-black">
@@ -2484,29 +3525,48 @@ export default function ElevadorValidacaoPage() {
                                         </p>
 
                                         {entidade.pedido.validadoPor && (
+
                                             <p className="mt-2">
-                                                <strong>Validado por:</strong>{" "}
+
+                                                <strong>
+                                                    Validado por:
+                                                </strong>{" "}
+
                                                 {entidade.pedido.validadoPor}
+
                                             </p>
+
                                         )}
 
                                         {entidade.pedido.utilizadoEm && (
+
                                             <p>
-                                                <strong>Utilizado em:</strong>{" "}
+
+                                                <strong>
+                                                    Utilizado em:
+                                                </strong>{" "}
+
                                                 {formatarDataHora(
                                                     entidade.pedido.utilizadoEm
                                                 )}
+
                                             </p>
+
                                         )}
+
                                     </div>
+
                                 )}
+
                         </section>
+
                     )}
 
                 {/* RESERVA */}
 
                 {entidade?.tipo ===
                     "reserva_agencia" && (
+
                         <section className="mt-4 rounded-3xl bg-white p-5 text-slate-900 shadow-xl">
 
                             <p className="text-xs font-black uppercase text-slate-500">
@@ -2521,6 +3581,27 @@ export default function ElevadorValidacaoPage() {
                                 {entidade.reserva.agenciaNome ||
                                     "Agência"}
                             </p>
+
+                            <div
+                                className={`mt-4 rounded-2xl p-4 ${reservaEntradaPrincipalUtilizada(
+                                    entidade.reserva
+                                )
+                                        ? "bg-emerald-100 text-emerald-950"
+                                        : "bg-red-100 text-red-950"
+                                    }`}
+                            >
+
+                                <p className="font-black">
+
+                                    {reservaEntradaPrincipalUtilizada(
+                                        entidade.reserva
+                                    )
+                                        ? "✅ PORTARIA PRINCIPAL VALIDADA"
+                                        : "⛔ VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"}
+
+                                </p>
+
+                            </div>
 
                             <div className="mt-4 rounded-2xl bg-sky-100 p-5 text-center text-sky-950">
 
@@ -2537,16 +3618,21 @@ export default function ElevadorValidacaoPage() {
                                 <p className="font-black">
                                     PESSOA(S)
                                 </p>
+
                             </div>
+
                         </section>
+
                     )}
 
                 {/* BOTÃO CONFIRMAR */}
 
                 {entidade && (
+
                     <section className="mt-4 rounded-3xl bg-white p-4 shadow-xl">
 
                         {podeConfirmar ? (
+
                             <button
                                 type="button"
                                 onClick={
@@ -2559,7 +3645,9 @@ export default function ElevadorValidacaoPage() {
                             >
                                 ✅ CONFIRMAR USO DO ELEVADOR
                             </button>
+
                         ) : (
+
                             <button
                                 type="button"
                                 disabled
@@ -2567,6 +3655,7 @@ export default function ElevadorValidacaoPage() {
                             >
                                 ⛔ NÃO LIBERAR
                             </button>
+
                         )}
 
                         <button
@@ -2578,13 +3667,17 @@ export default function ElevadorValidacaoPage() {
                         >
                             NOVA LEITURA
                         </button>
+
                     </section>
+
                 )}
 
                 <p className="mt-6 text-center text-xs text-white/60">
                     Parque Mundo Novo • Elevador Panorâmico
                 </p>
+
             </div>
+
         </main>
     );
 }

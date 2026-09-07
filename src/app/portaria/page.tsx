@@ -712,6 +712,48 @@ export default function PortariaPage() {
         ).trim();
     }
 
+    function pedidoExclusivoElevador(
+        item?:
+            Pedido |
+            null
+    ) {
+        if (
+            !item
+        ) {
+            return false;
+        }
+
+        const tipo =
+            limpar(
+                item.tipo
+            ).toLowerCase();
+
+        const produto =
+            limpar(
+                item.produto
+            ).toLowerCase();
+
+        if (
+            tipo ===
+            "elevador"
+        ) {
+            return true;
+        }
+
+        if (
+            produto ===
+            "elevador panorâmico" ||
+            produto ===
+            "elevador panoramico" ||
+            produto ===
+            "elevador"
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
     function quantidadeDoPedido(
         item?:
             Pedido |
@@ -1576,6 +1618,25 @@ export default function PortariaPage() {
             return;
         }
 
+        if (
+            pedidoExclusivoElevador(
+                encontrado
+            )
+        ) {
+            setMensagem(
+                localValidacao ===
+                    "principal"
+                    ? "INGRESSO EXCLUSIVO DO ELEVADOR — APRESENTE O INGRESSO DE ENTRADA DO PARQUE"
+                    : "INGRESSO DO ELEVADOR NÃO DÁ ACESSO À CACHOEIRA"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
         const validade =
             verificarValidadeData(
                 encontrado.dataVisita
@@ -2213,6 +2274,25 @@ export default function PortariaPage() {
             return;
         }
 
+        if (
+            pedidoExclusivoElevador(
+                pedido
+            )
+        ) {
+            setMensagem(
+                localValidacao ===
+                    "principal"
+                    ? "INGRESSO EXCLUSIVO DO ELEVADOR — APRESENTE O INGRESSO DE ENTRADA DO PARQUE"
+                    : "INGRESSO DO ELEVADOR NÃO DÁ ACESSO À CACHOEIRA"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
         const validade =
             verificarValidadeData(
                 pedido.dataVisita
@@ -2731,6 +2811,9 @@ export default function PortariaPage() {
             "pago" &&
             pedido.statusOperacional !==
             "bloqueado" &&
+            !pedidoExclusivoElevador(
+                pedido
+            ) &&
             validadeAtual.valido &&
             !usado;
 
