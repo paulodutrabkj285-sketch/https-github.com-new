@@ -1,19 +1,23 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Ingressos Oficiais",
+    title: {
+        absolute: "Ingressos Parque Mundo Novo Urubici | Site Oficial",
+    },
 
     description:
-        "Compre ingressos oficiais para o Parque Mundo Novo, Elevador Panorâmico e camping em Urubici, Santa Catarina.",
+        "Compre ingressos oficiais do Parque Mundo Novo em Urubici, SC. Ingressos para o parque, Elevador Panorâmico e camping com compra online.",
+
+    applicationName: "Parque Mundo Novo",
 
     alternates: {
         canonical: "/ingressos",
     },
 
     openGraph: {
-        title: "Ingressos Oficiais | Parque Mundo Novo",
+        title: "Ingressos Parque Mundo Novo Urubici | Site Oficial",
         description:
-            "Compre ingressos oficiais para o Parque Mundo Novo, Elevador Panorâmico e camping em Urubici, Santa Catarina.",
+            "Compre ingressos oficiais do Parque Mundo Novo em Urubici, SC. Parque, Elevador Panorâmico e camping com compra online.",
         url: "/ingressos",
         siteName: "Parque Mundo Novo",
         locale: "pt_BR",
@@ -23,16 +27,16 @@ export const metadata: Metadata = {
                 url: "/fotos/fundo-geral.jpg",
                 width: 1200,
                 height: 630,
-                alt: "Ingressos oficiais do Parque Mundo Novo em Urubici",
+                alt: "Parque Mundo Novo em Urubici, Santa Catarina - ingressos oficiais",
             },
         ],
     },
 
     twitter: {
         card: "summary_large_image",
-        title: "Ingressos Oficiais | Parque Mundo Novo",
+        title: "Ingressos Parque Mundo Novo Urubici | Site Oficial",
         description:
-            "Compre ingressos oficiais para o Parque Mundo Novo, Elevador Panorâmico e camping em Urubici.",
+            "Compre ingressos oficiais do Parque Mundo Novo em Urubici, SC. Parque, Elevador Panorâmico e camping.",
         images: ["/fotos/fundo-geral.jpg"],
     },
 
