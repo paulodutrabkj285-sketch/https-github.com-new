@@ -89,7 +89,7 @@ export default function IngressosPage() {
       icone: "💧",
       titulo: "Cascata do Avencal",
       texto:
-        "Queda imponente de aproximadamente 100 metros de altura.",
+        "Uma das paisagens mais conhecidas de Urubici, com queda imponente de aproximadamente 100 metros de altura.",
       imagem: "/fotos/cascata-avencal.png",
     },
     {
@@ -154,7 +154,7 @@ export default function IngressosPage() {
     {
       titulo: "Ingresso Parque",
       descricao:
-        "Entrada para visitar o parque, trilhas, cachoeiras e mirantes.",
+        "Ingresso oficial para visitar o Parque Mundo Novo em Urubici, com acesso às áreas de visitação, trilhas, cachoeiras e mirantes.",
       preco: "R$ 60,00",
       imagem: "/fotos/ingresso-parque.png",
       rota: "/ingressos/parque",
@@ -279,6 +279,21 @@ export default function IngressosPage() {
   ];
 
   const perguntas = [
+    {
+      pergunta: "Onde comprar ingresso para o Parque Mundo Novo em Urubici?",
+      resposta:
+        "Você pode comprar o ingresso oficial diretamente neste site. Após a confirmação do pagamento, o ingresso digital com QR Code é enviado por e-mail.",
+    },
+    {
+      pergunta: "Quanto custa o ingresso do Parque Mundo Novo?",
+      resposta:
+        "O ingresso de entrada do Parque Mundo Novo custa R$ 60,00. O Elevador Panorâmico possui ingresso próprio, vendido separadamente.",
+    },
+    {
+      pergunta: "Onde fica o Parque Mundo Novo?",
+      resposta:
+        "O Parque Mundo Novo fica na SC-110, KM 34, em Urubici, Santa Catarina, na Serra Catarinense.",
+    },
     {
       pergunta: "Quanto tempo vale o ingresso?",
       resposta:
@@ -417,8 +432,64 @@ export default function IngressosPage() {
     }
   }
 
+  const dadosEstruturados = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TouristAttraction",
+        "@id":
+          "https://www.parquemundonovooficial.com.br/ingressos#parque-mundo-novo",
+        name: "Parque Mundo Novo",
+        url: "https://www.parquemundonovooficial.com.br/ingressos",
+        description:
+          "Site oficial de ingressos do Parque Mundo Novo em Urubici, Santa Catarina, com cachoeiras, mirantes, camping e atrações.",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: "SC-110 KM 34",
+          addressLocality: "Urubici",
+          addressRegion: "SC",
+          addressCountry: "BR",
+        },
+        openingHoursSpecification: [
+          {
+            "@type": "OpeningHoursSpecification",
+            dayOfWeek: [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday",
+            ],
+            opens: "08:00",
+            closes: "17:30",
+          },
+        ],
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: perguntas.map((item) => ({
+          "@type": "Question",
+          name: item.pergunta,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.resposta,
+          },
+        })),
+      },
+    ],
+  };
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-[#06150f] via-[#0b2418] to-[#f3f7ef] text-white">
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(dadosEstruturados),
+        }}
+      />
 
       {/* ======================================
           HERO
@@ -433,8 +504,8 @@ export default function IngressosPage() {
             <div
               key={img.url}
               className={`absolute inset-0 bg-no-repeat transition-opacity duration-[2000ms] ${imagemAtual === index
-                  ? "opacity-100"
-                  : "opacity-0"
+                ? "opacity-100"
+                : "opacity-0"
                 }`}
               style={{
                 backgroundImage:
@@ -458,7 +529,7 @@ export default function IngressosPage() {
 
               <img
                 src="/logo-final.png"
-                alt="Logo Parque Mundo Novo"
+                alt="Parque Mundo Novo em Urubici - site oficial de ingressos"
                 className="h-16 w-16 rounded-2xl bg-white/90 object-contain p-2 shadow-2xl"
               />
 
@@ -494,15 +565,13 @@ export default function IngressosPage() {
               </span>
 
               <h1 className="mt-6 text-5xl font-black leading-tight drop-shadow-2xl md:text-7xl">
-                Parque Mundo Novo
+                Ingressos Parque Mundo Novo em Urubici
               </h1>
 
               <p className="mt-6 max-w-3xl text-xl font-medium leading-relaxed text-white/90 drop-shadow-md md:text-2xl">
-                Natureza, cachoeiras,
-                mirantes, camping e
-                experiências
-                inesquecíveis em
-                Urubici/SC.
+                Compre ingressos oficiais para o Parque Mundo Novo em Urubici/SC
+                e conheça cachoeiras, mirantes, camping, a Cascata do Avencal e
+                experiências inesquecíveis na Serra Catarinense.
               </p>
 
               <div className="mt-6 inline-flex max-w-3xl rounded-2xl border border-cyan-200/30 bg-cyan-500/15 px-5 py-4 shadow-2xl backdrop-blur-md">
@@ -700,9 +769,9 @@ export default function IngressosPage() {
               {mensagemReenvio && (
                 <div
                   className={`rounded-xl border p-4 text-sm font-bold ${mensagemReenvio.tipo ===
-                      "sucesso"
-                      ? "border-emerald-500 bg-emerald-500/25 text-emerald-200"
-                      : "border-red-500 bg-red-500/25 text-red-200"
+                    "sucesso"
+                    ? "border-emerald-500 bg-emerald-500/25 text-emerald-200"
+                    : "border-red-500 bg-red-500/25 text-red-200"
                     }`}
                 >
                   {mensagemReenvio.texto}
@@ -784,6 +853,55 @@ export default function IngressosPage() {
       </section>
 
       {/* ======================================
+          SEO / INGRESSOS PARQUE MUNDO NOVO
+      ====================================== */}
+
+      <section className="px-4 pb-10 pt-16">
+        <div className="mx-auto max-w-7xl rounded-[2rem] border border-emerald-300/20 bg-white/[0.06] p-6 shadow-2xl md:p-8">
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+            Visite Urubici
+          </p>
+
+          <div className="mt-4 grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div>
+              <h2 className="text-3xl font-black leading-tight text-white md:text-4xl">
+                Ingressos para o Parque Mundo Novo e Cascata do Avencal
+              </h2>
+
+              <p className="mt-5 text-base leading-relaxed text-emerald-50/80 md:text-lg">
+                Planeje sua visita ao Parque Mundo Novo, em Urubici/SC, e compre
+                seu ingresso pelo site oficial. O parque reúne cachoeiras,
+                mirantes, trilhas, camping, estrutura para famílias e paisagens
+                da Serra Catarinense.
+              </p>
+
+              <p className="mt-4 text-base leading-relaxed text-emerald-50/80 md:text-lg">
+                A Cascata do Avencal é um dos destaques da visita. Para quem
+                deseja uma experiência diferente, o Elevador Panorâmico possui
+                ingresso próprio e oferece uma vista privilegiada da paisagem.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <a
+                href="/ingressos/parque"
+                className="rounded-2xl bg-emerald-500 px-6 py-4 text-center font-black text-emerald-950 shadow-xl transition hover:-translate-y-1 hover:bg-emerald-400"
+              >
+                🎟️ Comprar ingresso do parque
+              </a>
+
+              <a
+                href="/ingressos/elevador"
+                className="rounded-2xl border border-cyan-300/30 bg-cyan-500/15 px-6 py-4 text-center font-black text-cyan-50 shadow-xl transition hover:-translate-y-1 hover:bg-cyan-500/25"
+              >
+                🚠 Ingresso do Elevador Panorâmico
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ======================================
           ELEVADOR
       ====================================== */}
 
@@ -823,7 +941,7 @@ export default function IngressosPage() {
               Novo e contemple a
               Cascata do Avencal e as
               paisagens da Serra
-              Catarinense de um point
+              Catarinense de um ponto
               de vista inesquecível.
             </p>
 
@@ -1136,7 +1254,7 @@ export default function IngressosPage() {
 
                   <img
                     src={item.imagem}
-                    alt={item.titulo}
+                    alt={`${item.titulo} no Parque Mundo Novo em Urubici`}
                     className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
                   />
 
@@ -1317,14 +1435,12 @@ export default function IngressosPage() {
             </p>
 
             <h2 className="mt-4 text-4xl font-black text-white md:text-5xl">
-              Escolha sua experiência
+              Compre ingressos para o Parque Mundo Novo
             </h2>
 
             <p className="mt-5 text-lg leading-relaxed text-emerald-50/80">
-              Compre pelo site oficial,
-              receba seu QR Code e
-              apresente na portaria
-              pelo celular.
+              Escolha sua experiência em Urubici, compre pelo site oficial,
+              receba seu QR Code por e-mail e apresente na portaria pelo celular.
             </p>
 
             <div className="mt-6 rounded-2xl border border-yellow-200/30 bg-yellow-400/15 p-4 text-left text-sm font-semibold leading-relaxed text-yellow-50">
@@ -1347,18 +1463,18 @@ export default function IngressosPage() {
                 <div
                   key={item.titulo}
                   className={`group relative min-h-[440px] overflow-hidden rounded-3xl border shadow-2xl ${item.tipoSelo ===
-                      "verde"
-                      ? "border-emerald-300/60"
-                      : item.tipoSelo ===
-                        "dourado"
-                        ? "border-yellow-300/70"
-                        : "border-white/20"
+                    "verde"
+                    ? "border-emerald-300/60"
+                    : item.tipoSelo ===
+                      "dourado"
+                      ? "border-yellow-300/70"
+                      : "border-white/20"
                     }`}
                 >
 
                   <img
                     src={item.imagem}
-                    alt={item.titulo}
+                    alt={`${item.titulo} no Parque Mundo Novo em Urubici`}
                     className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-110"
                   />
 
@@ -1367,9 +1483,9 @@ export default function IngressosPage() {
                   {item.selo && (
                     <div
                       className={`absolute left-4 top-4 z-10 rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.15em] shadow-lg ${item.tipoSelo ===
-                          "dourado"
-                          ? "bg-yellow-400 text-yellow-950"
-                          : "bg-emerald-400 text-emerald-950"
+                        "dourado"
+                        ? "bg-yellow-400 text-yellow-950"
+                        : "bg-emerald-400 text-emerald-950"
                         }`}
                     >
                       {item.selo}
@@ -1426,17 +1542,12 @@ export default function IngressosPage() {
 
                     ) : (
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          router.push(
-                            item.rota
-                          )
-                        }
-                        className="mt-6 rounded-xl px-5 py-4 font-black shadow-lg transition hover:-translate-y-1 hover:bg-emerald-400"
+                      <a
+                        href={item.rota}
+                        className="mt-6 inline-block rounded-xl px-5 py-4 text-center font-black shadow-lg transition hover:-translate-y-1 hover:bg-emerald-400"
                       >
                         {item.botao}
-                      </button>
+                      </a>
 
                     )}
 
@@ -1517,8 +1628,8 @@ export default function IngressosPage() {
                 rel="noopener noreferrer"
                 className="font-bold text-emerald-600 transition hover:text-emerald-800 hover:underline"
               >
-                WhatsApp (49)
-                99129-9991
+                WhatsApp (48)
+                9338-18975
               </a>{" "}
 
               informando o número do
@@ -1595,7 +1706,7 @@ export default function IngressosPage() {
 
               <img
                 src="/logo-final.png"
-                alt="Logo Parque Mundo Novo"
+                alt="Parque Mundo Novo em Urubici - site oficial de ingressos"
                 className="h-12 w-12 rounded-xl bg-white object-contain p-1 shadow"
               />
 
