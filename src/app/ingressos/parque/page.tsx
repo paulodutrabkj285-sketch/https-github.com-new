@@ -11,6 +11,12 @@ type TipoDocumentoEstrangeiro =
   | "passaporte"
   | "outro";
 
+const TEXTO_ACEITE_NATURAL_EXTREMO =
+  "Li e estou ciente de que algumas experiências operadas pela Natural Extremo podem incluir o acesso ao Parque Mundo Novo e de que devo confirmar as condições da atividade escolhida antes de comprar o ingresso do parque separadamente.";
+
+const VERSAO_ACEITE_NATURAL_EXTREMO =
+  "2026-09-28";
+
 export default function ParquePage() {
   const router = useRouter();
 
@@ -77,15 +83,12 @@ export default function ParquePage() {
   ] =
     useState(false);
 
-  /*
-   * DATA MÍNIMA PERMITIDA
-   *
-   * Usa a data local do aparelho
-   * do visitante.
-   *
-   * Exemplo:
-   * 2026-09-07
-   */
+  const [
+    aceiteNaturalExtremo,
+    setAceiteNaturalExtremo,
+  ] =
+    useState(false);
+
   const dataMinimaVisita =
     useMemo(
       () => {
@@ -377,9 +380,6 @@ export default function ParquePage() {
         email
       );
 
-    /*
-     * CAMPOS OBRIGATÓRIOS
-     */
     if (
       !nomeFinal ||
       !telefone.trim() ||
@@ -393,14 +393,6 @@ export default function ParquePage() {
       return;
     }
 
-    /*
-     * PROTEÇÃO CONTRA DATA PASSADA
-     *
-     * Mesmo que alguém consiga
-     * digitar manualmente uma data
-     * antiga no navegador, o pedido
-     * não será criado.
-     */
     if (
       dataVisita <
       dataMinimaVisita
@@ -416,9 +408,6 @@ export default function ParquePage() {
       return;
     }
 
-    /*
-     * DOCUMENTO BRASILEIRO
-     */
     if (
       tipoDocumento ===
       "cpf"
@@ -444,9 +433,6 @@ export default function ParquePage() {
         return;
       }
     } else {
-      /*
-       * DOCUMENTO ESTRANGEIRO
-       */
       if (
         !paisDocumento.trim()
       ) {
@@ -479,9 +465,6 @@ export default function ParquePage() {
       }
     }
 
-    /*
-     * VALIDAÇÃO DO E-MAIL
-     */
     if (
       !emailTemFormatoValido(
         emailNormalizado
@@ -525,10 +508,24 @@ export default function ParquePage() {
       );
     }
 
+    if (
+      !aceiteNaturalExtremo
+    ) {
+      alert(
+        "Antes de continuar, marque a confirmação de que leu e está ciente do aviso sobre Tirolesa, Salto do Pêndulo e Skybike."
+      );
+
+      return;
+    }
+
     try {
       setSalvando(
         true
       );
+
+      const aceiteNaturalExtremoEm =
+        new Date()
+          .toISOString();
 
       const dadosPedido =
       {
@@ -583,6 +580,17 @@ export default function ParquePage() {
 
         statusOperacional:
           "ativo",
+
+        aceiteNaturalExtremo:
+          true,
+
+        aceiteNaturalExtremoEm,
+
+        aceiteNaturalExtremoTexto:
+          TEXTO_ACEITE_NATURAL_EXTREMO,
+
+        aceiteNaturalExtremoVersao:
+          VERSAO_ACEITE_NATURAL_EXTREMO,
 
         pagbankCheckoutId:
           "",
@@ -827,6 +835,33 @@ export default function ParquePage() {
                 </li>
 
               </ul>
+
+            </div>
+
+            <div className="mb-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-sm leading-relaxed text-amber-950 shadow-sm">
+
+              <p className="text-base font-black">
+                ⚠️ Vai fazer Tirolesa,
+                Salto do Pêndulo ou
+                Skybike?
+              </p>
+
+              <p className="mt-2 font-semibold">
+                Algumas experiências
+                operadas pela Natural
+                Extremo podem incluir o
+                acesso ao Parque Mundo
+                Novo.
+              </p>
+
+              <p className="mt-2 font-bold">
+                Antes de comprar o
+                ingresso do parque
+                separadamente, confirme
+                com a Natural Extremo as
+                condições da atividade
+                escolhida.
+              </p>
 
             </div>
 
@@ -1263,20 +1298,69 @@ export default function ParquePage() {
               }
             </p>
 
+            <div className="mb-5 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm">
+
+              <p className="font-black">
+                ⚠️ Atenção antes de
+                continuar
+              </p>
+
+              <p className="mt-2 text-sm font-semibold leading-relaxed">
+                Algumas experiências
+                da Natural Extremo,
+                como Tirolesa, Salto do
+                Pêndulo e Skybike,
+                podem incluir o acesso
+                ao Parque Mundo Novo.
+                Confirme as condições
+                da atividade antes de
+                comprar o ingresso do
+                parque separadamente.
+              </p>
+
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300 bg-white p-3">
+
+                <input
+                  type="checkbox"
+                  checked={
+                    aceiteNaturalExtremo
+                  }
+                  onChange={(e) =>
+                    setAceiteNaturalExtremo(
+                      e.target.checked
+                    )
+                  }
+                  className="mt-1 h-5 w-5 shrink-0 accent-green-600"
+                />
+
+                <span className="text-sm font-bold leading-relaxed text-gray-800">
+                  Li e estou ciente
+                  deste aviso antes de
+                  continuar com a
+                  compra.
+                </span>
+
+              </label>
+
+            </div>
+
             <button
               type="button"
               onClick={
                 continuarParaResumo
               }
               disabled={
-                salvando
+                salvando ||
+                !aceiteNaturalExtremo
               }
-              className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
+              className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
 
               {salvando
                 ? "Salvando pedido..."
-                : "Continuar para pagamento"}
+                : !aceiteNaturalExtremo
+                  ? "Marque o aceite para continuar"
+                  : "Continuar para pagamento"}
 
             </button>
 
