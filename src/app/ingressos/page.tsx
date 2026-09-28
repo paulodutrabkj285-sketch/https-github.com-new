@@ -254,15 +254,15 @@ export default function IngressosPage() {
     },
     {
       icone: "🎢",
-      titulo: "Serviços terceirizados",
+      titulo: "Atividades da Natural Extremo",
       texto:
-        "Tirolesa, tirolesa infantil, salto de pêndulo, restaurante, bistrô e Café El Torrador são serviços operados por empresas parceiras, com administração própria. O Parque Mundo Novo disponibiliza apenas o espaço físico e não se responsabiliza por operação, horários, valores, manutenção, cancelamentos ou indisponibilidade desses serviços.",
+        "Tirolesa, tirolesa infantil, Salto do Pêndulo e Skybike são atividades operadas pela Natural Extremo, com condições próprias de contratação. Algumas modalidades podem incluir o acesso ao Parque Mundo Novo. Antes de comprar o ingresso do parque separadamente, confirme com a Natural Extremo as condições da atividade escolhida.",
     },
     {
       icone: "🌧️",
       titulo: "Condições climáticas",
       texto:
-        "Por segurança, atrações terceirizadas podem ser suspensas em caso de chuva, vento forte, neblina intensa ou outras condições climáticas adversas. A contratação dessas atividades é feita diretamente no local com os operadores responsáveis.",
+        "Por segurança, atividades de aventura podem ser suspensas em caso de chuva, vento forte, neblina intensa ou outras condições climáticas adversas. Consulte diretamente o operador responsável sobre funcionamento, disponibilidade e condições da atividade.",
     },
     {
       icone: "🍽️",
@@ -345,9 +345,14 @@ export default function IngressosPage() {
         "Sim. Você pode apresentar o QR Code diretamente pelo celular na entrada do parque.",
     },
     {
-      pergunta: "As atrações terceirizadas são vendidas pelo site?",
+      pergunta: "Vou fazer Tirolesa, Salto do Pêndulo ou Skybike. Preciso comprar ingresso do parque?",
       resposta:
-        "Não. Tirolesa, tirolesa infantil, salto de pêndulo, restaurante, bistrô e cafeteria são serviços terceirizados e devem ser contratados diretamente no local.",
+        "Algumas experiências operadas pela Natural Extremo podem incluir o acesso ao Parque Mundo Novo. Antes de comprar o ingresso do parque separadamente, confirme diretamente com a Natural Extremo as condições da atividade escolhida.",
+    },
+    {
+      pergunta: "As atividades da Natural Extremo são vendidas pelo site do Parque Mundo Novo?",
+      resposta:
+        "Não. Tirolesa, tirolesa infantil, Salto do Pêndulo e Skybike são operados pela Natural Extremo, com contratação e condições próprias. Consulte a Natural Extremo para confirmar valores, disponibilidade e se a modalidade escolhida inclui o acesso ao Parque Mundo Novo.",
     },
     {
       pergunta: "Posso levar meu pet ao parque?",
@@ -1443,15 +1448,28 @@ export default function IngressosPage() {
               receba seu QR Code por e-mail e apresente na portaria pelo celular.
             </p>
 
-            <div className="mt-6 rounded-2xl border border-yellow-200/30 bg-yellow-400/15 p-4 text-left text-sm font-semibold leading-relaxed text-yellow-50">
-              ℹ️ Antes de finalizar sua
-              compra, leia as
-              informações sobre
-              validade do ingresso,
-              política de
-              cancelamento, camping,
-              estacionamento e
-              serviços terceirizados.
+            <div className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-left text-sm leading-relaxed text-amber-950 shadow-xl">
+              <p className="text-base font-black">
+                ⚠️ Vai fazer Tirolesa, Salto do Pêndulo ou Skybike?
+              </p>
+
+              <p className="mt-2 font-semibold">
+                Algumas experiências operadas pela Natural Extremo podem incluir
+                o acesso ao Parque Mundo Novo.
+              </p>
+
+              <p className="mt-2 font-black">
+                Antes de comprar o ingresso de entrada do parque separadamente,
+                verifique com a Natural Extremo as condições da atividade
+                escolhida. Assim você evita adquirir dois acessos para a mesma
+                visita.
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-yellow-200/30 bg-yellow-400/15 p-4 text-left text-sm font-semibold leading-relaxed text-yellow-50">
+              ℹ️ Antes de finalizar sua compra, leia também as informações sobre
+              validade do ingresso, política de cancelamento, camping,
+              estacionamento e demais serviços operados por parceiros.
             </div>
 
           </div>
