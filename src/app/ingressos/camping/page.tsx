@@ -23,6 +23,9 @@ import { criarPedido } from "@/lib/pedidos";
 
 const VENDAS_CAMPING_SUSPENSAS = false;
 
+const TEXTO_ACEITE_HORARIO_CAMPING =
+  "Estou ciente de que devo chegar ao Parque Mundo Novo até as 17h00 para realizar o check-in e receber as orientações da equipe sobre o local de instalação no camping. O parque encerra as atividades às 17h30 e, após esse horário, não haverá equipe disponível para orientar a instalação.";
+
 type TipoDocumento =
   | "cpf"
   | "estrangeiro";
@@ -104,6 +107,11 @@ export default function CampingPage() {
     setSalvando,
   ] =
     useState(false);
+
+  const [
+    aceiteHorarioCamping,
+    setAceiteHorarioCamping,
+  ] = useState(false);
 
   /*
    * Data mínima permitida para
@@ -535,6 +543,13 @@ export default function CampingPage() {
       );
     }
 
+    if (!aceiteHorarioCamping) {
+      alert(
+        "Antes de continuar, confirme que está ciente do horário de chegada do camping."
+      );
+      return;
+    }
+
     try {
       setSalvando(true);
 
@@ -605,6 +620,17 @@ export default function CampingPage() {
 
         statusOperacional:
           "ativo",
+
+        aceiteHorarioCamping: true,
+
+        aceiteHorarioCampingEm:
+          new Date().toISOString(),
+
+        aceiteHorarioCampingTexto:
+          TEXTO_ACEITE_HORARIO_CAMPING,
+
+        aceiteHorarioCampingVersao:
+          "2026-09-30",
 
         pagbankCheckoutId:
           "",
@@ -898,6 +924,37 @@ export default function CampingPage() {
 
               </ul>
 
+            </div>
+
+
+            <div className="mb-6 rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 text-amber-950 shadow-sm">
+              <p className="text-lg font-black">
+                ⚠️ Horário de chegada ao Camping
+              </p>
+
+              <p className="mt-2 text-sm leading-relaxed">
+                Para realizar o check-in e receber as orientações da equipe sobre onde instalar a barraca ou posicionar o motorhome,{" "}
+                <strong>é necessário chegar ao Parque Mundo Novo até as 17h00.</strong>
+              </p>
+
+              <p className="mt-2 text-sm leading-relaxed">
+                O parque encerra as atividades às <strong>17h30</strong> e, após esse horário, não haverá equipe disponível para orientar a instalação no camping.
+              </p>
+
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300 bg-white p-4">
+                <input
+                  type="checkbox"
+                  checked={aceiteHorarioCamping}
+                  onChange={(e) =>
+                    setAceiteHorarioCamping(e.target.checked)
+                  }
+                  className="mt-1 h-5 w-5 shrink-0 accent-green-700"
+                />
+
+                <span className="text-sm font-semibold leading-relaxed text-gray-800">
+                  Li e estou ciente de que devo chegar ao parque até as 17h00 para realizar o check-in e receber as orientações do camping.
+                </span>
+              </label>
             </div>
 
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -1443,7 +1500,8 @@ export default function CampingPage() {
                   continuarParaResumo
                 }
                 disabled={
-                  salvando
+                  salvando ||
+                  !aceiteHorarioCamping
                 }
                 className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
               >

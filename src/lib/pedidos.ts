@@ -182,6 +182,18 @@ export type PedidoInput = {
 
   aceiteNaturalExtremoVersao?: string;
 
+  /* ==========================================
+     CIÊNCIA - HORÁRIO DO CAMPING
+  ========================================== */
+
+  aceiteHorarioCamping?: boolean;
+
+  aceiteHorarioCampingEm?: string;
+
+  aceiteHorarioCampingTexto?: string;
+
+  aceiteHorarioCampingVersao?: string;
+
 
 
   /* ==========================================
