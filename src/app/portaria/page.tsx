@@ -940,8 +940,8 @@ export default function PortariaPage() {
     ====================================== */
 
     function verificarValidadeData(
-        dataVisita?:
-            string
+        dataVisita?: string,
+        dataCompra?: string
     ) {
         if (
             !dataVisita
@@ -977,6 +977,31 @@ export default function PortariaPage() {
             0
         );
 
+        const dataCompraIngresso =
+            dataCompra
+                ? new Date(
+                    dataCompra
+                )
+                : null;
+
+        const temDataCompraValida =
+            !!dataCompraIngresso &&
+            !Number.isNaN(
+                dataCompraIngresso.getTime()
+            );
+
+        /*
+         * PEDIDO NORMAL:
+         * pode antecipar em até 5 dias.
+         *
+         * RESERVA DE AGÊNCIA:
+         * mantém a regra anterior de 1 dia.
+         */
+        const diasAntecipacao =
+            temDataCompraValida
+                ? 5
+                : 1;
+
         const inicioPermitido =
             new Date(
                 dataIngresso
@@ -984,17 +1009,47 @@ export default function PortariaPage() {
 
         inicioPermitido.setDate(
             inicioPermitido.getDate() -
-            1
+            diasAntecipacao
         );
 
         const fimPermitido =
-            new Date(
-                dataIngresso
-            );
+            temDataCompraValida &&
+            dataCompraIngresso
+                ? new Date(
+                    dataCompraIngresso
+                )
+                : new Date(
+                    dataIngresso
+                );
 
-        fimPermitido.setDate(
-            fimPermitido.getDate() +
-            30
+        if (
+            temDataCompraValida
+        ) {
+            /*
+             * Ingresso normal:
+             * validade de 6 meses
+             * a partir da compra.
+             */
+            fimPermitido.setMonth(
+                fimPermitido.getMonth() +
+                6
+            );
+        } else {
+            /*
+             * Reserva de agência:
+             * mantém a regra já existente.
+             */
+            fimPermitido.setDate(
+                fimPermitido.getDate() +
+                30
+            );
+        }
+
+        fimPermitido.setHours(
+            23,
+            59,
+            59,
+            999
         );
 
         if (
@@ -1639,7 +1694,8 @@ export default function PortariaPage() {
 
         const validade =
             verificarValidadeData(
-                encontrado.dataVisita
+                encontrado.dataVisita,
+                encontrado.createdAt
             );
 
         if (
@@ -2295,7 +2351,8 @@ export default function PortariaPage() {
 
         const validade =
             verificarValidadeData(
-                pedido.dataVisita
+                pedido.dataVisita,
+                pedido.createdAt
             );
 
         if (
@@ -2784,7 +2841,8 @@ export default function PortariaPage() {
 
     const validadeAtual =
         verificarValidadeData(
-            dataVisitaAtual
+            dataVisitaAtual,
+            pedido?.createdAt
         );
 
     const usado =

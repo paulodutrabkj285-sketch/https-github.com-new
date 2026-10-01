@@ -30,13 +30,13 @@ export default function TermosDeUsoPage() {
                 </p>
 
                 <p className="mt-2">
-                    O visitante poderá antecipar sua visita em até 24 horas antes da data
+                    O visitante poderá antecipar sua visita em até 5 dias antes da data
                     originalmente escolhida.
                 </p>
 
                 <p className="mt-2">
-                    O ingresso também poderá ser utilizado em até 30 dias após a data
-                    inicialmente selecionada.
+                    Caso ainda não tenha sido utilizado, o ingresso permanecerá válido por
+                    até 6 meses a partir da data da compra.
                 </p>
 
                 <h2 className="mt-6 text-xl font-bold text-green-800">
