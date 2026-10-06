@@ -56,7 +56,6 @@ const FUNCIONARIOS = [
     "FRANCISCO",
     "Perteson",
     "Matheus matias",
-
 ];
 
 /* ======================================
@@ -574,8 +573,6 @@ export default function PortariaPage() {
                 );
             }
 
-            /* PEDIDOS */
-
             try {
                 const pedidosNuvem =
                     await listarPedidosAtivosPortaria();
@@ -591,8 +588,6 @@ export default function PortariaPage() {
                     error
                 );
             }
-
-            /* RESERVAS */
 
             try {
                 const reservasNuvem =
@@ -617,7 +612,6 @@ export default function PortariaPage() {
                         {
                             hour:
                                 "2-digit",
-
                             minute:
                                 "2-digit",
                         }
@@ -697,10 +691,9 @@ export default function PortariaPage() {
             );
         }
     }
-
     /* ======================================
-       AUXILIARES
-    ====================================== */
+   AUXILIARES
+====================================== */
 
     function limpar(
         valor:
@@ -1014,7 +1007,7 @@ export default function PortariaPage() {
 
         const fimPermitido =
             temDataCompraValida &&
-            dataCompraIngresso
+                dataCompraIngresso
                 ? new Date(
                     dataCompraIngresso
                 )
@@ -1603,10 +1596,9 @@ export default function PortariaPage() {
             item.cachoeiraMundoNovoValidadoPor
         );
     }
-
     /* ======================================
-       VALIDAR PEDIDO NORMAL
-    ====================================== */
+   VALIDAR PEDIDO NORMAL
+====================================== */
 
     function validarPedidoEncontrado(
         encontrado:
@@ -1658,12 +1650,21 @@ export default function PortariaPage() {
             return;
         }
 
+        /* ==================================
+           CANCELADO / BLOQUEADO
+        ================================== */
+
         if (
+            encontrado.statusOperacional ===
+            "cancelado" ||
             encontrado.statusOperacional ===
             "bloqueado"
         ) {
             setMensagem(
-                "INGRESSO BLOQUEADO"
+                encontrado.statusOperacional ===
+                    "cancelado"
+                    ? "INGRESSO CANCELADO"
+                    : "INGRESSO BLOQUEADO"
             );
 
             vibrar(
@@ -2330,6 +2331,30 @@ export default function PortariaPage() {
             return;
         }
 
+        /* ==================================
+           PROTEÇÃO: CANCELADO / BLOQUEADO
+        ================================== */
+
+        if (
+            pedido.statusOperacional ===
+            "cancelado" ||
+            pedido.statusOperacional ===
+            "bloqueado"
+        ) {
+            setMensagem(
+                pedido.statusOperacional ===
+                    "cancelado"
+                    ? "INGRESSO CANCELADO"
+                    : "INGRESSO BLOQUEADO"
+            );
+
+            vibrar(
+                "erro"
+            );
+
+            return;
+        }
+
         if (
             pedidoExclusivoElevador(
                 pedido
@@ -2492,10 +2517,9 @@ export default function PortariaPage() {
                 : "ACESSO À CACHOEIRA CONFIRMADO"
         );
     }
-
     /* ======================================
-       CONFIRMAR RESERVA DE AGÊNCIA
-    ====================================== */
+   CONFIRMAR RESERVA DE AGÊNCIA
+====================================== */
 
     async function confirmarReservaAgencia() {
         if (
@@ -2582,12 +2606,6 @@ export default function PortariaPage() {
 
             dadosUtilizacao =
             {
-                /*
-                 * A confirmação da portaria
-                 * também confirma o pagamento
-                 * da reserva feita para pagar
-                 * na chegada.
-                 */
                 statusPagamento:
                     "pago",
 
@@ -2761,11 +2779,6 @@ export default function PortariaPage() {
                 );
             }
 
-            /*
-             * Se estiver online,
-             * renova os caches para
-             * refletir a gravação.
-             */
             if (
                 isOnline
             ) {
@@ -2869,6 +2882,8 @@ export default function PortariaPage() {
             "pago" &&
             pedido.statusOperacional !==
             "bloqueado" &&
+            pedido.statusOperacional !==
+            "cancelado" &&
             !pedidoExclusivoElevador(
                 pedido
             ) &&
@@ -3020,19 +3035,79 @@ export default function PortariaPage() {
                         className="mx-auto h-20 w-20 rounded-3xl bg-white/10 object-contain p-2 shadow-xl"
                     />
 
-                    <h1 className="mt-2 text-2xl font-black">
+                    <h1 className="mt-3 text-2xl font-black">
                         Portaria Digital
                     </h1>
+
+                    <p className="mt-1 text-sm font-semibold text-white/75">
+                        Parque Mundo Novo
+                    </p>
                 </header>
 
-                {/* LOCAL */}
+                {/* INTERNET */}
 
-                <section className="mb-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
-                    <p className="mb-3 text-center text-sm font-black uppercase tracking-wide text-slate-600">
-                        📍 Local de validação
+                <section className="mb-4 rounded-3xl border border-white/15 bg-black/40 p-4 shadow-xl backdrop-blur-md">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider text-white/60">
+                                Conexão
+                            </p>
+
+                            <p
+                                className={`mt-1 text-sm font-black ${isOnline
+                                    ? "text-green-300"
+                                    : "text-yellow-300"
+                                    }`}
+                            >
+                                {isOnline
+                                    ? "● ONLINE"
+                                    : "● OFFLINE"}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={
+                                realizarSincronizacaoAutomatica
+                            }
+                            disabled={
+                                !isOnline ||
+                                sincronizando
+                            }
+                            className="rounded-2xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-black disabled:opacity-40"
+                        >
+                            {sincronizando
+                                ? "SINCRONIZANDO..."
+                                : "SINCRONIZAR"}
+                        </button>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-white/70">
+                        <div className="rounded-xl bg-white/5 p-2">
+                            Pendentes:{" "}
+                            <strong className="text-white">
+                                {pendentesCount}
+                            </strong>
+                        </div>
+
+                        <div className="rounded-xl bg-white/5 p-2">
+                            Última sinc.:{" "}
+                            <strong className="text-white">
+                                {ultimaSinc ||
+                                    "--:--"}
+                            </strong>
+                        </div>
+                    </div>
+                </section>
+
+                {/* LOCAL DE VALIDAÇÃO */}
+
+                <section className="mb-4 rounded-3xl border border-white/15 bg-black/40 p-4 shadow-xl backdrop-blur-md">
+                    <p className="mb-3 text-sm font-black uppercase tracking-wide">
+                        Local de validação
                     </p>
 
-                    <div className="grid gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         <button
                             type="button"
                             onClick={() =>
@@ -3040,13 +3115,13 @@ export default function PortariaPage() {
                                     "principal"
                                 )
                             }
-                            className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
+                            className={`rounded-2xl px-3 py-4 text-sm font-black ${localValidacao ===
                                 "principal"
-                                ? "border-green-700 bg-green-700 text-white"
-                                : "border-slate-200 bg-white text-slate-800"
+                                ? "bg-green-500 text-black"
+                                : "bg-white/10 text-white"
                                 }`}
                         >
-                            🚪 PORTARIA PRINCIPAL
+                            🏡 PORTARIA
                         </button>
 
                         <button
@@ -3056,157 +3131,32 @@ export default function PortariaPage() {
                                     "cachoeira_mundo_novo"
                                 )
                             }
-                            className={`rounded-2xl border-4 px-4 py-5 text-lg font-black transition ${localValidacao ===
+                            className={`rounded-2xl px-3 py-4 text-sm font-black ${localValidacao ===
                                 "cachoeira_mundo_novo"
-                                ? "border-blue-700 bg-blue-700 text-white"
-                                : "border-slate-200 bg-white text-slate-800"
+                                ? "bg-blue-500 text-white"
+                                : "bg-white/10 text-white"
                                 }`}
                         >
-                            🌊 CACHOEIRA MUNDO NOVO
+                            💦 CACHOEIRA
                         </button>
                     </div>
 
                     {localValidacao && (
-                        <p className="mt-3 rounded-xl bg-slate-100 p-3 text-center text-sm font-black">
+                        <p className="mt-3 text-center text-xs font-bold text-white/70">
                             Local atual:{" "}
-                            {nomeLocal()}
-                        </p>
-                    )}
-                </section>
-
-                {/* INTERNET */}
-
-                <section className="mb-4 rounded-2xl border border-white/10 bg-slate-900/90 p-4 text-sm shadow-lg">
-                    <div className="flex items-center justify-between gap-2">
-
-                        <div className="flex items-center gap-2">
-                            <span
-                                className={`h-3.5 w-3.5 rounded-full ${isOnline
-                                    ? "animate-pulse bg-green-500"
-                                    : "bg-red-500"
-                                    }`}
-                            />
-
-                            <span className="font-bold uppercase">
-                                {isOnline
-                                    ? "Online"
-                                    : "Offline"}
+                            <span className="text-white">
+                                {nomeLocal()}
                             </span>
-                        </div>
-
-                        {isOnline && (
-                            <button
-                                onClick={
-                                    realizarSincronizacaoAutomatica
-                                }
-                                disabled={
-                                    sincronizando
-                                }
-                                className="rounded-xl bg-green-700 px-3 py-2 text-xs font-black disabled:opacity-50"
-                            >
-                                {sincronizando
-                                    ? "SINCRONIZANDO..."
-                                    : "SINCRONIZAR"}
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 text-white/80">
-                        <p>
-                            Última sinc:
-                            <br />
-
-                            <strong className="text-white">
-                                {ultimaSinc ||
-                                    "Nunca"}
-                            </strong>
                         </p>
-
-                        <p className="text-right">
-                            Fila:
-                            <br />
-
-                            <strong
-                                className={
-                                    pendentesCount >
-                                        0
-                                        ? "text-yellow-400"
-                                        : "text-white"
-                                }
-                            >
-                                {
-                                    pendentesCount
-                                }
-                            </strong>
-                        </p>
-                    </div>
-
-                    {!isOnline && (
-                        <div className="mt-3 rounded-xl bg-red-950/50 p-3 text-center text-xs font-bold text-red-200">
-                            ⚠️ OFFLINE
-                            <br />
-                            Use apenas um aparelho por
-                            portaria enquanto estiver
-                            sem internet.
-                        </div>
                     )}
                 </section>
-
-                {/* CONTADORES */}
-
-                {localValidacao && (
-                    <>
-                        <div className="mb-2 rounded-xl bg-black/70 p-2 text-center text-xs font-black uppercase">
-                            Contadores —{" "}
-                            {nomeLocal()}
-                        </div>
-
-                        <div className="mb-4 grid grid-cols-3 gap-2">
-                            <div className="rounded-2xl bg-green-700/95 p-3 text-center shadow-lg">
-                                <p className="text-xs font-bold">
-                                    👥 Hoje
-                                </p>
-
-                                <p className="text-2xl font-black">
-                                    {
-                                        entradasHoje
-                                    }
-                                </p>
-                            </div>
-
-                            <div className="rounded-2xl bg-blue-700/95 p-3 text-center shadow-lg">
-                                <p className="text-xs font-bold">
-                                    📅 Mês
-                                </p>
-
-                                <p className="text-2xl font-black">
-                                    {
-                                        entradasMes
-                                    }
-                                </p>
-                            </div>
-
-                            <div className="rounded-2xl bg-purple-700/95 p-3 text-center shadow-lg">
-                                <p className="text-xs font-bold">
-                                    🏆 Total
-                                </p>
-
-                                <p className="text-2xl font-black">
-                                    {
-                                        totalUtilizados
-                                    }
-                                </p>
-                            </div>
-                        </div>
-                    </>
-                )}
 
                 {/* FUNCIONÁRIO */}
 
-                <section className="mb-4 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
-                    <p className="mb-2 text-sm font-black uppercase tracking-wide text-slate-600">
-                        Funcionário responsável
-                    </p>
+                <section className="mb-4 rounded-3xl border border-white/15 bg-black/40 p-4 shadow-xl backdrop-blur-md">
+                    <label className="mb-2 block text-sm font-black uppercase tracking-wide">
+                        Funcionário
+                    </label>
 
                     <select
                         value={
@@ -3219,10 +3169,10 @@ export default function PortariaPage() {
                                 event.target.value
                             )
                         }
-                        className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-lg font-black"
+                        className="w-full rounded-2xl border border-white/20 bg-slate-900 px-4 py-4 font-bold text-white outline-none"
                     >
                         <option value="">
-                            SELECIONE O FUNCIONÁRIO
+                            Selecione...
                         </option>
 
                         {FUNCIONARIOS.map(
@@ -3237,543 +3187,456 @@ export default function PortariaPage() {
                                         nome
                                     }
                                 >
-                                    {
-                                        nome
-                                    }
+                                    {nome}
                                 </option>
                             )
                         )}
                     </select>
-
-                    {funcionario && (
-                        <p className="mt-3 rounded-xl bg-green-100 p-2 text-center text-sm font-black text-green-800">
-                            ✅ Atendimento:{" "}
-                            {
-                                funcionario
-                            }
-                        </p>
-                    )}
                 </section>
 
-                {/* RESULTADO */}
+                {/* CONTADORES */}
 
-                <section
-                    className={`rounded-3xl border-4 p-6 text-center shadow-2xl backdrop-blur-sm ${painelClass}`}
-                >
-                    <p className="text-7xl">
-                        {valido
-                            ? "✅"
-                            : itemAtualExiste
-                                ? "⛔"
-                                : localValidacao
-                                    ? "📷"
-                                    : "📍"}
-                    </p>
-
-                    <h2 className="mt-4 text-3xl font-black leading-tight">
-                        {
-                            mensagem
-                        }
-                    </h2>
-
-                    {/* QUANTIDADE */}
-
-                    {valido && (
-                        <div className="mt-5 rounded-3xl border-4 border-white bg-white px-4 py-6 text-green-700 shadow-2xl">
-                            <p className="text-sm font-black uppercase tracking-[0.2em]">
-                                Liberar
+                {localValidacao && (
+                    <section className="mb-4 grid grid-cols-3 gap-2">
+                        <div className="rounded-2xl border border-white/15 bg-black/40 p-3 text-center backdrop-blur-md">
+                            <p className="text-xs font-bold text-white/60">
+                                HOJE
                             </p>
 
-                            <p className="mt-2 text-5xl font-black">
-                                {textoPessoas(
-                                    quantidadeAtual
-                                )}
-                            </p>
-
-                            <p className="mt-3 text-sm font-black">
-                                {
-                                    nomeLocal()
-                                }
+                            <p className="mt-1 text-2xl font-black">
+                                {entradasHoje}
                             </p>
                         </div>
-                    )}
 
-                    {/* JÁ UTILIZADO */}
-
-                    {usado &&
-                        usadoEm && (
-                            <div className="mt-4 rounded-2xl bg-white/20 p-4 text-center text-lg font-black">
-                                Já utilizado em:
-                                <br />
-
-                                {formatarDataHora(
-                                    usadoEm
-                                )}
-
-                                {validadoPor && (
-                                    <>
-                                        <br />
-                                        Por:{" "}
-                                        {
-                                            validadoPor
-                                        }
-                                    </>
-                                )}
-                            </div>
-                        )}
-
-                    {/* PEDIDO NORMAL */}
-
-                    {pedido && (
-                        <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-base font-bold">
-
-                            <p className="mb-3 rounded-xl bg-black/20 p-2 text-center font-black">
-                                🎟️ INGRESSO
+                        <div className="rounded-2xl border border-white/15 bg-black/40 p-3 text-center backdrop-blur-md">
+                            <p className="text-xs font-bold text-white/60">
+                                MÊS
                             </p>
 
-                            <p>
-                                Cliente:{" "}
-                                {
-                                    pedido.nome
-                                }
+                            <p className="mt-1 text-2xl font-black">
+                                {entradasMes}
                             </p>
-
-                            <p>
-                                Produto:{" "}
-                                {
-                                    pedido.produto
-                                }
-                            </p>
-
-                            <p>
-                                Quantidade:{" "}
-                                {
-                                    quantidadeAtual
-                                }{" "}
-                                {quantidadeAtual ===
-                                    1
-                                    ? "pessoa"
-                                    : "pessoas"}
-                            </p>
-
-                            <p>
-                                Código:{" "}
-                                {
-                                    pedido.codigoIngresso
-                                }
-                            </p>
-
-                            <p>
-                                Data da visita:{" "}
-                                {formatarData(
-                                    pedido.dataVisita
-                                )}
-                            </p>
-
-                            <p>
-                                Pagamento:{" "}
-                                {pedido.statusPagamento ===
-                                    "pago"
-                                    ? "Confirmado"
-                                    : pedido.statusPagamento}
-                            </p>
-
-                            <div className="mt-4 rounded-xl bg-black/20 p-3">
-                                <p className="font-black">
-                                    🚪 Portaria Principal
-                                </p>
-
-                                <p>
-                                    {pedido.statusOperacional ===
-                                        "utilizado"
-                                        ? `✅ Validada${pedido.utilizadoEm
-                                            ? ` em ${formatarDataHora(
-                                                pedido.utilizadoEm
-                                            )}`
-                                            : ""
-                                        }`
-                                        : "⏳ Ainda não validada"}
-                                </p>
-                            </div>
-
-                            <div className="mt-2 rounded-xl bg-black/20 p-3">
-                                <p className="font-black">
-                                    🌊 Cachoeira Mundo Novo
-                                </p>
-
-                                <p>
-                                    {pedido.cachoeiraMundoNovoValidado
-                                        ? `✅ Validada${pedido.cachoeiraMundoNovoValidadoEm
-                                            ? ` em ${formatarDataHora(
-                                                pedido.cachoeiraMundoNovoValidadoEm
-                                            )}`
-                                            : ""
-                                        }`
-                                        : "⏳ Ainda não validada"}
-                                </p>
-                            </div>
                         </div>
-                    )}
 
-                    {/* RESERVA DE AGÊNCIA */}
-
-                    {reservaAgencia && (
-                        <div className="mt-6 rounded-2xl bg-white/15 p-4 text-left text-base font-bold">
-
-                            <p className="mb-3 rounded-xl bg-black/20 p-2 text-center font-black">
-                                🚌 GRUPO DE AGÊNCIA
+                        <div className="rounded-2xl border border-white/15 bg-black/40 p-3 text-center backdrop-blur-md">
+                            <p className="text-xs font-bold text-white/60">
+                                TOTAL
                             </p>
 
-                            <p>
-                                Agência:{" "}
-                                {
-                                    reservaAgencia.agenciaNome ||
-                                    "-"
-                                }
+                            <p className="mt-1 text-2xl font-black">
+                                {totalUtilizados}
                             </p>
-
-                            <p>
-                                Responsável:{" "}
-                                {
-                                    reservaAgencia.agenciaResponsavel ||
-                                    "-"
-                                }
-                            </p>
-
-                            <p>
-                                Código:{" "}
-                                {
-                                    reservaAgencia.codigoGrupo ||
-                                    "-"
-                                }
-                            </p>
-
-                            <p>
-                                Data:{" "}
-                                {formatarData(
-                                    limpar(
-                                        reservaAgencia.dataVisita
-                                    )
-                                )}
-                            </p>
-
-                            <p>
-                                Chegada prevista:{" "}
-                                {
-                                    reservaAgencia.horaPrevista ||
-                                    "Não informada"
-                                }
-                            </p>
-
-                            <p>
-                                Veículo:{" "}
-                                {
-                                    reservaAgencia.tipoVeiculo ||
-                                    "-"
-                                }
-                            </p>
-
-                            <div className="mt-3 rounded-xl bg-black/20 p-3">
-                                <p>
-                                    👨 Adultos:{" "}
-                                    <strong>
-                                        {
-                                            Number(
-                                                reservaAgencia.adultos ||
-                                                0
-                                            )
-                                        }
-                                    </strong>
-                                </p>
-
-                                <p>
-                                    👵 Idosos:{" "}
-                                    <strong>
-                                        {
-                                            Number(
-                                                reservaAgencia.idosos ||
-                                                0
-                                            )
-                                        }
-                                    </strong>
-                                </p>
-
-                                <p className="mt-2 text-xl font-black">
-                                    👥 TOTAL:{" "}
-                                    {
-                                        quantidadeDaReserva(
-                                            reservaAgencia
-                                        )
-                                    }{" "}
-                                    PESSOAS
-                                </p>
-                            </div>
-
-                            <div className="mt-3 rounded-xl bg-black/20 p-3">
-                                <p className="font-black">
-                                    🚡 Elevador Panorâmico
-                                </p>
-
-                                <p>
-                                    {reservaAgencia.elevador
-                                        ? `Sim - ${Number(
-                                            reservaAgencia.qtdElevador ||
-                                            0
-                                        )} pessoa(s)`
-                                        : "Não"}
-                                </p>
-                            </div>
-
-                            <div className="mt-3 rounded-xl bg-black/20 p-3">
-                                <p>
-                                    Valor:{" "}
-                                    <strong>
-                                        {formatarMoeda(
-                                            Number(
-                                                reservaAgencia.valorFinal ||
-                                                0
-                                            )
-                                        )}
-                                    </strong>
-                                </p>
-
-                                <p>
-                                    Pagamento:{" "}
-                                    <strong>
-                                        {reservaAgencia.statusPagamento ===
-                                            "pago"
-                                            ? "✅ PAGO"
-                                            : reservaAgencia.statusPagamento ===
-                                                "a_pagar_na_chegada"
-                                                ? "💰 A PAGAR NA CHEGADA"
-                                                : limpar(
-                                                    reservaAgencia.statusPagamento
-                                                )}
-                                    </strong>
-                                </p>
-                            </div>
-
-                            <div className="mt-3 rounded-xl bg-black/20 p-3">
-                                <p className="font-black">
-                                    🚪 Portaria Principal
-                                </p>
-
-                                <p>
-                                    {reservaAgencia.statusOperacional ===
-                                        "utilizado"
-                                        ? `✅ Grupo validado${reservaAgencia.utilizadoEm
-                                            ? ` em ${formatarDataHora(
-                                                limpar(
-                                                    reservaAgencia.utilizadoEm
-                                                )
-                                            )}`
-                                            : ""
-                                        }`
-                                        : "⏳ Grupo ainda não entrou"}
-                                </p>
-
-                                {reservaAgencia.validadoPor && (
-                                    <p>
-                                        Por:{" "}
-                                        {
-                                            limpar(
-                                                reservaAgencia.validadoPor
-                                            )
-                                        }
-                                    </p>
-                                )}
-                            </div>
-
-                            <div className="mt-2 rounded-xl bg-black/20 p-3">
-                                <p className="font-black">
-                                    🌊 Cachoeira Mundo Novo
-                                </p>
-
-                                <p>
-                                    {reservaAgencia.cachoeiraMundoNovoValidado
-                                        ? `✅ Grupo validado${reservaAgencia.cachoeiraMundoNovoValidadoEm
-                                            ? ` em ${formatarDataHora(
-                                                limpar(
-                                                    reservaAgencia.cachoeiraMundoNovoValidadoEm
-                                                )
-                                            )}`
-                                            : ""
-                                        }`
-                                        : "⏳ Ainda não validada"}
-                                </p>
-                            </div>
                         </div>
-                    )}
-                </section>
+                    </section>
+                )}
 
-                {/* QR / BUSCA */}
+                {/* LEITOR */}
 
-                <section className="mt-5 rounded-3xl bg-white/95 p-4 text-slate-900 shadow-xl">
-
+                <section className="mb-4 rounded-3xl border border-white/15 bg-black/40 p-4 shadow-xl backdrop-blur-md">
                     {!cameraAtiva ? (
                         <button
+                            type="button"
                             onClick={
                                 iniciarCamera
                             }
                             disabled={
-                                carregando ||
-                                !localValidacao
+                                !localValidacao ||
+                                carregando
                             }
-                            className="w-full rounded-2xl bg-green-700 px-5 py-6 text-2xl font-black text-white disabled:bg-slate-400"
+                            className="w-full rounded-2xl bg-green-500 px-5 py-4 text-lg font-black text-black shadow-lg disabled:opacity-40"
                         >
-                            📷 ESCANEAR QR CODE
+                            📷 LER QR CODE
                         </button>
                     ) : (
-                        <button
-                            onClick={
-                                pararCamera
-                            }
-                            className="w-full rounded-2xl bg-red-600 px-5 py-5 text-xl font-black text-white"
-                        >
-                            FECHAR CÂMERA
-                        </button>
-                    )}
-
-                    {cameraAtiva && (
-                        <div className="mt-4 overflow-hidden rounded-2xl bg-black p-2">
+                        <>
                             <div
                                 id="leitor-portaria"
-                                className="w-full"
+                                className="overflow-hidden rounded-2xl bg-black"
                             />
-                        </div>
+
+                            <button
+                                type="button"
+                                onClick={
+                                    pararCamera
+                                }
+                                className="mt-3 w-full rounded-2xl bg-red-600 px-5 py-3 font-black text-white"
+                            >
+                                FECHAR CÂMERA
+                            </button>
+                        </>
                     )}
 
-                    <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-                        <input
-                            type="text"
-                            value={
-                                codigoManual
-                            }
-                            onChange={(
-                                event
-                            ) =>
-                                setCodigoManual(
-                                    event.target.value
-                                        .toUpperCase()
-                                )
-                            }
-                            placeholder="Código PMN ou GRP"
-                            disabled={
-                                !localValidacao
-                            }
-                            className="w-full rounded-2xl border border-slate-300 px-4 py-4 text-lg font-bold uppercase disabled:bg-slate-200"
-                        />
+                    <div className="my-4 flex items-center gap-3">
+                        <div className="h-px flex-1 bg-white/20" />
 
-                        <button
-                            onClick={() => {
-                                if (
-                                    !localValidacao
-                                ) {
-                                    setMensagem(
-                                        "SELECIONE O LOCAL"
-                                    );
+                        <span className="text-xs font-bold text-white/50">
+                            OU
+                        </span>
 
-                                    return;
-                                }
-
-                                if (
-                                    !codigoManual.trim()
-                                ) {
-                                    setMensagem(
-                                        "DIGITE O CÓDIGO"
-                                    );
-
-                                    vibrar(
-                                        "erro"
-                                    );
-
-                                    return;
-                                }
-
-                                buscarIngresso(
-                                    codigoManual.trim()
-                                );
-                            }}
-                            disabled={
-                                carregando ||
-                                !localValidacao
-                            }
-                            className="rounded-2xl bg-blue-600 px-5 py-4 font-black text-white disabled:bg-slate-400"
-                        >
-                            BUSCAR
-                        </button>
+                        <div className="h-px flex-1 bg-white/20" />
                     </div>
 
-                    <button
-                        onClick={() => {
-                            setPedido(
-                                null
-                            );
-
-                            setReservaAgencia(
-                                null
-                            );
-
+                    <input
+                        value={
+                            codigoManual
+                        }
+                        onChange={(
+                            event
+                        ) =>
                             setCodigoManual(
-                                ""
-                            );
-
-                            setMensagem(
-                                localValidacao
-                                    ? `${nomeLocal()} - Aguardando ingresso ou grupo`
-                                    : "Selecione o local de validação"
-                            );
+                                event.target.value
+                            )
+                        }
+                        onKeyDown={(
+                            event
+                        ) => {
+                            if (
+                                event.key ===
+                                "Enter"
+                            ) {
+                                buscarIngresso(
+                                    codigoManual
+                                );
+                            }
                         }}
-                        className="mt-4 w-full rounded-2xl border border-slate-300 px-5 py-4 font-bold text-slate-700"
+                        placeholder="Digite o código do ingresso ou grupo"
+                        className="w-full rounded-2xl border border-white/20 bg-slate-900 px-4 py-4 font-bold text-white outline-none placeholder:text-white/35"
+                    />
+
+                    <button
+                        type="button"
+                        onClick={() =>
+                            buscarIngresso(
+                                codigoManual
+                            )
+                        }
+                        disabled={
+                            carregando ||
+                            !codigoManual.trim() ||
+                            !localValidacao
+                        }
+                        className="mt-3 w-full rounded-2xl bg-blue-600 px-5 py-4 font-black text-white disabled:opacity-40"
                     >
-                        LIMPAR
+                        {carregando
+                            ? "BUSCANDO..."
+                            : "BUSCAR"}
                     </button>
                 </section>
 
-                {/* CONFIRMAR */}
+                {/* PAINEL DE RESULTADO */}
 
-                {valido && (
-                    <button
-                        onClick={
-                            confirmarEntrada
-                        }
-                        disabled={
-                            carregando
-                        }
-                        className={`mt-5 w-full rounded-3xl px-5 py-6 text-xl font-black text-white shadow-xl disabled:opacity-60 ${localValidacao ===
-                            "principal"
-                            ? "bg-green-500"
-                            : "bg-blue-500"
-                            }`}
-                    >
-                        {reservaAgencia &&
-                            localValidacao ===
-                            "principal" &&
-                            reservaAgencia.statusPagamento ===
-                            "a_pagar_na_chegada"
-                            ? `💰 CONFIRMAR PAGAMENTO E ENTRADA DE ${textoPessoas(
+                <section
+                    className={`mb-4 rounded-3xl border p-5 text-center shadow-2xl ${painelClass}`}
+                >
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-white/70">
+                        Resultado
+                    </p>
+
+                    <h2 className="mt-2 text-2xl font-black">
+                        {mensagem}
+                    </h2>
+
+                    {itemAtualExiste && (
+                        <p className="mt-2 text-sm font-bold">
+                            {textoPessoas(
                                 quantidadeAtual
-                            )}`
-                            : localValidacao ===
+                            )}
+                        </p>
+                    )}
+                </section>
+
+                {/* DADOS DO PEDIDO */}
+
+                {pedido && (
+                    <section className="mb-4 rounded-3xl border border-white/15 bg-black/50 p-5 shadow-xl backdrop-blur-md">
+                        <p className="text-xs font-black uppercase tracking-wider text-white/50">
+                            Ingresso
+                        </p>
+
+                        <div className="mt-4 space-y-3 text-sm">
+                            <div>
+                                <p className="text-white/50">
+                                    Código
+                                </p>
+
+                                <p className="font-black">
+                                    {pedido.codigoIngresso ||
+                                        pedido.id}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Produto
+                                </p>
+
+                                <p className="font-bold">
+                                    {pedido.produto ||
+                                        pedido.tipo ||
+                                        "Ingresso Parque"}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Data da visita
+                                </p>
+
+                                <p className="font-bold">
+                                    {formatarData(
+                                        pedido.dataVisita
+                                    )}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Quantidade
+                                </p>
+
+                                <p className="font-bold">
+                                    {textoPessoas(
+                                        quantidadeDoPedido(
+                                            pedido
+                                        )
+                                    )}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Pagamento
+                                </p>
+
+                                <p className="font-bold">
+                                    {pedido.statusPagamento ||
+                                        "Não informado"}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Status
+                                </p>
+
+                                <p
+                                    className={`font-black ${pedido.statusOperacional ===
+                                        "cancelado"
+                                        ? "text-red-300"
+                                        : pedido.statusOperacional ===
+                                            "bloqueado"
+                                            ? "text-red-300"
+                                            : pedido.statusOperacional ===
+                                                "utilizado"
+                                                ? "text-yellow-300"
+                                                : "text-green-300"
+                                        }`}
+                                >
+                                    {pedido.statusOperacional ===
+                                        "cancelado"
+                                        ? "⛔ INGRESSO CANCELADO"
+                                        : pedido.statusOperacional ===
+                                            "bloqueado"
+                                            ? "⛔ INGRESSO BLOQUEADO"
+                                            : pedido.statusOperacional ===
+                                                "utilizado"
+                                                ? "⚠️ INGRESSO UTILIZADO"
+                                                : "✅ INGRESSO LIBERADO"}
+                                </p>
+                            </div>
+
+                            {usado &&
+                                usadoEm && (
+                                    <div className="rounded-2xl bg-white/10 p-3">
+                                        <p className="text-white/50">
+                                            Utilizado em
+                                        </p>
+
+                                        <p className="font-bold">
+                                            {formatarDataHora(
+                                                usadoEm
+                                            )}
+                                        </p>
+
+                                        {validadoPor && (
+                                            <>
+                                                <p className="mt-2 text-white/50">
+                                                    Validado por
+                                                </p>
+
+                                                <p className="font-bold">
+                                                    {validadoPor}
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                        </div>
+                    </section>
+                )}
+
+                {/* DADOS DA RESERVA */}
+
+                {reservaAgencia && (
+                    <section className="mb-4 rounded-3xl border border-white/15 bg-black/50 p-5 shadow-xl backdrop-blur-md">
+                        <p className="text-xs font-black uppercase tracking-wider text-white/50">
+                            Reserva de Agência
+                        </p>
+
+                        <div className="mt-4 space-y-3 text-sm">
+                            <div>
+                                <p className="text-white/50">
+                                    Código do grupo
+                                </p>
+
+                                <p className="font-black">
+                                    {reservaAgencia.codigoGrupo ||
+                                        reservaAgencia.id}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Agência
+                                </p>
+
+                                <p className="font-bold">
+                                    {limpar(reservaAgencia.nomeAgencia) ||
+                                        "Agência parceira"}
+
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Data da visita
+                                </p>
+
+                                <p className="font-bold">
+                                    {formatarData(
+                                        reservaAgencia.dataVisita
+                                    )}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Visitantes
+                                </p>
+
+                                <p className="font-bold">
+                                    {textoPessoas(
+                                        quantidadeDaReserva(
+                                            reservaAgencia
+                                        )
+                                    )}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Valor
+                                </p>
+
+                                <p className="font-bold">
+
+                                    {formatarMoeda(
+                                        Number(reservaAgencia.valorTotal || 0)
+                                    )}
+
+
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Pagamento
+                                </p>
+
+                                <p className="font-bold">
+                                    {reservaAgencia.statusPagamento ||
+                                        "Não informado"}
+                                </p>
+                            </div>
+
+                            {usado &&
+                                usadoEm && (
+                                    <div className="rounded-2xl bg-white/10 p-3">
+                                        <p className="text-white/50">
+                                            Utilizado em
+                                        </p>
+
+                                        <p className="font-bold">
+                                            {formatarDataHora(
+                                                usadoEm
+                                            )}
+                                        </p>
+
+                                        {validadoPor && (
+                                            <>
+                                                <p className="mt-2 text-white/50">
+                                                    Validado por
+                                                </p>
+
+                                                <p className="font-bold">
+                                                    {validadoPor}
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                        </div>
+                    </section>
+                )}
+
+                {/* CONFIRMAÇÃO */}
+
+                {valido &&
+                    itemAtualExiste && (
+                        <button
+                            type="button"
+                            onClick={
+                                confirmarEntrada
+                            }
+                            disabled={
+                                carregando
+                            }
+                            className={`mt-5 w-full rounded-3xl px-5 py-6 text-xl font-black text-white shadow-xl disabled:opacity-60 ${localValidacao ===
                                 "principal"
-                                ? `✅ CONFIRMAR ENTRADA DE ${textoPessoas(
+                                ? "bg-green-500"
+                                : "bg-blue-500"
+                                }`}
+                        >
+                            {reservaAgencia &&
+                                localValidacao ===
+                                "principal" &&
+                                reservaAgencia.statusPagamento ===
+                                "a_pagar_na_chegada"
+                                ? `💰 CONFIRMAR PAGAMENTO E ENTRADA DE ${textoPessoas(
                                     quantidadeAtual
                                 )}`
-                                : `🌊 CONFIRMAR ACESSO DE ${textoPessoas(
-                                    quantidadeAtual
-                                )}`}
-                    </button>
-                )}
+                                : localValidacao ===
+                                    "principal"
+                                    ? `✅ CONFIRMAR ENTRADA DE ${textoPessoas(
+                                        quantidadeAtual
+                                    )}`
+                                    : `💦 CONFIRMAR ACESSO DE ${textoPessoas(
+                                        quantidadeAtual
+                                    )}`}
+                        </button>
+                    )}
 
                 {!valido &&
                     itemAtualExiste && (
                         <button
+                            type="button"
                             disabled
                             className="mt-5 w-full rounded-3xl bg-red-700 px-5 py-6 text-xl font-black text-white"
                         >
                             ⛔ ACESSO BLOQUEADO
                         </button>
                     )}
+
             </div>
         </main>
     );
