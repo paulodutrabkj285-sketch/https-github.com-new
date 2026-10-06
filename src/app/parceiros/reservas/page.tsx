@@ -36,8 +36,15 @@ import {
 ========================================== */
 
 const VALOR_ADULTO = 60;
+const VALOR_ADULTO_PARCEIRO_LOCAL = 50;
 const VALOR_IDOSO = 30;
 const VALOR_ELEVADOR = 75;
+
+const DOCUMENTOS_TARIFA_ESPECIAL = new Set([
+  "12419118000138",
+  "44128225000101",
+  "50152890000125",
+]);
 
 const WHATSAPP_PARQUE =
   "5549991299991";
@@ -52,7 +59,7 @@ const WHATSAPP_PARQUE =
  * o parceiro aceitou naquele momento.
  */
 const VERSAO_REGRAS_PARCEIROS =
-  "2026-08-31-v1";
+  "2026-10-06-v2-tarifa-local";
 
 /* ==========================================
    TIPOS
@@ -645,6 +652,20 @@ export default function ReservaParceiroPage() {
       categoriaAtual,
     ]);
 
+  const parceiroTarifaEspecial =
+    useMemo(() => {
+      const documento =
+        somenteDigitos(
+          agencia?.documento
+        );
+
+      return DOCUMENTOS_TARIFA_ESPECIAL.has(
+        documento
+      );
+    }, [
+      agencia,
+    ]);
+
   /* ======================================
      CÁLCULO DA RESERVA
   ====================================== */
@@ -696,19 +717,32 @@ export default function ReservaParceiroPage() {
         VALOR_ADULTO;
 
       /*
-       * O desconto do Programa de Parceiros
-       * é aplicado ao ingresso inteiro.
+       * Três parceiros locais possuem tarifa
+       * comercial especial de R$ 50,00 por
+       * ingresso inteiro, exclusivamente para
+       * pagamento antecipado pelo checkout.
+       *
+       * Essa tarifa NÃO acumula com o desconto
+       * Bronze / Prata / Ouro / Diamante.
        */
-      const descontoAdultos =
+      const usaTarifaEspecial =
+        parceiroTarifaEspecial &&
         modalidadePagamento ===
-          "antecipado"
-          ? valorAdultosBruto *
-          fatorDesconto
-          : 0;
+        "antecipado";
 
       const valorAdultosFinal =
+        usaTarifaEspecial
+          ? adultos *
+          VALOR_ADULTO_PARCEIRO_LOCAL
+          : modalidadePagamento ===
+            "antecipado"
+            ? valorAdultosBruto *
+            (1 - fatorDesconto)
+            : valorAdultosBruto;
+
+      const descontoAdultos =
         valorAdultosBruto -
-        descontoAdultos;
+        valorAdultosFinal;
 
       /* ==================================
          IDOSOS / MEIA
@@ -785,7 +819,32 @@ export default function ReservaParceiroPage() {
 
         pontosPotenciais,
 
-        percentualDesconto,
+        percentualDesconto:
+          parceiroTarifaEspecial &&
+            modalidadePagamento ===
+            "antecipado"
+            ? adultos > 0
+              ? Number(
+                (
+                  (descontoAdultos /
+                    valorAdultosBruto) *
+                  100
+                ).toFixed(2)
+              )
+              : 0
+            : percentualDesconto,
+
+        parceiroTarifaEspecial,
+        tarifaEspecialAplicada:
+          parceiroTarifaEspecial &&
+          modalidadePagamento ===
+          "antecipado",
+        valorUnitarioAdulto:
+          parceiroTarifaEspecial &&
+            modalidadePagamento ===
+            "antecipado"
+            ? VALOR_ADULTO_PARCEIRO_LOCAL
+            : VALOR_ADULTO,
 
         valorAdultosBruto,
         descontoAdultos,
@@ -813,6 +872,7 @@ export default function ReservaParceiroPage() {
       qtdElevador,
       agencia,
       modalidadePagamento,
+      parceiroTarifaEspecial,
     ]);
 
   /* ======================================
@@ -959,85 +1019,89 @@ export default function ReservaParceiroPage() {
     const descricaoBeneficio =
       modalidade ===
         "antecipado"
-        ? `${categoriaAtual} - ${calculo.percentualDesconto}%`
-        : `${categoriaAtual} - benefício não aplicado nesta reserva porque o pagamento será realizado na chegada`;
+        ? calculo.tarifaEspecialAplicada
+          ? "Tarifa especial local - ingresso inteiro por R$ 50,00"
+          : `${categoriaAtual} - ${calculo.percentualDesconto}%`
+        : parceiroTarifaEspecial
+          ? "Tarifa especial de R$ 50,00 não aplicada: pagamento será realizado na chegada e eventual condição deverá ser negociada na portaria"
+          : `${categoriaAtual} - benefício não aplicado nesta reserva porque o pagamento será realizado na chegada`;
 
     const texto = `
 🏞️ NOVA RESERVA DE PARCEIRO
-
+ 
 🏢 Agência / Parceiro:
 ${agencia?.nomeEmpresa || "-"}
-
+ 
 👤 Responsável:
 ${agencia?.responsavel || "-"}
-
+ 
 📑 Cadastur:
 ${agencia?.cadastur || "-"}
-
+ 
 🆔 Código do grupo:
 ${codigoGrupo}
-
+ 
 📅 Data da visita:
 ${formatarData(dataVisita)}
-
+ 
 🕘 Chegada prevista:
 ${horaPrevista || "Não informada"}
-
+ 
 🚌 Veículo:
 ${tipoVeiculo}
-
+ 
 👨 Ingressos inteiros:
 ${adultos}
-
+ 
 👴 Idosos / meia entrada:
 ${idosos}
-
+ 
 👧 Crianças gratuitas:
 ${criancas}
-
+ 
 👥 TOTAL:
 ${calculo.totalVisitantes} pessoa(s)
-
+ 
 🚡 Elevador:
 ${temElevador
         ? `Sim - ${qtdElevador} pessoa(s)`
         : "Não"
       }
-
+ 
 🏅 Nível do parceiro:
 ${categoriaAtual}
-
+ 
 🎁 Benefício:
 ${descricaoBeneficio}
-
+ 
 ⭐ Pontos potenciais desta visita:
 ${calculo.pontosPotenciais}
-
+ 
 💰 Valor normal:
 ${formatarMoeda(
         calculo.valorBruto
       )}
-
+ 
 💸 Desconto aplicado:
 ${formatarMoeda(
         calculo.valorDesconto
       )}
-
+ 
 ✅ VALOR A PAGAR:
 ${formatarMoeda(
         calculo.valorFinal
       )}
-
+ 
 💳 Pagamento:
 ${modalidade ===
         "antecipado"
         ? "ANTECIPADO - AGUARDANDO CONFIRMAÇÃO"
         : "NA CHEGADA AO PARQUE - SEM DESCONTO DO PROGRAMA"
       }
-
+ 
 📋 Regras do programa:
 ACEITAS PELO PARCEIRO
-
+ 
 📝 Observações:
 ${observacoes ||
       "Nenhuma observação."
@@ -1107,6 +1171,15 @@ ${observacoes ||
 
       descontoAplicado:
         calculo.percentualDesconto,
+
+      tarifaEspecialParceiro:
+        calculo.tarifaEspecialAplicada,
+
+      valorUnitarioAdultoAplicado:
+        calculo.valorUnitarioAdulto,
+
+      regraTarifaEspecialSomenteAntecipado:
+        parceiroTarifaEspecial,
 
       pontosMesNoMomento:
         pontosMes,
@@ -1841,9 +1914,9 @@ ${observacoes ||
               imagem
             }
             className={`absolute inset-0 bg-cover bg-center bg-fixed transition-opacity duration-1000 ${index ===
-                imagemAtual
-                ? "opacity-100"
-                : "opacity-0"
+              imagemAtual
+              ? "opacity-100"
+              : "opacity-0"
               }`}
             style={{
               backgroundImage:
@@ -2235,9 +2308,9 @@ ${observacoes ||
                   setTipoMensagem("");
                 }}
                 className={`rounded-2xl border-2 p-5 text-left transition ${modalidadePagamento ===
-                    "antecipado"
-                    ? "border-emerald-600 bg-emerald-50 shadow-md"
-                    : "border-slate-200 bg-white hover:border-emerald-300"
+                  "antecipado"
+                  ? "border-emerald-600 bg-emerald-50 shadow-md"
+                  : "border-slate-200 bg-white hover:border-emerald-300"
                   }`}
               >
                 <p className="text-xl font-black text-emerald-800">
@@ -2256,12 +2329,11 @@ ${observacoes ||
                   </p>
 
                   <p className="mt-1 text-2xl font-black text-emerald-900">
-                    {iconeCategoria(
-                      categoriaAtual
-                    )}{" "}
-                    {categoriaAtual}
-                    {" • "}
-                    {infoNivel.desconto}%
+                    {parceiroTarifaEspecial
+                      ? "⭐ Tarifa especial • R$ 50 por ingresso inteiro"
+                      : `${iconeCategoria(
+                        categoriaAtual
+                      )} ${categoriaAtual} • ${infoNivel.desconto}%`}
                   </p>
                 </div>
 
@@ -2287,9 +2359,9 @@ ${observacoes ||
                   setTipoMensagem("");
                 }}
                 className={`rounded-2xl border-2 p-5 text-left transition ${modalidadePagamento ===
-                    "chegada"
-                    ? "border-orange-500 bg-orange-50 shadow-md"
-                    : "border-slate-200 bg-white hover:border-orange-300"
+                  "chegada"
+                  ? "border-orange-500 bg-orange-50 shadow-md"
+                  : "border-slate-200 bg-white hover:border-orange-300"
                   }`}
               >
                 <p className="text-xl font-black text-orange-800">
@@ -2326,49 +2398,115 @@ ${observacoes ||
                   ✅ Benefício do parceiro aplicado
                 </p>
 
-                <p className="mt-2 text-sm">
-                  Você selecionou pagamento antecipado.
-                  Nesta reserva, o benefício do nível{" "}
-                  <strong>
-                    {categoriaAtual}
-                  </strong>{" "}
-                  poderá ser aplicado aos ingressos
-                  inteiros elegíveis.
-                </p>
+                {parceiroTarifaEspecial ? (
+                  <>
+                    <p className="mt-2 text-sm">
+                      Você selecionou pagamento antecipado.
+                      Nesta reserva será aplicada a{" "}
+                      <strong>
+                        tarifa especial do parceiro
+                      </strong>{" "}
+                      aos ingressos inteiros elegíveis.
+                    </p>
 
-                <p className="mt-2 text-sm font-bold">
-                  Benefício atual:{" "}
-                  {infoNivel.desconto}%.
-                </p>
+                    <p className="mt-2 text-sm font-bold">
+                      ⭐ Tarifa especial: R$ 50,00 por
+                      ingresso inteiro.
+                    </p>
+
+                    <p className="mt-1 text-xs">
+                      Esta tarifa especial substitui o
+                      desconto Bronze, Prata, Ouro ou
+                      Diamante e não é cumulativa com
+                      outros benefícios.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-2 text-sm">
+                      Você selecionou pagamento antecipado.
+                      Nesta reserva, o benefício do nível{" "}
+                      <strong>
+                        {categoriaAtual}
+                      </strong>{" "}
+                      poderá ser aplicado aos ingressos
+                      inteiros elegíveis.
+                    </p>
+
+                    <p className="mt-2 text-sm font-bold">
+                      Benefício atual:{" "}
+                      {infoNivel.desconto}%.
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <div className="mt-5 rounded-2xl border-2 border-orange-300 bg-orange-50 p-5 text-orange-950">
-                <p className="text-lg font-black">
-                  ⚠️ Atenção antes de continuar
-                </p>
+                {parceiroTarifaEspecial ? (
+                  <>
+                    <p className="text-lg font-black">
+                      ⚠️ Tarifa especial não aplicada
+                    </p>
 
-                <p className="mt-2 text-sm">
-                  Você selecionou{" "}
-                  <strong>
-                    pagamento na chegada
-                  </strong>
-                  .
-                </p>
+                    <p className="mt-2 text-sm">
+                      Você selecionou{" "}
+                      <strong>
+                        pagamento na chegada
+                      </strong>
+                      .
+                    </p>
 
-                <p className="mt-2 text-sm font-black">
-                  O desconto Bronze, Prata, Ouro ou
-                  Diamante NÃO será aplicado nesta
-                  reserva.
-                </p>
+                    <p className="mt-2 text-sm font-black">
+                      A tarifa especial de R$ 50,00 por
+                      ingresso inteiro não é válida para
+                      pagamento na chegada.
+                    </p>
 
-                <p className="mt-2 text-sm">
-                  Para utilizar o benefício do seu
-                  nível, selecione{" "}
-                  <strong>
-                    Pagamento antecipado
-                  </strong>{" "}
-                  antes de confirmar a reserva.
-                </p>
+                    <p className="mt-2 text-sm">
+                      O ingresso inteiro será considerado
+                      pelo valor normal de{" "}
+                      <strong>
+                        R$ 60,00
+                      </strong>
+                      .
+                    </p>
+
+                    <p className="mt-2 text-sm">
+                      Qualquer condição diferente deverá
+                      ser negociada diretamente na
+                      portaria.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-black">
+                      ⚠️ Atenção antes de continuar
+                    </p>
+
+                    <p className="mt-2 text-sm">
+                      Você selecionou{" "}
+                      <strong>
+                        pagamento na chegada
+                      </strong>
+                      .
+                    </p>
+
+                    <p className="mt-2 text-sm font-black">
+                      O desconto Bronze, Prata, Ouro ou
+                      Diamante NÃO será aplicado nesta
+                      reserva.
+                    </p>
+
+                    <p className="mt-2 text-sm">
+                      Para utilizar o benefício do seu
+                      nível, selecione{" "}
+                      <strong>
+                        Pagamento antecipado
+                      </strong>{" "}
+                      antes de confirmar a reserva.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </section>
@@ -2393,9 +2531,9 @@ ${observacoes ||
 
                 <span
                   className={`rounded-full px-4 py-2 text-xs font-black ${modalidadePagamento ===
-                      "antecipado"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : "bg-orange-100 text-orange-800"
+                    "antecipado"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-orange-100 text-orange-800"
                     }`}
                 >
                   {modalidadePagamento ===
@@ -2616,8 +2754,8 @@ ${observacoes ||
                         );
                       }}
                       className={`rounded-xl border px-5 py-3 font-bold ${!temElevador
-                          ? "bg-slate-900 text-white"
-                          : "bg-white"
+                        ? "bg-slate-900 text-white"
+                        : "bg-white"
                         }`}
                     >
                       Não
@@ -2640,8 +2778,8 @@ ${observacoes ||
                         }
                       }}
                       className={`rounded-xl border px-5 py-3 font-bold ${temElevador
-                          ? "bg-emerald-600 text-white"
-                          : "bg-white"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-white"
                         }`}
                     >
                       Sim
@@ -2757,8 +2895,8 @@ ${observacoes ||
 
               <div
                 className={`mt-6 rounded-2xl border-2 p-5 ${aceitouRegras
-                    ? "border-emerald-300 bg-emerald-50"
-                    : "border-orange-300 bg-orange-50"
+                  ? "border-emerald-300 bg-emerald-50"
+                  : "border-orange-300 bg-orange-50"
                   }`}
               >
                 <p className="text-lg font-black">
@@ -2774,9 +2912,9 @@ ${observacoes ||
                     <strong>
                       pagamento antecipado
                     </strong>{" "}
-                    e que o benefício do nível será aplicado
-                    somente aos itens elegíveis indicados no
-                    resumo.
+                    e que {parceiroTarifaEspecial
+                      ? "a tarifa especial de R$ 50,00 por ingresso inteiro será aplicada somente aos adultos elegíveis"
+                      : "o benefício do nível será aplicado somente aos itens elegíveis indicados no resumo"}.
                   </p>
                 ) : (
                   <p className="mt-2 text-sm leading-relaxed">
@@ -2824,9 +2962,9 @@ ${observacoes ||
               {mensagem && (
                 <div
                   className={`mt-5 rounded-xl border p-4 font-medium ${tipoMensagem ===
-                      "erro"
-                      ? "border-red-200 bg-red-50 text-red-800"
-                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    "erro"
+                    ? "border-red-200 bg-red-50 text-red-800"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-800"
                     }`}
                 >
                   {
@@ -2906,9 +3044,9 @@ ${observacoes ||
                   !aceitouRegras
                 }
                 className={`mt-6 w-full rounded-xl py-4 text-lg font-black text-white transition disabled:cursor-not-allowed disabled:bg-slate-400 ${modalidadePagamento ===
-                    "antecipado"
-                    ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-orange-600 hover:bg-orange-700"
+                  "antecipado"
+                  ? "bg-emerald-600 hover:bg-emerald-700"
+                  : "bg-orange-600 hover:bg-orange-700"
                   }`}
               >
                 {carregando
@@ -2953,7 +3091,9 @@ ${observacoes ||
                 <p className="mt-1 text-sm text-white/80">
                   Benefício disponível:{" "}
                   <strong>
-                    {infoNivel.desconto}%
+                    {parceiroTarifaEspecial
+                      ? "tarifa especial R$ 50,00"
+                      : `${infoNivel.desconto}%`}
                   </strong>
                 </p>
               </div>
@@ -3076,7 +3216,9 @@ ${observacoes ||
                   0 && (
                     <div className="flex justify-between text-emerald-700">
                       <span>
-                        Desconto parceiro
+                        {calculo.tarifaEspecialAplicada
+                          ? "Tarifa especial parceiro local"
+                          : "Desconto parceiro"}
                       </span>
 
                       <strong>
@@ -3166,13 +3308,15 @@ ${observacoes ||
 
                 <div
                   className={`flex justify-between ${modalidadePagamento ===
-                      "antecipado"
-                      ? "text-emerald-700"
-                      : "text-slate-500"
+                    "antecipado"
+                    ? "text-emerald-700"
+                    : "text-slate-500"
                     }`}
                 >
                   <span>
-                    Desconto do programa
+                    {calculo.tarifaEspecialAplicada
+                      ? "Desconto tarifa especial"
+                      : "Desconto do programa"}
                   </span>
 
                   <strong>
@@ -3196,7 +3340,9 @@ ${observacoes ||
                     {
                       modalidadePagamento ===
                         "antecipado"
-                        ? `${calculo.percentualDesconto}%`
+                        ? calculo.tarifaEspecialAplicada
+                          ? "R$ 50,00 por adulto"
+                          : `${calculo.percentualDesconto}%`
                         : "0%"
                     }
                   </strong>
@@ -3206,9 +3352,9 @@ ${observacoes ||
 
                 <div
                   className={`rounded-xl p-4 text-white ${modalidadePagamento ===
-                      "antecipado"
-                      ? "bg-emerald-700"
-                      : "bg-orange-600"
+                    "antecipado"
+                    ? "bg-emerald-700"
+                    : "bg-orange-600"
                     }`}
                 >
                   <p className="text-xs font-bold uppercase">
