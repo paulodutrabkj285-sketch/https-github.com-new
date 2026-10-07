@@ -3349,19 +3349,19 @@ export default function PortariaPage() {
 
                 {pedido && (
                     <section className="mb-4 rounded-3xl border border-white/15 bg-black/50 p-5 shadow-xl backdrop-blur-md">
-                        <p className="text-xs font-black uppercase tracking-wider text-white/50">
-                            Ingresso
+                        <p className="mb-3 rounded-xl bg-white/10 p-3 text-center text-base font-black">
+                            🎟️ INGRESSO
                         </p>
 
-                        <div className="mt-4 space-y-3 text-sm">
+                        <div className="space-y-3 text-sm">
                             <div>
                                 <p className="text-white/50">
-                                    Código
+                                    Cliente
                                 </p>
 
-                                <p className="font-black">
-                                    {pedido.codigoIngresso ||
-                                        pedido.id}
+                                <p className="text-lg font-black">
+                                    {pedido.nome ||
+                                        "Não informado"}
                                 </p>
                             </div>
 
@@ -3374,18 +3374,6 @@ export default function PortariaPage() {
                                     {pedido.produto ||
                                         pedido.tipo ||
                                         "Ingresso Parque"}
-                                </p>
-                            </div>
-
-                            <div>
-                                <p className="text-white/50">
-                                    Data da visita
-                                </p>
-
-                                <p className="font-bold">
-                                    {formatarData(
-                                        pedido.dataVisita
-                                    )}
                                 </p>
                             </div>
 
@@ -3405,12 +3393,73 @@ export default function PortariaPage() {
 
                             <div>
                                 <p className="text-white/50">
+                                    Código
+                                </p>
+
+                                <p className="font-black">
+                                    {pedido.codigoIngresso ||
+                                        pedido.id}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
+                                    Data da visita
+                                </p>
+
+                                <p className="font-bold">
+                                    {formatarData(
+                                        pedido.dataVisita
+                                    )}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-white/50">
                                     Pagamento
                                 </p>
 
                                 <p className="font-bold">
-                                    {pedido.statusPagamento ||
+                                    {pedido.statusPagamento ===
+                                        "pago"
+                                        ? "Confirmado"
+                                        : pedido.statusPagamento ||
                                         "Não informado"}
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-white/10 p-4">
+                                <p className="font-black">
+                                    🚪 Portaria Principal
+                                </p>
+
+                                <p className="mt-1 font-bold">
+                                    {pedido.statusOperacional ===
+                                        "utilizado"
+                                        ? `✅ Validada${pedido.utilizadoEm
+                                            ? ` em ${formatarDataHora(
+                                                pedido.utilizadoEm
+                                            )}`
+                                            : ""
+                                        }`
+                                        : "⏳ Ainda não validada"}
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl bg-white/10 p-4">
+                                <p className="font-black">
+                                    🌊 Cachoeira Mundo Novo
+                                </p>
+
+                                <p className="mt-1 font-bold">
+                                    {pedido.cachoeiraMundoNovoValidado
+                                        ? `✅ Validada${pedido.cachoeiraMundoNovoValidadoEm
+                                            ? ` em ${formatarDataHora(
+                                                pedido.cachoeiraMundoNovoValidadoEm
+                                            )}`
+                                            : ""
+                                        }`
+                                        : "⏳ Ainda não validada"}
                                 </p>
                             </div>
 
