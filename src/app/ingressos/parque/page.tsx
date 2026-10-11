@@ -1,27 +1,19 @@
 "use client";
-
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { criarPedido } from "@/lib/pedidos";
-
 type TipoDocumento = "cpf" | "estrangeiro";
-
 type TipoDocumentoEstrangeiro =
   | "identidade_nacional"
   | "passaporte"
   | "outro";
-
 const TEXTO_ACEITE_NATURAL_EXTREMO =
   "Li e estou ciente de que algumas experiências operadas pela Natural Extremo podem incluir o acesso ao Parque Mundo Novo e de que devo confirmar as condições da atividade escolhida antes de comprar o ingresso do parque separadamente.";
-
 const VERSAO_ACEITE_NATURAL_EXTREMO =
   "2026-09-28";
-
 export default function ParquePage() {
   const router = useRouter();
-
   const [nome, setNome] = useState("");
-
   const [
     tipoDocumento,
     setTipoDocumento,
@@ -29,16 +21,13 @@ export default function ParquePage() {
     useState<TipoDocumento>(
       "cpf"
     );
-
   const [cpf, setCpf] =
     useState("");
-
   const [
     paisDocumento,
     setPaisDocumento,
   ] =
     useState("");
-
   const [
     tipoDocumentoEstrangeiro,
     setTipoDocumentoEstrangeiro,
@@ -46,58 +35,48 @@ export default function ParquePage() {
     useState<TipoDocumentoEstrangeiro>(
       "identidade_nacional"
     );
-
   const [
     documentoEstrangeiro,
     setDocumentoEstrangeiro,
   ] =
     useState("");
-
   const [
     telefone,
     setTelefone,
   ] =
     useState("");
-
   const [
     email,
     setEmail,
   ] =
     useState("");
-
   const [
     dataVisita,
     setDataVisita,
   ] =
     useState("");
-
   const [
     quantidade,
     setQuantidade,
   ] =
     useState(1);
-
   const [
     salvando,
     setSalvando,
   ] =
     useState(false);
-
   const [
     aceiteNaturalExtremo,
     setAceiteNaturalExtremo,
   ] =
     useState(false);
-
   const dataMinimaVisita =
     useMemo(
       () => {
         const agora =
           new Date();
-
         const ano =
           agora.getFullYear();
-
         const mes =
           String(
             agora.getMonth() +
@@ -106,7 +85,6 @@ export default function ParquePage() {
             2,
             "0"
           );
-
         const dia =
           String(
             agora.getDate()
@@ -114,15 +92,12 @@ export default function ParquePage() {
             2,
             "0"
           );
-
         return `${ano}-${mes}-${dia}`;
       },
       []
     );
-
   const valorUnitario =
     60;
-
   const valorTotal =
     useMemo(
       () =>
@@ -132,31 +107,26 @@ export default function ParquePage() {
         quantidade,
       ]
     );
-
   const valorUnitarioFormatado =
     valorUnitario.toLocaleString(
       "pt-BR",
       {
         style:
           "currency",
-
         currency:
           "BRL",
       }
     );
-
   const valorTotalFormatado =
     valorTotal.toLocaleString(
       "pt-BR",
       {
         style:
           "currency",
-
         currency:
           "BRL",
       }
     );
-
   function limparCpf(
     valor:
       string
@@ -166,7 +136,6 @@ export default function ParquePage() {
       ""
     );
   }
-
   function normalizarDocumentoEstrangeiro(
     valor:
       string
@@ -182,7 +151,6 @@ export default function ParquePage() {
         " "
       );
   }
-
   function normalizarEmail(
     valor:
       string
@@ -198,7 +166,6 @@ export default function ParquePage() {
         ""
       );
   }
-
   function emailTemFormatoValido(
     valor:
       string
@@ -207,15 +174,12 @@ export default function ParquePage() {
       normalizarEmail(
         valor
       );
-
     const regexEmail =
       /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
     return regexEmail.test(
       emailNormalizado
     );
   }
-
   function sugerirCorrecaoEmail(
     valor:
       string
@@ -224,149 +188,107 @@ export default function ParquePage() {
       normalizarEmail(
         valor
       );
-
     const partes =
       emailNormalizado.split(
         "@"
       );
-
     if (
       partes.length !==
       2
     ) {
       return null;
     }
-
     const usuario =
       partes[0];
-
     const dominio =
       partes[1];
-
     const correcoes: Record<
       string,
       string
     > = {
       "gmai.com":
         "gmail.com",
-
       "gmial.com":
         "gmail.com",
-
       "gamil.com":
         "gmail.com",
-
       "gmail.con":
         "gmail.com",
-
       "gmail.co":
         "gmail.com",
-
       "gmail.cm":
         "gmail.com",
-
       "gmail.om":
         "gmail.com",
-
       "gmail.cim":
         "gmail.com",
-
       "gmail.comm":
         "gmail.com",
-
       "gmail.com.br":
         "gmail.com",
-
       "hotmai.com":
         "hotmail.com",
-
       "hotmal.com":
         "hotmail.com",
-
       "hotamil.com":
         "hotmail.com",
-
       "hotmail.con":
         "hotmail.com",
-
       "hotmail.co":
         "hotmail.com",
-
       "hotmail.cm":
         "hotmail.com",
-
       "hotmail.om":
         "hotmail.com",
-
       "outlok.com":
         "outlook.com",
-
       "outloo.com":
         "outlook.com",
-
       "outlook.con":
         "outlook.com",
-
       "outlook.co":
         "outlook.com",
-
       "outlook.cm":
         "outlook.com",
-
       "yaho.com":
         "yahoo.com",
-
       "yahho.com":
         "yahoo.com",
-
       "yahoo.con":
         "yahoo.com",
-
       "yahoo.co":
         "yahoo.com",
-
       "yahoo.cm":
         "yahoo.com",
-
       "iclod.com":
         "icloud.com",
-
       "icoud.com":
         "icloud.com",
-
       "icloud.con":
         "icloud.com",
-
       "icloud.co":
         "icloud.com",
-
       "icloud.cm":
         "icloud.com",
     };
-
     const dominioCorreto =
       correcoes[
       dominio
       ];
-
     if (
       !dominioCorreto
     ) {
       return null;
     }
-
     return `${usuario}@${dominioCorreto}`;
   }
-
   async function continuarParaResumo() {
     const nomeFinal =
       nome.trim();
-
     const cpfLimpo =
       limparCpf(
         cpf
       );
-
     const documentoFinal =
       tipoDocumento ===
         "cpf"
@@ -374,12 +296,10 @@ export default function ParquePage() {
         : normalizarDocumentoEstrangeiro(
           documentoEstrangeiro
         );
-
     const emailNormalizado =
       normalizarEmail(
         email
       );
-
     if (
       !nomeFinal ||
       !telefone.trim() ||
@@ -389,10 +309,8 @@ export default function ParquePage() {
       alert(
         "Preencha todos os campos antes de continuar."
       );
-
       return;
     }
-
     if (
       dataVisita <
       dataMinimaVisita
@@ -400,14 +318,11 @@ export default function ParquePage() {
       alert(
         "A data da visita não pode ser anterior a hoje.\n\nEscolha a data de hoje ou uma data futura."
       );
-
       setDataVisita(
         ""
       );
-
       return;
     }
-
     if (
       tipoDocumento ===
       "cpf"
@@ -418,10 +333,8 @@ export default function ParquePage() {
         alert(
           "Informe o CPF do comprador."
         );
-
         return;
       }
-
       if (
         cpfLimpo.length !==
         11
@@ -429,7 +342,6 @@ export default function ParquePage() {
         alert(
           "CPF inválido. Digite os 11 números do CPF."
         );
-
         return;
       }
     } else {
@@ -439,20 +351,16 @@ export default function ParquePage() {
         alert(
           "Informe o país do documento."
         );
-
         return;
       }
-
       if (
         !documentoFinal
       ) {
         alert(
           "Informe o número do documento estrangeiro."
         );
-
         return;
       }
-
       if (
         documentoFinal.length <
         3
@@ -460,11 +368,9 @@ export default function ParquePage() {
         alert(
           "Documento estrangeiro inválido. Confira o número informado."
         );
-
         return;
       }
     }
-
     if (
       !emailTemFormatoValido(
         emailNormalizado
@@ -473,15 +379,12 @@ export default function ParquePage() {
       alert(
         "E-mail inválido.\n\nConfira o endereço informado antes de continuar."
       );
-
       return;
     }
-
     const emailSugerido =
       sugerirCorrecaoEmail(
         emailNormalizado
       );
-
     if (
       emailSugerido
     ) {
@@ -491,14 +394,11 @@ export default function ParquePage() {
         `Você quis dizer:\n${emailSugerido}\n\n` +
         `Corrija o e-mail para continuar.`
       );
-
       setEmail(
         emailSugerido
       );
-
       return;
     }
-
     if (
       email !==
       emailNormalizado
@@ -507,177 +407,130 @@ export default function ParquePage() {
         emailNormalizado
       );
     }
-
     if (
       !aceiteNaturalExtremo
     ) {
       alert(
         "Antes de continuar, marque a confirmação de que leu e está ciente do aviso sobre Tirolesa, Salto do Pêndulo e Skybike."
       );
-
       return;
     }
-
     try {
       setSalvando(
         true
       );
-
       const aceiteNaturalExtremoEm =
         new Date()
           .toISOString();
-
       const dadosPedido =
       {
         produto:
           "Ingresso Parque",
-
         tipo:
           "ingresso",
-
         nome:
           nomeFinal,
-
         cpf:
           tipoDocumento ===
             "cpf"
             ? cpfLimpo
             : "",
-
         tipoDocumento,
-
         documento:
           documentoFinal,
-
         paisDocumento:
           tipoDocumento ===
             "estrangeiro"
             ? paisDocumento.trim()
             : "Brasil",
-
         tipoDocumentoEstrangeiro:
           tipoDocumento ===
             "estrangeiro"
             ? tipoDocumentoEstrangeiro
             : "",
-
         telefone:
           telefone.trim(),
-
         email:
           emailNormalizado,
-
         dataVisita,
-
         quantidade,
-
         valorUnitario,
-
         valorTotal,
-
         statusPagamento:
           "pendente",
-
         statusOperacional:
           "ativo",
-
         aceiteNaturalExtremo:
           true,
-
         aceiteNaturalExtremoEm,
-
         aceiteNaturalExtremoTexto:
           TEXTO_ACEITE_NATURAL_EXTREMO,
-
         aceiteNaturalExtremoVersao:
           VERSAO_ACEITE_NATURAL_EXTREMO,
-
         pagbankCheckoutId:
           "",
-
         pagbankReferenceId:
           "",
-
         pagbankPayUrl:
           "",
-
         pagbankStatus:
           "",
-
         codigoIngresso:
           "",
-
         qrCodeIngresso:
           "",
       };
-
       const pedidoId =
         await criarPedido(
           dadosPedido
         );
-
       const params =
         new URLSearchParams(
           {
             pedidoId,
-
             produto:
               "Ingresso Parque",
-
             tipo:
               "ingresso",
-
             nome:
               nomeFinal,
-
             cpf:
               tipoDocumento ===
                 "cpf"
                 ? cpfLimpo
                 : "",
-
             tipoDocumento,
-
             documento:
               documentoFinal,
-
             paisDocumento:
               tipoDocumento ===
                 "estrangeiro"
                 ? paisDocumento.trim()
                 : "Brasil",
-
             tipoDocumentoEstrangeiro:
               tipoDocumento ===
                 "estrangeiro"
                 ? tipoDocumentoEstrangeiro
                 : "",
-
             telefone:
               telefone.trim(),
-
             email:
               emailNormalizado,
-
             dataVisita,
-
             quantidade:
               String(
                 quantidade
               ),
-
             valorUnitario:
               String(
                 valorUnitario
               ),
-
             valorTotal:
               String(
                 valorTotal
               ),
           }
         );
-
       router.push(
         `/checkout/resumo?${params.toString()}`
       );
@@ -688,7 +541,6 @@ export default function ParquePage() {
         "Erro ao salvar pedido:",
         error
       );
-
       alert(
         "Não foi possível salvar o pedido."
       );
@@ -698,7 +550,6 @@ export default function ParquePage() {
       );
     }
   }
-
   return (
     <main
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
@@ -708,29 +559,20 @@ export default function ParquePage() {
       }}
     >
       <div className="absolute inset-0 bg-black/45" />
-
       <div className="relative z-10 mx-auto max-w-6xl">
-
         <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
-
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
-
             <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
-
               <img
                 src="/logo-final.png"
                 alt="Logo Parque Mundo Novo"
                 className="w-full max-w-[140px] rounded-xl"
               />
-
             </div>
-
             <div>
-
               <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
                 Ingresso Parque
               </h1>
-
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
                 Preencha os dados
                 abaixo para comprar
@@ -738,23 +580,19 @@ export default function ParquePage() {
                 com praticidade e
                 segurança.
               </p>
-
               <p className="mt-3 text-sm text-white/80">
                 O QR Code do ingresso
                 será liberado após
                 confirmação do
                 pagamento.
               </p>
-
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
-
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
                   🔒 Compra segura via
                   Pix ou cartão, com
                   confirmação
                   automática.
                 </div>
-
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
                   🌎 Visitantes
                   estrangeiros podem
@@ -765,38 +603,26 @@ export default function ParquePage() {
                   passaporte ou outro
                   documento oficial.
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         </section>
-
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md">
-
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Dados do comprador
             </h2>
-
             <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
-
               <p className="mb-2 font-black">
                 📌 Informações
                 importantes
               </p>
-
               <ul className="list-disc space-y-2 pl-5">
-
                 <li>
                   Este ingresso é
                   válido para acesso ao
                   Parque Mundo Novo.
                 </li>
-
                 <li>
                   O{" "}
                   <strong>
@@ -807,7 +633,6 @@ export default function ParquePage() {
                   ingresso vendido
                   separadamente.
                 </li>
-
                 <li>
                   O ingresso é pessoal
                   e poderá ser
@@ -816,7 +641,6 @@ export default function ParquePage() {
                   documento oficial com
                   foto.
                 </li>
-
                 <li>
                   Visitantes
                   estrangeiros não
@@ -826,26 +650,20 @@ export default function ParquePage() {
                   o número de um
                   documento oficial.
                 </li>
-
                 <li>
                   Após a validação na
                   portaria, este
                   ingresso não poderá
                   ser reutilizado.
                 </li>
-
               </ul>
-
             </div>
-
-            <div className="mb-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-sm leading-relaxed text-amber-950 shadow-sm">
-
+            <div className="mb-6 rounded-2xl border-4 border-red-500 bg-red-50 p-5 text-sm leading-relaxed text-red-950 shadow-lg shadow-red-500/20 motion-safe:animate-pulse">
               <p className="text-base font-black">
                 ⚠️ Vai fazer Tirolesa,
                 Salto do Pêndulo ou
                 Skybike?
               </p>
-
               <p className="mt-2 font-semibold">
                 Algumas experiências
                 operadas pela Natural
@@ -853,7 +671,6 @@ export default function ParquePage() {
                 acesso ao Parque Mundo
                 Novo.
               </p>
-
               <p className="mt-2 font-bold">
                 Antes de comprar o
                 ingresso do parque
@@ -862,13 +679,9 @@ export default function ParquePage() {
                 condições da atividade
                 escolhida.
               </p>
-
             </div>
-
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
               <Campo label="Nome completo">
-
                 <input
                   type="text"
                   value={nome}
@@ -881,60 +694,45 @@ export default function ParquePage() {
                   autoComplete="name"
                   className={inputClass}
                 />
-
               </Campo>
-
               <Campo label="Nacionalidade / documento">
-
                 <select
                   value={tipoDocumento}
                   onChange={(e) => {
                     const novoTipo =
                       e.target
                         .value as TipoDocumento;
-
                     setTipoDocumento(
                       novoTipo
                     );
-
                     setCpf(
                       ""
                     );
-
                     setPaisDocumento(
                       ""
                     );
-
                     setTipoDocumentoEstrangeiro(
                       "identidade_nacional"
                     );
-
                     setDocumentoEstrangeiro(
                       ""
                     );
                   }}
                   className={inputClass}
                 >
-
                   <option value="cpf">
                     Brasileiro — CPF
                   </option>
-
                   <option value="estrangeiro">
                     Estrangeiro —
                     Documento de
                     identificação
                   </option>
-
                 </select>
-
               </Campo>
-
               {tipoDocumento ===
                 "cpf" ? (
-
                 <Campo label="CPF">
-
                   <input
                     type="text"
                     value={cpf}
@@ -956,15 +754,10 @@ export default function ParquePage() {
                     placeholder="Digite os 11 números do CPF"
                     className={inputClass}
                   />
-
                 </Campo>
-
               ) : (
-
                 <>
-
                   <Campo label="País do documento">
-
                     <input
                       type="text"
                       value={
@@ -980,11 +773,8 @@ export default function ParquePage() {
                       placeholder="Ex.: Argentina, Uruguai, Chile, Estados Unidos"
                       className={inputClass}
                     />
-
                   </Campo>
-
                   <Campo label="Tipo de documento">
-
                     <select
                       value={
                         tipoDocumentoEstrangeiro
@@ -999,28 +789,21 @@ export default function ParquePage() {
                       }
                       className={inputClass}
                     >
-
                       <option value="identidade_nacional">
                         Documento
                         nacional de
                         identidade
                       </option>
-
                       <option value="passaporte">
                         Passaporte
                       </option>
-
                       <option value="outro">
                         Outro documento
                         oficial
                       </option>
-
                     </select>
-
                   </Campo>
-
                   <Campo label="Número do documento">
-
                     <input
                       type="text"
                       value={
@@ -1046,22 +829,16 @@ export default function ParquePage() {
                       placeholder="Ex.: AB1234567"
                       className={inputClass}
                     />
-
                     <p className="mt-2 text-xs text-gray-500">
                       Informe o número
                       exatamente como
                       aparece no
                       documento oficial.
                     </p>
-
                   </Campo>
-
                 </>
-
               )}
-
               <Campo label="Telefone / WhatsApp">
-
                 <input
                   type="tel"
                   value={telefone}
@@ -1079,11 +856,8 @@ export default function ParquePage() {
                   autoComplete="tel"
                   className={inputClass}
                 />
-
               </Campo>
-
               <Campo label="E-mail">
-
                 <input
                   type="email"
                   value={email}
@@ -1109,18 +883,14 @@ export default function ParquePage() {
                   placeholder="Digite seu e-mail"
                   className={inputClass}
                 />
-
                 <p className="mt-2 text-xs text-gray-500">
                   Confira o e-mail. O
                   ingresso também será
                   enviado para este
                   endereço.
                 </p>
-
               </Campo>
-
               <Campo label="Data da visita">
-
                 <input
                   type="date"
                   value={
@@ -1139,19 +909,14 @@ export default function ParquePage() {
                     inputClass
                   }
                 />
-
                 <p className="mt-2 text-xs text-gray-500">
                   Selecione a data de
                   hoje ou uma data
                   futura.
                 </p>
-
               </Campo>
-
               <Campo label="Quantidade de ingressos">
-
                 <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
-
                   <button
                     type="button"
                     onClick={() =>
@@ -1170,15 +935,13 @@ export default function ParquePage() {
                       contadorClass
                     }
                   >
-                    -
+                    \-
                   </button>
-
                   <span className="text-2xl font-bold text-gray-900">
                     {
                       quantidade
                     }
                   </span>
-
                   <button
                     type="button"
                     onClick={() =>
@@ -1196,22 +959,15 @@ export default function ParquePage() {
                   >
                     +
                   </button>
-
                 </div>
-
               </Campo>
-
             </div>
-
             {tipoDocumento ===
               "estrangeiro" && (
-
                 <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
-
                   <strong>
                     Visitante estrangeiro:
                   </strong>{" "}
-
                   você poderá seguir
                   normalmente para o
                   pagamento. O
@@ -1219,28 +975,20 @@ export default function ParquePage() {
                   ficará vinculado ao
                   pedido no lugar do
                   CPF.
-
                 </div>
-
               )}
-
           </div>
-
           <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
-
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
               Resumo
             </h2>
-
             <div className="space-y-3 text-base">
-
               <p>
                 <strong>
                   Produto:
                 </strong>{" "}
                 Ingresso Parque
               </p>
-
               <p>
                 <strong>
                   Valor unitário:
@@ -1249,7 +997,6 @@ export default function ParquePage() {
                   valorUnitarioFormatado
                 }
               </p>
-
               <p>
                 <strong>
                   Quantidade:
@@ -1258,7 +1005,6 @@ export default function ParquePage() {
                   quantidade
                 }
               </p>
-
               <p>
                 <strong>
                   Data da visita:
@@ -1266,45 +1012,33 @@ export default function ParquePage() {
                 {dataVisita ||
                   "Não informada"}
               </p>
-
               <p>
                 <strong>
                   Documento:
                 </strong>{" "}
-
                 {tipoDocumento ===
                   "cpf"
                   ? "CPF"
-
                   : tipoDocumentoEstrangeiro ===
                     "passaporte"
                     ? "Passaporte"
-
                     : tipoDocumentoEstrangeiro ===
                       "identidade_nacional"
                       ? "Documento nacional de identidade"
-
                       : "Outro documento oficial"}
-
               </p>
-
             </div>
-
             <hr className="my-6 border-gray-300" />
-
             <p className="mb-6 text-4xl font-bold text-[#166534]">
               {
                 valorTotalFormatado
               }
             </p>
-
-            <div className="mb-5 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm">
-
+            <div className="mb-5 rounded-2xl border-4 border-red-500 bg-red-50 p-4 text-red-950 shadow-lg shadow-red-500/20 motion-safe:animate-pulse">
               <p className="font-black">
                 ⚠️ Atenção antes de
                 continuar
               </p>
-
               <p className="mt-2 text-sm font-semibold leading-relaxed">
                 Algumas experiências
                 da Natural Extremo,
@@ -1317,9 +1051,7 @@ export default function ParquePage() {
                 comprar o ingresso do
                 parque separadamente.
               </p>
-
-              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-amber-300 bg-white p-3">
-
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border-2 border-red-400 bg-white p-3">
                 <input
                   type="checkbox"
                   checked={
@@ -1332,18 +1064,14 @@ export default function ParquePage() {
                   }
                   className="mt-1 h-5 w-5 shrink-0 accent-green-600"
                 />
-
                 <span className="text-sm font-bold leading-relaxed text-gray-800">
                   Li e estou ciente
                   deste aviso antes de
                   continuar com a
                   compra.
                 </span>
-
               </label>
-
             </div>
-
             <button
               type="button"
               onClick={
@@ -1355,22 +1083,18 @@ export default function ParquePage() {
               }
               className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-
               {salvando
                 ? "Salvando pedido..."
                 : !aceiteNaturalExtremo
                   ? "Marque o aceite para continuar"
                   : "Continuar para pagamento"}
-
             </button>
-
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
               O ingresso será
               liberado somente após
               confirmação automática
               do pagamento.
             </p>
-
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
               Ao prosseguir com a
               compra, você declara
@@ -1381,46 +1105,35 @@ export default function ParquePage() {
               informações específicas
               do ingresso selecionado.
             </p>
-
           </aside>
-
         </section>
-
       </div>
-
     </main>
   );
 }
-
 function Campo({
   label,
   children,
 }: {
   label:
   string;
-
   children:
   React.ReactNode;
 }) {
   return (
     <div>
-
       <label className="mb-2 block font-semibold text-gray-700">
         {
           label
         }
       </label>
-
       {
         children
       }
-
     </div>
   );
 }
-
 const inputClass =
   "w-full rounded-2xl border border-gray-300 bg-white px-4 py-4 text-base outline-none transition focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20";
-
 const contadorClass =
   "flex h-12 w-12 items-center justify-center rounded-2xl bg-[#166534] text-2xl font-bold text-white transition hover:bg-[#14532d]";
