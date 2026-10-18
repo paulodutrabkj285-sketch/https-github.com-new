@@ -606,7 +606,7 @@ export default function IngressosPage() {
 
 
 
-        "Ingresso oficial para visitar o Parque Mundo Novo em Urubici, com acesso às áreas de visitação, trilhas, cachoeiras e mirantes.",
+        "Ingresso oficial para visitar o Parque Mundo Novo em Urubici, com acesso às áreas de visitação, trilhas, cachoeiras e mirantes. Crianças até 10 anos completos não pagam entrada.",
 
 
 
@@ -654,7 +654,7 @@ export default function IngressosPage() {
 
 
 
-        "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura. Vista privilegiada da Cascata do Avencal. Ingresso vendido separadamente.",
+        "O primeiro Elevador Panorâmico da América Latina com 100 metros de altura. Vista privilegiada da Cascata do Avencal. Ingresso vendido separadamente. Crianças até 10 anos completos não pagam.",
 
 
 
@@ -750,7 +750,7 @@ export default function IngressosPage() {
 
 
 
-        "1ª diária R$ 100 por pessoa. A partir da 2ª diária R$ 80.",
+        "1ª diária R$ 100 por pessoa. A partir da 2ª diária R$ 80. Crianças até 10 anos completos não pagam camping.",
 
 
 
@@ -787,9 +787,9 @@ export default function IngressosPage() {
 
 
     /* ======================================
-
+ 
        ÁREA DE AGÊNCIAS E GUIAS
-
+ 
     ====================================== */
 
 
@@ -862,6 +862,8 @@ export default function IngressosPage() {
 
 
 
+    "Crianças até 10 anos completos não pagam entrada no parque, camping ou Elevador Panorâmico.",
+
     "O Elevador Panorâmico possui ingresso próprio e é vendido separadamente.",
 
 
@@ -931,9 +933,13 @@ export default function IngressosPage() {
 
 
     {
+      icone: "👧",
+      titulo: "Gratuidade para crianças",
+      texto:
+        "Crianças até 10 anos completos não pagam entrada no parque, camping nem Elevador Panorâmico. A partir de 11 anos, são cobrados os valores normais.",
+    },
 
-
-
+    {
       icone: "🏕️",
 
 
@@ -1243,9 +1249,12 @@ export default function IngressosPage() {
 
 
     {
+      pergunta: "Crianças até 10 anos pagam ingresso no Parque Mundo Novo?",
+      resposta:
+        "Não. Crianças até 10 anos completos têm entrada gratuita no Parque Mundo Novo, no camping e no Elevador Panorâmico. A partir de 11 anos, aplicam-se os valores normais.",
+    },
 
-
-
+    {
       pergunta: "Crianças pagam camping?",
 
 
@@ -1407,9 +1416,9 @@ export default function IngressosPage() {
 
 
   /* ==========================================
-
+ 
      REENVIO DE INGRESSO
-
+ 
   ========================================== */
 
 
@@ -1891,9 +1900,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           HERO
-
+ 
       ====================================== */}
 
 
@@ -2199,6 +2208,11 @@ export default function IngressosPage() {
               </div>
 
 
+
+              <div className="mt-6 max-w-3xl rounded-2xl border-2 border-emerald-300 bg-emerald-950/85 p-5 shadow-2xl backdrop-blur-md" role="note" aria-label="Gratuidade para crianças até 10 anos">
+                <p className="text-xl font-black text-emerald-200 md:text-2xl">👧🧒 Crianças até 10 anos completos não pagam!</p>
+                <p className="mt-2 text-base font-semibold leading-relaxed text-white">Gratuidade na entrada do parque, no camping e no Elevador Panorâmico. A partir dos 11 anos, são cobrados os valores normais.</p>
+              </div>
 
               <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
 
@@ -2593,9 +2607,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           MODAL REENVIAR
-
+ 
       ====================================== */}
 
 
@@ -2961,9 +2975,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           CONFIANÇA
-
+ 
       ====================================== */}
 
 
@@ -3057,9 +3071,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           SEO / INGRESSOS PARQUE MUNDO NOVO
-
+ 
       ====================================== */}
 
 
@@ -3221,9 +3235,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           ELEVADOR
-
+ 
       ====================================== */}
 
 
@@ -4029,9 +4043,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           CONHEÇA
-
+ 
       ====================================== */}
 
 
@@ -4149,9 +4163,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           ATRAÇÕES
-
+ 
       ====================================== */}
 
 
@@ -4345,9 +4359,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           PET FRIENDLY
-
+ 
       ====================================== */}
 
 
@@ -4717,9 +4731,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           COMPRAR INGRESSOS
-
+ 
       ====================================== */}
 
 
@@ -4788,65 +4802,55 @@ export default function IngressosPage() {
 
 
 
-            <div className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-left text-sm leading-relaxed text-amber-950 shadow-xl">
-
-
-
-              <p className="text-base font-black">
-
-
-
-                ⚠️ Vai fazer Tirolesa, Salto do Pêndulo ou Skybike?
-
-
-
-              </p>
-
-
-
-              <p className="mt-2 font-semibold">
-
-
-
-                Algumas experiências operadas pela Natural Extremo podem incluir
-
-
-
-                o acesso ao Parque Mundo Novo.
-
-
-
-              </p>
-
-
-
-              <p className="mt-2 font-black">
-
-
-
-                Antes de comprar o ingresso de entrada do parque separadamente,
-
-
-
-                verifique com a Natural Extremo as condições da atividade
-
-
-
-                escolhida. Assim você evita adquirir dois acessos para a mesma
-
-
-
-                visita.
-
-
-
-              </p>
-
-
-
+            <div className="mt-6 rounded-2xl border-2 border-emerald-300 bg-emerald-950 p-5 text-left shadow-xl" role="note">
+              <p className="text-xl font-black text-emerald-200">👶 Crianças até 10 anos completos: GRATUITO</p>
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-white md:text-base">A entrada no Parque Mundo Novo, o camping e o Elevador Panorâmico são gratuitos para crianças até 10 anos completos. A partir de 11 anos, os valores normais são aplicados.</p>
             </div>
 
+            {/* Novo ponto de venda permanente no Centro de Urubici */}
+            <div className="mt-6 rounded-2xl border-2 border-emerald-300 bg-emerald-950 p-6 text-left shadow-2xl">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">
+                📍 Novo ponto de venda permanente
+              </p>
+              <h3 className="mt-2 text-2xl font-black text-white">
+                Ingressos também no Centro de Urubici!
+              </h3>
+              <p className="mt-3 text-base font-semibold leading-relaxed text-white/90">
+                Avenida Adolfo Konder, 2177 — Centro, Urubici/SC.
+                <span className="mt-1 block text-emerald-200">Em frente ao Urubici Parque Hotel.</span>
+              </p>
+              <p className="mt-2 text-sm text-white/75">
+                Você também pode comprar na bilheteria do parque ou aqui no site oficial.
+              </p>
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=Avenida%20Adolfo%20Konder%202177%20Urubici%20SC"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 inline-flex w-full items-center justify-center rounded-xl bg-emerald-400 px-5 py-3 font-black text-emerald-950 shadow-lg transition hover:bg-emerald-300 sm:w-auto"
+              >
+                📍 Como chegar ao ponto de venda ↗
+              </a>
+            </div>
 
+            {/* Alerta reforçado: animação discreta e acessível */}
+            <div role="alert" className="mt-6 rounded-2xl border-4 border-red-500 bg-red-50 p-5 text-left text-red-950 shadow-[0_0_28px_rgba(239,68,68,0.4)] motion-safe:animate-pulse">
+              <p className="flex items-center gap-3 text-lg font-black text-red-800 md:text-xl">
+                <span aria-hidden="true" className="inline-block motion-safe:animate-pulse text-3xl">🚨</span>
+                ATENÇÃO ANTES DE COMPRAR!
+              </p>
+              <p className="mt-3 text-base font-black">
+                Vai fazer Tirolesa, Salto do Pêndulo ou Skybike?
+              </p>
+              <p className="mt-2 text-sm font-semibold leading-relaxed md:text-base">
+                Algumas atividades da Natural Extremo podem já incluir a entrada no Parque Mundo Novo.
+              </p>
+              <p className="mt-3 rounded-xl bg-red-100 p-3 text-sm font-black leading-relaxed md:text-base">
+                CONFIRME PRIMEIRO com a Natural Extremo as condições da atividade escolhida, antes de comprar o ingresso do parque separadamente.
+              </p>
+              <p className="mt-3 text-sm font-bold">
+                Evite pagar duas vezes pelo mesmo acesso!
+              </p>
+            </div>
 
             <div className="mt-4 rounded-2xl border border-yellow-200/30 bg-yellow-400/15 p-4 text-left text-sm font-semibold leading-relaxed text-yellow-50">
 
@@ -5037,9 +5041,9 @@ export default function IngressosPage() {
 
 
                     {/* ==================================
-
+ 
                         BOTÕES NORMAIS / PARCEIROS
-
+ 
                     ================================== */}
 
 
@@ -5205,9 +5209,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           PLANEJE
-
+ 
       ====================================== */}
 
 
@@ -5457,9 +5461,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           FAQ
-
+ 
       ====================================== */}
 
 
@@ -5573,9 +5577,9 @@ export default function IngressosPage() {
 
 
       {/* ======================================
-
+ 
           RODAPÉ
-
+ 
       ====================================== */}
 
 
