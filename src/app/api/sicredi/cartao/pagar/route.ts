@@ -1,3 +1,4 @@
+import { valorPromocionalValido } from "@/lib/preco-elevador";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -485,6 +486,10 @@ export async function POST(
        ÚNICA fonte válida:
        Firestore → pedido.valorTotal
     ===================================================== */
+
+    if (!valorPromocionalValido(pedido)) {
+      return NextResponse.json({ ok: false, error: "Valor da promoção divergente. Inicie uma nova compra.", mensagem: "Valor da promoção divergente. Inicie uma nova compra." }, { status: 400 });
+    }
 
     const valorPedido =
       Number(

@@ -1,4 +1,5 @@
 "use client";
+import PromocaoElevador from "@/components/PromocaoElevador";
 
 import {
   useMemo,
@@ -9,6 +10,8 @@ import {
 import { useRouter } from "next/navigation";
 
 import { criarPedido } from "@/lib/pedidos";
+
+import { calcularPrecoElevador, VALOR_UNITARIO_ELEVADOR } from "@/lib/preco-elevador";
 
 type TipoDocumento = "cpf" | "estrangeiro";
 
@@ -85,11 +88,10 @@ export default function ElevadorPage() {
       return `${ano}-${mes}-${dia}`;
     }, []);
 
-  const valorUnitario = 75;
-
-  const valorTotal = useMemo(() => {
-    return quantidade * valorUnitario;
-  }, [quantidade]);
+  const valorUnitario = VALOR_UNITARIO_ELEVADOR;
+  const { valorTotal, desconto } = useMemo(
+    () => calcularPrecoElevador(quantidade), [quantidade]
+  );
 
   const valorTotalFormatado =
     valorTotal.toLocaleString("pt-BR", {
@@ -421,6 +423,8 @@ export default function ElevadorPage() {
 
         quantidade,
 
+        origem: "site" as const,
+
         valorUnitario,
 
         valorTotal,
@@ -597,6 +601,8 @@ export default function ElevadorPage() {
           </div>
 
         </section>
+
+        <PromocaoElevador />
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
 
@@ -1065,6 +1071,11 @@ export default function ElevadorPage() {
 
             </div>
 
+            {desconto > 0 && (
+              <p className="mt-4 font-bold text-emerald-700">
+                Desconto Combo: −{desconto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
+            )}
             <hr className="my-6 border-gray-300" />
 
             <p className="mb-6 text-4xl font-bold text-[#166534]">

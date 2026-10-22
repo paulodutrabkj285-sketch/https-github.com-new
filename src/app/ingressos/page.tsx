@@ -1,4 +1,5 @@
 "use client";
+import PromocaoElevador from "@/components/PromocaoElevador";
 
 
 
@@ -4806,6 +4807,8 @@ export default function IngressosPage() {
               <p className="text-xl font-black text-emerald-200">👶 Crianças até 10 anos completos: GRATUITO</p>
               <p className="mt-2 text-sm font-semibold leading-relaxed text-white md:text-base">A entrada no Parque Mundo Novo, o camping e o Elevador Panorâmico são gratuitos para crianças até 10 anos completos. A partir de 11 anos, os valores normais são aplicados.</p>
             </div>
+
+        <PromocaoElevador />
 
             {/* Novo ponto de venda permanente no Centro de Urubici */}
             <div className="mt-6 rounded-2xl border-2 border-emerald-300 bg-emerald-950 p-6 text-left shadow-2xl">

@@ -1,3 +1,4 @@
+import { valorPromocionalValido } from "@/lib/preco-elevador";
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import axios from "axios";
@@ -497,6 +498,10 @@ export async function POST(
            NÃO modifica o valor da cobrança.
         ================================================= */
 
+    if (!valorPromocionalValido(pedidoSalvo)) {
+      return NextResponse.json({ ok: false, error: "Valor da promoção divergente. Inicie uma nova compra.", mensagem: "Valor da promoção divergente. Inicie uma nova compra." }, { status: 400 });
+    }
+
         const valorNumerico =
             Number(
                 pedidoSalvo
@@ -710,6 +715,14 @@ export async function POST(
                             "",
                     }
                 );
+
+                if (pedidoSalvo.promocao &&
+                    Number(cobrancaExistente?.valor?.original) !== valorNumerico) {
+                    return NextResponse.json(
+                        { ok: false, error: "O Pix existente possui valor divergente. Inicie uma nova compra." },
+                        { status: 409 }
+                    );
+                }
 
                 const pixCopiaCola =
                     cobrancaExistente

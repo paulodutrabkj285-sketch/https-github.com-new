@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { buscarPedidoPorId } from "@/lib/pedidos";
 import { useEffect, useState } from "react";
 
 type TipoDocumento =
@@ -14,6 +15,9 @@ type TipoDocumentoEstrangeiro =
   | "";
 
 export default function ResumoPage() {
+  const [pedidoCarregado, setPedidoCarregado] = useState(false);
+  const [erroPedido, setErroPedido] = useState("");
+  const [desconto, setDesconto] = useState(0);
   const [pedidoId, setPedidoId] =
     useState("");
 
@@ -232,6 +236,23 @@ export default function ResumoPage() {
         "tipoCamping"
       ) || ""
     );
+  }, []);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("pedidoId");
+    if (!id) { setErroPedido("Pedido não informado."); return; }
+    let ativo = true;
+    buscarPedidoPorId(id).then((pedido) => {
+      if (!ativo) return;
+      if (!pedido) { setErroPedido("Pedido não encontrado."); return; }
+      setProduto(pedido.produto);
+      setTipo(pedido.tipo);
+      setQuantidade(String(pedido.quantidade));
+      setValorTotal(String(pedido.valorTotal));
+      setDesconto(pedido.desconto || 0);
+      setPedidoCarregado(true);
+    }).catch(() => { if (ativo) setErroPedido("Não foi possível carregar o pedido. Recarregue a página."); });
+    return () => { ativo = false; };
   }, []);
 
   const queryPagamento =
@@ -517,15 +538,17 @@ export default function ResumoPage() {
             </h2>
 
             <p className="mb-6 text-4xl font-bold text-[#166534]">
-              {valorFormatado}
+              {pedidoCarregado ? valorFormatado : "Carregando…"}
             </p>
 
-            <Link
+            {desconto > 0 && <p className="mb-4 font-bold text-emerald-700">Combo exclusivo do site: desconto de {desconto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>}
+            {erroPedido && <p role="alert" className="mb-4 text-red-700">{erroPedido}</p>}
+            {pedidoCarregado && <Link
               href={`/checkout/pagamento?${queryPagamento}`}
               className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500"
             >
               Ir para pagamento
-            </Link>
+            </Link>}
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
               Após a confirmação do

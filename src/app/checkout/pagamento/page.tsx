@@ -276,6 +276,11 @@ export default function PagamentoPage() {
           return;
         }
 
+        setProduto(pedido.produto);
+        setTipo(pedido.tipo);
+        setQuantidade(String(pedido.quantidade));
+        setValorTotal(String(pedido.valorTotal));
+
         const tipoDocumentoPedido:
           TipoDocumento =
           pedido?.tipoDocumento ===
@@ -491,10 +496,10 @@ export default function PagamentoPage() {
                     "Ingresso",
 
                   valorTotal:
-                    valor,
+                    pedido.valorTotal,
 
                   quantidade:
-                    qtd,
+                    pedido.quantidade,
                 }),
             }
           );

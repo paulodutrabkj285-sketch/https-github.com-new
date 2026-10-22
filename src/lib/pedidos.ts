@@ -1,3 +1,4 @@
+import { calcularPrecoElevador } from "./preco-elevador";
 import {
 
 
@@ -308,6 +309,9 @@ export type PedidoInput = {
 
 
   valorTotal: number;
+  valorSubtotal?: number;
+  desconto?: number;
+  promocao?: string;
 
 
 
@@ -1540,6 +1544,9 @@ export async function criarPedido(
 
 
         ...dados,
+        ...(dados.tipo === "elevador" && (!dados.origem || dados.origem === "site")
+          ? { origem: "site", ...calcularPrecoElevador(dados.quantidade) }
+          : {}),
 
 
 
