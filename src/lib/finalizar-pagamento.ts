@@ -97,6 +97,46 @@ function gerarCodigoIngresso(
     return `PMN-${pedidoId}`;
 }
 
+
+function pedidoEhCarrinhoParqueElevador(
+    pedido: any
+) {
+    return (
+        String(
+            pedido?.tipo || ""
+        ).trim() === "carrinho" &&
+        Number(
+            pedido?.quantidadeParque || 0
+        ) > 0 &&
+        Number(
+            pedido?.quantidadeElevador || 0
+        ) > 0
+    );
+}
+
+function obterCodigosCarrinho(
+    pedido: any,
+    pedidoId: string
+) {
+    const codigoParque =
+        String(
+            pedido?.codigoIngressoParque ||
+            pedido?.codigoIngresso ||
+            gerarCodigoIngresso(pedidoId)
+        ).trim();
+
+    const codigoElevador =
+        String(
+            pedido?.codigoIngressoElevador ||
+            `PMN-ELEV-${pedidoId}`
+        ).trim();
+
+    return {
+        codigoParque,
+        codigoElevador,
+    };
+}
+
 /* =========================================================
    URL PÚBLICA DO PDF PARA O WHATSAPP
 ========================================================= */
@@ -555,12 +595,25 @@ export async function finalizarPagamento({
         };
     }
 
+    const ehCarrinho =
+        pedidoEhCarrinhoParqueElevador(
+            pedido
+        );
+
     const codigoIngresso =
         pedido.codigoIngresso ||
         gerarCodigoIngresso(
             pedido.id ||
             pedidoId
         );
+
+    const {
+        codigoParque,
+        codigoElevador,
+    } = obterCodigosCarrinho(
+        pedido,
+        pedido.id || pedidoId
+    );
 
     /* =====================================================
        PEDIDO JÁ PAGO
@@ -618,7 +671,10 @@ export async function finalizarPagamento({
 
                         pedidoId,
 
-                        codigoIngresso,
+                        codigoIngresso:
+                            ehCarrinho
+                                ? codigoParque
+                                : codigoIngresso,
                     }
                 );
         }
@@ -820,10 +876,43 @@ export async function finalizarPagamento({
 
         formaPagamento,
 
-        codigoIngresso,
+        codigoIngresso:
+            ehCarrinho
+                ? codigoParque
+                : codigoIngresso,
 
         qrCodeIngresso:
-            codigoIngresso,
+            ehCarrinho
+                ? codigoParque
+                : codigoIngresso,
+
+        ...(ehCarrinho
+            ? {
+                codigoIngressoParque:
+                    codigoParque,
+
+                qrCodeIngressoParque:
+                    codigoParque,
+
+                codigoIngressoElevador:
+                    codigoElevador,
+
+                qrCodeIngressoElevador:
+                    codigoElevador,
+
+                elevador:
+                    true,
+
+                elevadorValidado:
+                    false,
+
+                elevadorQuantidadeValidada:
+                    Number(
+                        pedido.elevadorQuantidadeValidada ||
+                        0
+                    ),
+            }
+            : {}),
 
         pagamentoConfirmadoEm:
             dataConfirmacao,
@@ -944,7 +1033,15 @@ export async function finalizarPagamento({
 
             valorPago,
 
-            codigoIngresso,
+            codigoIngresso:
+                ehCarrinho
+                    ? codigoParque
+                    : codigoIngresso,
+
+            codigoIngressoElevador:
+                ehCarrinho
+                    ? codigoElevador
+                    : null,
 
             origem:
                 pedido.origem ||
@@ -1015,7 +1112,10 @@ export async function finalizarPagamento({
 
                 pedidoId,
 
-                codigoIngresso,
+                codigoIngresso:
+                    ehCarrinho
+                        ? codigoParque
+                        : codigoIngresso,
             }
         );
 
@@ -1043,7 +1143,9 @@ export async function finalizarPagamento({
                 pedido
             )
                 ? "Pagamento confirmado e reserva da agência liberada."
-                : "Pagamento confirmado e ingresso liberado.",
+                : ehCarrinho
+                    ? "Pagamento confirmado e ingressos do Parque e do Elevador liberados separadamente."
+                    : "Pagamento confirmado e ingresso liberado.",
     };
 }
 
@@ -1103,59 +1205,112 @@ async function tentarEnviarEmail({
                 ""
             ).trim();
 
-        const whatsappPdfUrl =
-            gerarUrlPublicaPdf(
-                {
-                    pedidoId,
-
-                    codigoIngresso,
-                }
-            );
-
-        /*
-         * IMPORTANTE:
-         *
-         * Define a quantidade correta
-         * antes de gerar/enviar o ingresso.
-         */
-
-        const quantidade =
-            obterQuantidadeIngresso(
+        const ehCarrinho =
+            pedidoEhCarrinhoParqueElevador(
                 pedido
             );
 
-        console.log(
-            "FINALIZAÇÃO: PREPARANDO ENVIO",
-            {
-                pedidoId,
-
-                email:
-                    pedido.email,
-
-                telefone:
-                    telefone ||
-                    null,
-
-                produto:
-                    pedido.produto ||
-                    null,
-
-                quantidadeFirestore:
-                    pedido.quantidade ??
-                    null,
-
-                quantidadePessoasFirestore:
-                    pedido.quantidadePessoas ??
-                    null,
-
-                quantidadeUtilizada:
-                    quantidade,
-
-                whatsappPdfUrl,
-            }
+        const {
+            codigoParque,
+            codigoElevador,
+        } = obterCodigosCarrinho(
+            pedido,
+            pedido.id || pedidoId
         );
 
-        const resultadoEnvio =
+        const dataVisita =
+            pedido.dataVisita ||
+            pedido.dataEntrada ||
+            "";
+
+        let whatsappResultado: any =
+            null;
+
+        if (ehCarrinho) {
+            const quantidadeParque =
+                Number(
+                    pedido.quantidadeParque ||
+                    pedido.quantidade ||
+                    1
+                );
+
+            const quantidadeElevador =
+                Number(
+                    pedido.quantidadeElevador ||
+                    pedido.qtdElevador ||
+                    1
+                );
+
+            const whatsappPdfUrlParque =
+                gerarUrlPublicaPdf(
+                    {
+                        pedidoId,
+
+                        codigoIngresso:
+                            codigoParque,
+                    }
+                );
+
+            console.log(
+                "FINALIZAÇÃO: ENVIANDO INGRESSO DO PARQUE",
+                {
+                    pedidoId,
+                    codigoParque,
+                    quantidadeParque,
+                }
+            );
+
+            const resultadoParque =
+                await enviarIngressoPorEmail(
+                    {
+                        para:
+                            pedido.email,
+
+                        nome:
+                            pedido.nome ||
+                            "Cliente",
+
+                        produto:
+                            "Ingresso Parque",
+
+                        quantidade:
+                            quantidadeParque,
+
+                        codigoIngresso:
+                            codigoParque,
+
+                        pedidoId,
+
+                        dataVisita,
+
+                        telefone,
+
+                        whatsappPdfUrl:
+                            whatsappPdfUrlParque,
+                    }
+                );
+
+            whatsappResultado =
+                (resultadoParque as any)
+                    ?.whatsapp ||
+                null;
+
+            console.log(
+                "FINALIZAÇÃO: ENVIANDO INGRESSO DO ELEVADOR",
+                {
+                    pedidoId,
+                    codigoElevador,
+                    quantidadeElevador,
+                }
+            );
+
+            /*
+             * O Elevador é enviado em um segundo e-mail/PDF.
+             *
+             * Não enviamos WhatsApp nessa segunda chamada
+             * para evitar que o template atual do Parque
+             * seja reutilizado indevidamente no Elevador.
+             */
             await enviarIngressoPorEmail(
                 {
                     para:
@@ -1166,37 +1321,112 @@ async function tentarEnviarEmail({
                         "Cliente",
 
                     produto:
-                        pedido.produto ||
-                        "Ingresso Parque Mundo Novo",
+                        "Elevador Panorâmico",
 
-                    /*
-                     * CORRIGIDO:
-                     *
-                     * Camping usa quantidadePessoas.
-                     */
+                    quantidade:
+                        quantidadeElevador,
 
-                    quantidade,
-
-                    codigoIngresso,
+                    codigoIngresso:
+                        codigoElevador,
 
                     pedidoId,
 
-                    dataVisita:
-                        pedido.dataVisita ||
-                        pedido.dataEntrada ||
-                        "",
+                    dataVisita,
+                }
+            );
 
-                    telefone,
+            await atualizarPedido(
+                pedidoId,
+                {
+                    emailParqueEnviado:
+                        true,
+
+                    emailElevadorEnviado:
+                        true,
+
+                    emailCarrinhoSeparado:
+                        true,
+                }
+            );
+        } else {
+            const whatsappPdfUrl =
+                gerarUrlPublicaPdf(
+                    {
+                        pedidoId,
+
+                        codigoIngresso,
+                    }
+                );
+
+            const quantidade =
+                obterQuantidadeIngresso(
+                    pedido
+                );
+
+            console.log(
+                "FINALIZAÇÃO: PREPARANDO ENVIO",
+                {
+                    pedidoId,
+
+                    email:
+                        pedido.email,
+
+                    telefone:
+                        telefone ||
+                        null,
+
+                    produto:
+                        pedido.produto ||
+                        null,
+
+                    quantidadeFirestore:
+                        pedido.quantidade ??
+                        null,
+
+                    quantidadePessoasFirestore:
+                        pedido.quantidadePessoas ??
+                        null,
+
+                    quantidadeUtilizada:
+                        quantidade,
 
                     whatsappPdfUrl,
                 }
             );
 
-        const whatsappResultado =
-            (
-                resultadoEnvio as any
-            )
-                ?.whatsapp;
+            const resultadoEnvio =
+                await enviarIngressoPorEmail(
+                    {
+                        para:
+                            pedido.email,
+
+                        nome:
+                            pedido.nome ||
+                            "Cliente",
+
+                        produto:
+                            pedido.produto ||
+                            "Ingresso Parque Mundo Novo",
+
+                        quantidade,
+
+                        codigoIngresso,
+
+                        pedidoId,
+
+                        dataVisita,
+
+                        telefone,
+
+                        whatsappPdfUrl,
+                    }
+                );
+
+            whatsappResultado =
+                (resultadoEnvio as any)
+                    ?.whatsapp ||
+                null;
+        }
 
         const whatsappEnviado =
             Boolean(
@@ -1254,32 +1484,30 @@ async function tentarEnviarEmail({
         );
 
         console.log(
-            "FINALIZAÇÃO: INGRESSO PROCESSADO",
+            "FINALIZAÇÃO: INGRESSO(S) PROCESSADO(S)",
             {
                 pedidoId,
 
                 email:
                     pedido.email,
 
-                telefone:
-                    telefone ||
-                    null,
+                carrinho:
+                    ehCarrinho,
 
-                produto:
-                    pedido.produto ||
-                    null,
+                codigoParque:
+                    ehCarrinho
+                        ? codigoParque
+                        : null,
 
-                quantidadeUtilizada:
-                    quantidade,
+                codigoElevador:
+                    ehCarrinho
+                        ? codigoElevador
+                        : null,
 
                 emailEnviado:
                     true,
 
                 whatsappEnviado,
-
-                whatsappResultado:
-                    whatsappResultado ||
-                    null,
             }
         );
 
@@ -1323,7 +1551,6 @@ async function tentarEnviarEmail({
          * O pagamento continua válido
          * mesmo se o envio do ingresso falhar.
          */
-
         return false;
     }
 }

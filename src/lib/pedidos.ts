@@ -279,6 +279,31 @@ export type PedidoInput = {
   quantidade: number;
 
 
+  /* ==========================================
+
+     CARRINHO / ITENS DA COMPRA
+
+  ========================================== */
+
+  quantidadeParque?: number;
+
+  valorParque?: number;
+
+  quantidadeElevador?: number;
+
+  valorUnitarioElevador?: number;
+
+  valorElevador?: number;
+
+  itensCarrinho?: Array<{
+    tipo: "parque" | "elevador";
+    produto: string;
+    quantidade: number;
+    valorUnitario: number;
+    valorTotal: number;
+  }>;
+
+
 
 
 
@@ -472,6 +497,38 @@ export type PedidoInput = {
 
 
   qrCodeIngresso?: string;
+
+
+
+
+
+
+
+  codigoIngressoParque?: string;
+
+
+
+
+
+
+
+  qrCodeIngressoParque?: string;
+
+
+
+
+
+
+
+  codigoIngressoElevador?: string;
+
+
+
+
+
+
+
+  qrCodeIngressoElevador?: string;
 
 
 
@@ -1441,172 +1498,184 @@ function limparCpf(
 
 export async function criarPedido(
 
-
-
   dados: PedidoInput
-
-
 
 ) {
 
+  const quantidadeParque = Number(
+    dados.quantidadeParque ??
+    (dados.produto === "Ingresso Parque"
+      ? dados.quantidade
+      : 0)
+  );
 
+  const quantidadeElevador = Number(
+    dados.quantidadeElevador ??
+    dados.qtdElevador ??
+    (dados.tipo === "elevador"
+      ? dados.quantidade
+      : 0)
+  );
+
+  const valorUnitarioParque = 60;
+
+  const valorUnitarioElevador =
+    quantidadeElevador > 0
+      ? calcularPrecoElevador(
+        quantidadeElevador
+      ).valorUnitario
+      : 75;
+
+  const valorParque =
+    quantidadeParque > 0
+      ? Number(
+        dados.valorParque ??
+        quantidadeParque *
+        valorUnitarioParque
+      )
+      : 0;
+
+  const valorElevador =
+    quantidadeElevador > 0
+      ? Number(
+        dados.valorElevador ??
+        quantidadeElevador *
+        valorUnitarioElevador
+      )
+      : 0;
+
+  const ehCarrinhoParqueElevador =
+    quantidadeParque > 0 &&
+    quantidadeElevador > 0;
+
+  const itensCarrinho =
+    ehCarrinhoParqueElevador
+      ? [
+        {
+          tipo: "parque" as const,
+          produto: "Ingresso Parque",
+          quantidade:
+            quantidadeParque,
+          valorUnitario:
+            valorUnitarioParque,
+          valorTotal:
+            valorParque,
+        },
+        {
+          tipo: "elevador" as const,
+          produto:
+            "Elevador Panorâmico",
+          quantidade:
+            quantidadeElevador,
+          valorUnitario:
+            valorUnitarioElevador,
+          valorTotal:
+            valorElevador,
+        },
+      ]
+      : dados.itensCarrinho;
 
   const codigoIngresso =
-
-
-
     dados.codigoIngresso ||
-
-
-
     gerarCodigoIngresso();
 
+  const codigoIngressoParque =
+    quantidadeParque > 0
+      ? dados.codigoIngressoParque ||
+      codigoIngresso
+      : "";
 
+  const codigoIngressoElevador =
+    quantidadeElevador > 0
+      ? dados.codigoIngressoElevador ||
+      gerarCodigoIngresso()
+      : "";
 
-
-
-
+  const valorTotalCarrinho =
+    ehCarrinhoParqueElevador
+      ? valorParque + valorElevador
+      : dados.valorTotal;
 
   const ref =
 
-
-
     await addDoc(
-
-
 
       collection(
 
-
-
         db,
-
-
 
         "pedidos"
 
-
-
       ),
-
-
 
       {
 
-
-
         /*
-
-
-
-         * Inclui automaticamente:
-
-
-
-         *
-
-
-
-         * origem
-
-
-
-         * reservaAgenciaId
-
-
-
-         * codigoGrupo
-
-
-
-         * agenciaId
-
-
-
-         * agenciaNome
-
-
-
-         *
-
-
-
-         * quando esses campos forem
-
-
-
-         * enviados pela compra de parceiro.
-
-
-
+         * Mantém compatibilidade com os pedidos antigos.
+         * Quando houver Parque + Elevador no mesmo pedido,
+         * o pagamento continua único, mas cada atração recebe
+         * seu próprio código/QR e seus próprios campos de uso.
          */
-
-
-
         ...dados,
-        ...(dados.tipo === "elevador" && (!dados.origem || dados.origem === "site")
-          ? { origem: "site", ...calcularPrecoElevador(dados.quantidade) }
+
+        ...(dados.tipo === "elevador" &&
+          (!dados.origem ||
+            dados.origem === "site") &&
+          !ehCarrinhoParqueElevador
+          ? {
+            origem: "site",
+            ...calcularPrecoElevador(
+              dados.quantidade
+            ),
+          }
           : {}),
 
-
-
-
-
-
+        ...(ehCarrinhoParqueElevador
+          ? {
+            produto:
+              "Carrinho Parque + Elevador",
+            tipo: "carrinho",
+            quantidade:
+              quantidadeParque,
+            quantidadeParque,
+            valorParque,
+            quantidadeElevador,
+            qtdElevador:
+              quantidadeElevador,
+            valorUnitarioElevador,
+            valorElevador,
+            valorTotal:
+              valorTotalCarrinho,
+            itensCarrinho,
+            elevador: true,
+            elevadorValidado: false,
+            elevadorQuantidadeValidada: 0,
+          }
+          : {}),
 
         codigoIngresso,
 
+        codigoIngressoParque,
 
-
-
-
-
+        codigoIngressoElevador,
 
         expiracaoPix:
 
-
-
           gerarExpiracaoPix(),
-
-
-
-
-
-
 
         createdAt:
 
-
-
           new Date()
-
-
 
             .toISOString(),
 
-
-
       }
-
-
 
     );
 
-
-
-
-
-
-
   return ref.id;
 
-
-
 }
-
-
-
-
 
 
 

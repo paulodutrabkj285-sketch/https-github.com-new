@@ -32,6 +32,21 @@ export default function PagamentoPage() {
   const [valorTotal, setValorTotal] =
     useState("0");
 
+  const [quantidadeParque, setQuantidadeParque] =
+    useState(0);
+
+  const [valorParque, setValorParque] =
+    useState(0);
+
+  const [quantidadeElevador, setQuantidadeElevador] =
+    useState(0);
+
+  const [valorUnitarioElevador, setValorUnitarioElevador] =
+    useState(75);
+
+  const [valorElevador, setValorElevador] =
+    useState(0);
+
   const [
     tipoDocumento,
     setTipoDocumento,
@@ -189,6 +204,38 @@ export default function PagamentoPage() {
           ) ||
           "0";
 
+        const qtdParqueUrl = Number(
+          params.get("quantidadeParque") ||
+          qtd ||
+          0
+        );
+
+        const qtdElevadorUrl = Number(
+          params.get("quantidadeElevador") ||
+          0
+        );
+
+        const valorParqueUrl = Number(
+          params.get("valorParque") ||
+          qtdParqueUrl * 60
+        );
+
+        const valorUnitarioElevadorUrl =
+          Number(
+            params.get(
+              "valorUnitarioElevador"
+            ) ||
+            (qtdElevadorUrl >= 2
+              ? 60
+              : 75)
+          );
+
+        const valorElevadorUrl = Number(
+          params.get("valorElevador") ||
+          qtdElevadorUrl *
+          valorUnitarioElevadorUrl
+        );
+
         const cpfUrl =
           (
             params.get(
@@ -255,6 +302,26 @@ export default function PagamentoPage() {
 
         setValorTotal(valor);
 
+        setQuantidadeParque(
+          qtdParqueUrl
+        );
+
+        setQuantidadeElevador(
+          qtdElevadorUrl
+        );
+
+        setValorParque(
+          valorParqueUrl
+        );
+
+        setValorUnitarioElevador(
+          valorUnitarioElevadorUrl
+        );
+
+        setValorElevador(
+          valorElevadorUrl
+        );
+
         if (!id) {
           setErro(
             "Pedido não informado."
@@ -280,6 +347,65 @@ export default function PagamentoPage() {
         setTipo(pedido.tipo);
         setQuantidade(String(pedido.quantidade));
         setValorTotal(String(pedido.valorTotal));
+
+        const qtdParquePedido =
+          Number(
+            pedido?.quantidadeParque ??
+            (pedido?.produto ===
+              "Ingresso Parque"
+              ? pedido?.quantidade
+              : qtdParqueUrl) ??
+            0
+          );
+
+        const qtdElevadorPedido =
+          Number(
+            pedido?.quantidadeElevador ??
+            qtdElevadorUrl ??
+            0
+          );
+
+        const valorParquePedido =
+          Number(
+            pedido?.valorParque ??
+            valorParqueUrl ??
+            qtdParquePedido * 60
+          );
+
+        const unitElevadorPedido =
+          Number(
+            pedido?.valorUnitarioElevador ??
+            (qtdElevadorPedido >= 2
+              ? 60
+              : 75)
+          );
+
+        const valorElevadorPedido =
+          Number(
+            pedido?.valorElevador ??
+            qtdElevadorPedido *
+            unitElevadorPedido
+          );
+
+        setQuantidadeParque(
+          qtdParquePedido
+        );
+
+        setQuantidadeElevador(
+          qtdElevadorPedido
+        );
+
+        setValorParque(
+          valorParquePedido
+        );
+
+        setValorUnitarioElevador(
+          unitElevadorPedido
+        );
+
+        setValorElevador(
+          valorElevadorPedido
+        );
 
         const tipoDocumentoPedido:
           TipoDocumento =
@@ -633,6 +759,38 @@ export default function PagamentoPage() {
   const valorNumero =
     Number(
       valorTotal || 0
+    );
+
+  const temCarrinho =
+    quantidadeParque > 0 &&
+    (produto === "Ingresso Parque" ||
+      quantidadeElevador > 0);
+
+  const valorParqueFormatado =
+    valorParque.toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
+
+  const valorElevadorFormatado =
+    valorElevador.toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
+    );
+
+  const valorUnitarioElevadorFormatado =
+    valorUnitarioElevador.toLocaleString(
+      "pt-BR",
+      {
+        style: "currency",
+        currency: "BRL",
+      }
     );
 
   const pixExpirado =
@@ -1055,9 +1213,9 @@ export default function PagamentoPage() {
                   setMensagem("");
                 }}
                 className={`rounded-2xl p-4 text-lg font-bold transition ${formaPagamento ===
-                    "pix"
-                    ? "bg-green-600 text-white shadow-lg"
-                    : "bg-gray-200 text-gray-700"
+                  "pix"
+                  ? "bg-green-600 text-white shadow-lg"
+                  : "bg-gray-200 text-gray-700"
                   }`}
               >
                 PIX
@@ -1075,9 +1233,9 @@ export default function PagamentoPage() {
                   setMensagem("");
                 }}
                 className={`rounded-2xl p-4 text-lg font-bold transition ${formaPagamento ===
-                    "cartao"
-                    ? "bg-blue-600 text-white shadow-lg"
-                    : "bg-gray-200 text-gray-700"
+                  "cartao"
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "bg-gray-200 text-gray-700"
                   }`}
               >
                 Cartão de crédito
@@ -1484,21 +1642,69 @@ export default function PagamentoPage() {
                 </p>
               )}
 
-              <p>
-                <strong>
-                  Produto:
-                </strong>{" "}
-                {produto ||
-                  tipo ||
-                  "Ingresso"}
-              </p>
+              {temCarrinho ? (
+                <>
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="font-black text-emerald-900">
+                      🎟️ Ingresso Parque
+                    </p>
+                    <p className="mt-1 text-sm">
+                      {quantidadeParque} ingresso(s) —{" "}
+                      <strong>
+                        {valorParqueFormatado}
+                      </strong>
+                    </p>
+                  </div>
 
-              <p>
-                <strong>
-                  Quantidade:
-                </strong>{" "}
-                {quantidade}
-              </p>
+                  {quantidadeElevador > 0 && (
+                    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                      <p className="font-black text-sky-900">
+                        🛗 Elevador Panorâmico
+                      </p>
+                      <p className="mt-1 text-sm">
+                        {quantidadeElevador} ingresso(s) ×{" "}
+                        {valorUnitarioElevadorFormatado}
+                      </p>
+                      <p className="mt-1 text-sm">
+                        Subtotal:{" "}
+                        <strong>
+                          {valorElevadorFormatado}
+                        </strong>
+                      </p>
+
+                      {quantidadeElevador >= 2 &&
+                        valorUnitarioElevador === 60 && (
+                          <p className="mt-2 text-xs font-black text-emerald-700">
+                            Promoção aplicada: R$ 60 por pessoa
+                          </p>
+                        )}
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-green-300 bg-green-50 p-3 text-sm font-bold text-green-900">
+                    Pagamento único. Os ingressos do Parque
+                    e do Elevador serão liberados separadamente.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p>
+                    <strong>
+                      Produto:
+                    </strong>{" "}
+                    {produto ||
+                      tipo ||
+                      "Ingresso"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Quantidade:
+                    </strong>{" "}
+                    {quantidade}
+                  </p>
+                </>
+              )}
 
               {tipoDocumento ===
                 "cpf" ? (
@@ -1601,7 +1807,7 @@ export default function PagamentoPage() {
                 Após o pagamento,
                 esta tela verifica
                 automaticamente e
-                libera o ingresso
+                libera os ingressos
                 quando o Sicredi
                 confirmar.
               </div>
@@ -1663,12 +1869,12 @@ export default function PagamentoPage() {
               )}
 
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              O ingresso só será
-              liberado quando o
+              Os ingressos só serão
+              liberados quando o
               pagamento for
               confirmado e o valor
               pago for igual ao valor
-              do pedido.
+              total do pedido.
             </p>
 
           </aside>

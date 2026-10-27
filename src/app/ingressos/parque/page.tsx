@@ -1,1139 +1,2667 @@
 "use client";
+
 import { useMemo, useState } from "react";
+
 import { useRouter } from "next/navigation";
+
 import { criarPedido } from "@/lib/pedidos";
+
 type TipoDocumento = "cpf" | "estrangeiro";
+
 type TipoDocumentoEstrangeiro =
+
   | "identidade_nacional"
+
   | "passaporte"
+
   | "outro";
+
 const TEXTO_ACEITE_NATURAL_EXTREMO =
+
   "Li e estou ciente de que algumas experiências operadas pela Natural Extremo podem incluir o acesso ao Parque Mundo Novo e de que devo confirmar as condições da atividade escolhida antes de comprar o ingresso do parque separadamente.";
+
 const VERSAO_ACEITE_NATURAL_EXTREMO =
+
   "2026-09-28";
+
 export default function ParquePage() {
+
   const router = useRouter();
+
   const [nome, setNome] = useState("");
+
   const [
+
     tipoDocumento,
+
     setTipoDocumento,
+
   ] =
+
     useState<TipoDocumento>(
+
       "cpf"
+
     );
+
   const [cpf, setCpf] =
+
     useState("");
+
   const [
+
     paisDocumento,
+
     setPaisDocumento,
+
   ] =
+
     useState("");
+
   const [
+
     tipoDocumentoEstrangeiro,
+
     setTipoDocumentoEstrangeiro,
+
   ] =
+
     useState<TipoDocumentoEstrangeiro>(
+
       "identidade_nacional"
+
     );
+
   const [
+
     documentoEstrangeiro,
+
     setDocumentoEstrangeiro,
+
   ] =
+
     useState("");
+
   const [
+
     telefone,
+
     setTelefone,
+
   ] =
+
     useState("");
+
   const [
+
     email,
+
     setEmail,
+
   ] =
+
     useState("");
+
   const [
+
     dataVisita,
+
     setDataVisita,
+
   ] =
+
     useState("");
+
   const [
+
     quantidade,
+
     setQuantidade,
+
   ] =
+
     useState(1);
+
   const [
+
+    quantidadeElevador,
+
+    setQuantidadeElevador,
+
+  ] =
+
+    useState(0);
+
+  const [
+
     salvando,
+
     setSalvando,
+
   ] =
+
     useState(false);
+
   const [
+
     aceiteNaturalExtremo,
+
     setAceiteNaturalExtremo,
+
   ] =
+
     useState(false);
+
   const dataMinimaVisita =
+
     useMemo(
+
       () => {
+
         const agora =
+
           new Date();
+
         const ano =
+
           agora.getFullYear();
+
         const mes =
+
           String(
+
             agora.getMonth() +
+
             1
+
           ).padStart(
+
             2,
+
             "0"
+
           );
+
         const dia =
+
           String(
+
             agora.getDate()
+
           ).padStart(
+
             2,
+
             "0"
+
           );
+
         return `${ano}-${mes}-${dia}`;
+
       },
+
       []
+
     );
+
   const valorUnitario =
+
     60;
-  const valorTotal =
+
+  const valorUnitarioElevador =
+
+    quantidadeElevador >= 2 ? 60 : 75;
+
+  const valorParque =
+
     useMemo(
+
       () =>
+
         quantidade *
+
         valorUnitario,
+
       [
+
         quantidade,
+
       ]
+
     );
+
+  const valorElevador =
+
+    useMemo(
+
+      () =>
+
+        quantidadeElevador *
+
+        valorUnitarioElevador,
+
+      [
+
+        quantidadeElevador,
+
+      ]
+
+    );
+
+  const valorTotal =
+
+    useMemo(
+
+      () =>
+
+        valorParque +
+
+        valorElevador,
+
+      [
+
+        valorParque,
+
+        valorElevador,
+
+      ]
+
+    );
+
   const valorUnitarioFormatado =
+
     valorUnitario.toLocaleString(
+
       "pt-BR",
+
       {
+
         style:
+
           "currency",
+
         currency:
+
           "BRL",
+
       }
+
     );
+
+  const valorUnitarioElevadorFormatado =
+
+    valorUnitarioElevador.toLocaleString(
+
+      "pt-BR",
+
+      {
+
+        style:
+
+          "currency",
+
+        currency:
+
+          "BRL",
+
+      }
+
+    );
+
+  const valorParqueFormatado =
+
+    valorParque.toLocaleString(
+
+      "pt-BR",
+
+      {
+
+        style:
+
+          "currency",
+
+        currency:
+
+          "BRL",
+
+      }
+
+    );
+
+  const valorElevadorFormatado =
+
+    valorElevador.toLocaleString(
+
+      "pt-BR",
+
+      {
+
+        style:
+
+          "currency",
+
+        currency:
+
+          "BRL",
+
+      }
+
+    );
+
   const valorTotalFormatado =
+
     valorTotal.toLocaleString(
+
       "pt-BR",
+
       {
+
         style:
+
           "currency",
+
         currency:
+
           "BRL",
+
       }
+
     );
+
   function limparCpf(
+
     valor:
+
       string
+
   ) {
+
     return valor.replace(
+
       /\D/g,
+
       ""
+
     );
+
   }
+
   function normalizarDocumentoEstrangeiro(
+
     valor:
+
       string
+
   ) {
+
     return String(
+
       valor ||
+
       ""
+
     )
+
       .trim()
+
       .toUpperCase()
+
       .replace(
+
         /\s+/g,
+
         " "
+
       );
+
   }
+
   function normalizarEmail(
+
     valor:
+
       string
+
   ) {
+
     return String(
+
       valor ||
+
       ""
+
     )
+
       .trim()
+
       .toLowerCase()
+
       .replace(
+
         /\s+/g,
+
         ""
+
       );
+
   }
+
   function emailTemFormatoValido(
+
     valor:
+
       string
+
   ) {
+
     const emailNormalizado =
+
       normalizarEmail(
+
         valor
+
       );
+
     const regexEmail =
+
       /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
     return regexEmail.test(
+
       emailNormalizado
+
     );
+
   }
+
   function sugerirCorrecaoEmail(
+
     valor:
+
       string
+
   ) {
+
     const emailNormalizado =
+
       normalizarEmail(
+
         valor
+
       );
+
     const partes =
+
       emailNormalizado.split(
+
         "@"
+
       );
+
     if (
+
       partes.length !==
+
       2
+
     ) {
+
       return null;
+
     }
+
     const usuario =
+
       partes[0];
+
     const dominio =
+
       partes[1];
+
     const correcoes: Record<
+
       string,
+
       string
+
     > = {
+
       "gmai.com":
+
         "gmail.com",
+
       "gmial.com":
+
         "gmail.com",
+
       "gamil.com":
+
         "gmail.com",
+
       "gmail.con":
+
         "gmail.com",
+
       "gmail.co":
+
         "gmail.com",
+
       "gmail.cm":
+
         "gmail.com",
+
       "gmail.om":
+
         "gmail.com",
+
       "gmail.cim":
+
         "gmail.com",
+
       "gmail.comm":
+
         "gmail.com",
+
       "gmail.com.br":
+
         "gmail.com",
+
       "hotmai.com":
+
         "hotmail.com",
+
       "hotmal.com":
+
         "hotmail.com",
+
       "hotamil.com":
+
         "hotmail.com",
+
       "hotmail.con":
+
         "hotmail.com",
+
       "hotmail.co":
+
         "hotmail.com",
+
       "hotmail.cm":
+
         "hotmail.com",
+
       "hotmail.om":
+
         "hotmail.com",
+
       "outlok.com":
+
         "outlook.com",
+
       "outloo.com":
+
         "outlook.com",
+
       "outlook.con":
+
         "outlook.com",
+
       "outlook.co":
+
         "outlook.com",
+
       "outlook.cm":
+
         "outlook.com",
+
       "yaho.com":
+
         "yahoo.com",
+
       "yahho.com":
+
         "yahoo.com",
+
       "yahoo.con":
+
         "yahoo.com",
+
       "yahoo.co":
+
         "yahoo.com",
+
       "yahoo.cm":
+
         "yahoo.com",
+
       "iclod.com":
+
         "icloud.com",
+
       "icoud.com":
+
         "icloud.com",
+
       "icloud.con":
+
         "icloud.com",
+
       "icloud.co":
+
         "icloud.com",
+
       "icloud.cm":
+
         "icloud.com",
+
     };
+
     const dominioCorreto =
+
       correcoes[
+
       dominio
+
       ];
+
     if (
+
       !dominioCorreto
+
     ) {
+
       return null;
+
     }
+
     return `${usuario}@${dominioCorreto}`;
+
   }
+
   async function continuarParaResumo() {
+
     const nomeFinal =
+
       nome.trim();
+
     const cpfLimpo =
+
       limparCpf(
+
         cpf
+
       );
+
     const documentoFinal =
+
       tipoDocumento ===
+
         "cpf"
+
         ? cpfLimpo
+
         : normalizarDocumentoEstrangeiro(
+
           documentoEstrangeiro
+
         );
+
     const emailNormalizado =
+
       normalizarEmail(
+
         email
+
       );
+
     if (
+
       !nomeFinal ||
+
       !telefone.trim() ||
+
       !emailNormalizado ||
+
       !dataVisita
+
     ) {
+
       alert(
+
         "Preencha todos os campos antes de continuar."
+
       );
+
       return;
+
     }
+
     if (
+
       dataVisita <
+
       dataMinimaVisita
+
     ) {
+
       alert(
+
         "A data da visita não pode ser anterior a hoje.\n\nEscolha a data de hoje ou uma data futura."
+
       );
+
       setDataVisita(
+
         ""
+
       );
+
       return;
+
     }
+
     if (
+
       tipoDocumento ===
+
       "cpf"
+
     ) {
+
       if (
+
         !cpfLimpo
+
       ) {
+
         alert(
+
           "Informe o CPF do comprador."
+
         );
+
         return;
+
       }
+
       if (
+
         cpfLimpo.length !==
+
         11
+
       ) {
+
         alert(
+
           "CPF inválido. Digite os 11 números do CPF."
+
         );
+
         return;
+
       }
+
     } else {
+
       if (
+
         !paisDocumento.trim()
+
       ) {
+
         alert(
+
           "Informe o país do documento."
+
         );
+
         return;
+
       }
+
       if (
+
         !documentoFinal
+
       ) {
+
         alert(
+
           "Informe o número do documento estrangeiro."
+
         );
+
         return;
+
       }
+
       if (
+
         documentoFinal.length <
+
         3
+
       ) {
+
         alert(
+
           "Documento estrangeiro inválido. Confira o número informado."
+
         );
+
         return;
+
       }
+
     }
+
     if (
+
       !emailTemFormatoValido(
+
         emailNormalizado
+
       )
+
     ) {
+
       alert(
+
         "E-mail inválido.\n\nConfira o endereço informado antes de continuar."
+
       );
+
       return;
+
     }
+
     const emailSugerido =
+
       sugerirCorrecaoEmail(
+
         emailNormalizado
+
       );
+
     if (
+
       emailSugerido
+
     ) {
+
       alert(
+
         `Confira seu e-mail antes de continuar.\n\n` +
+
         `Você informou:\n${emailNormalizado}\n\n` +
+
         `Você quis dizer:\n${emailSugerido}\n\n` +
+
         `Corrija o e-mail para continuar.`
+
       );
+
       setEmail(
+
         emailSugerido
+
       );
+
       return;
+
     }
+
     if (
+
       email !==
+
       emailNormalizado
+
     ) {
+
       setEmail(
+
         emailNormalizado
+
       );
+
     }
+
     if (
+
       !aceiteNaturalExtremo
+
     ) {
+
       alert(
+
         "Antes de continuar, marque a confirmação de que leu e está ciente do aviso sobre Tirolesa, Salto do Pêndulo e Skybike."
+
       );
+
       return;
+
     }
+
     try {
+
       setSalvando(
+
         true
+
       );
+
       const aceiteNaturalExtremoEm =
+
         new Date()
+
           .toISOString();
+
       const dadosPedido =
+
       {
+
         produto:
+
           "Ingresso Parque",
+
         tipo:
+
           "ingresso",
+
         nome:
+
           nomeFinal,
+
         cpf:
+
           tipoDocumento ===
+
             "cpf"
+
             ? cpfLimpo
+
             : "",
+
         tipoDocumento,
+
         documento:
+
           documentoFinal,
+
         paisDocumento:
+
           tipoDocumento ===
+
             "estrangeiro"
+
             ? paisDocumento.trim()
+
             : "Brasil",
+
         tipoDocumentoEstrangeiro:
+
           tipoDocumento ===
+
             "estrangeiro"
+
             ? tipoDocumentoEstrangeiro
+
             : "",
+
         telefone:
+
           telefone.trim(),
+
         email:
+
           emailNormalizado,
+
         dataVisita,
+
         quantidade,
+
+        quantidadeParque:
+
+          quantidade,
+
         valorUnitario,
+
+        valorParque,
+
+        quantidadeElevador,
+
+        valorUnitarioElevador,
+
+        valorElevador,
+
         valorTotal,
+
+        carrinho:
+
+          quantidadeElevador > 0,
+
+        itens:
+
+          [
+
+            {
+
+              tipo: "parque",
+
+              produto: "Ingresso Parque",
+
+              quantidade,
+
+              valorUnitario,
+
+              valorTotal: valorParque,
+
+            },
+
+            ...(quantidadeElevador > 0
+
+              ? [
+
+                {
+
+                  tipo: "elevador",
+
+                  produto: "Elevador Panorâmico",
+
+                  quantidade: quantidadeElevador,
+
+                  valorUnitario: valorUnitarioElevador,
+
+                  valorTotal: valorElevador,
+
+                },
+
+              ]
+
+              : []),
+
+          ],
+
         statusPagamento:
+
           "pendente",
+
         statusOperacional:
+
           "ativo",
+
         aceiteNaturalExtremo:
+
           true,
+
         aceiteNaturalExtremoEm,
+
         aceiteNaturalExtremoTexto:
+
           TEXTO_ACEITE_NATURAL_EXTREMO,
+
         aceiteNaturalExtremoVersao:
+
           VERSAO_ACEITE_NATURAL_EXTREMO,
+
         pagbankCheckoutId:
+
           "",
+
         pagbankReferenceId:
+
           "",
+
         pagbankPayUrl:
+
           "",
+
         pagbankStatus:
+
           "",
+
         codigoIngresso:
+
           "",
+
         qrCodeIngresso:
+
           "",
+
       };
+
       const pedidoId =
+
         await criarPedido(
+
           dadosPedido
+
         );
+
       const params =
+
         new URLSearchParams(
+
           {
+
             pedidoId,
+
             produto:
+
               "Ingresso Parque",
+
             tipo:
+
               "ingresso",
+
             nome:
+
               nomeFinal,
+
             cpf:
+
               tipoDocumento ===
+
                 "cpf"
+
                 ? cpfLimpo
+
                 : "",
+
             tipoDocumento,
+
             documento:
+
               documentoFinal,
+
             paisDocumento:
+
               tipoDocumento ===
+
                 "estrangeiro"
+
                 ? paisDocumento.trim()
+
                 : "Brasil",
+
             tipoDocumentoEstrangeiro:
+
               tipoDocumento ===
+
                 "estrangeiro"
+
                 ? tipoDocumentoEstrangeiro
+
                 : "",
+
             telefone:
+
               telefone.trim(),
+
             email:
+
               emailNormalizado,
+
             dataVisita,
+
             quantidade:
+
               String(
+
                 quantidade
+
               ),
+
             valorUnitario:
+
               String(
+
                 valorUnitario
+
               ),
-            valorTotal:
+
+            quantidadeParque:
+
               String(
-                valorTotal
+
+                quantidade
+
               ),
+
+            valorParque:
+
+              String(
+
+                valorParque
+
+              ),
+
+            quantidadeElevador:
+
+              String(
+
+                quantidadeElevador
+
+              ),
+
+            valorUnitarioElevador:
+
+              String(
+
+                valorUnitarioElevador
+
+              ),
+
+            valorElevador:
+
+              String(
+
+                valorElevador
+
+              ),
+
+            carrinho:
+
+              quantidadeElevador > 0
+
+                ? "1"
+
+                : "0",
+
+            valorTotal:
+
+              String(
+
+                valorTotal
+
+              ),
+
           }
+
         );
+
       router.push(
+
         `/checkout/resumo?${params.toString()}`
+
       );
+
     } catch (
+
     error
+
     ) {
+
       console.error(
+
         "Erro ao salvar pedido:",
+
         error
+
       );
+
       alert(
+
         "Não foi possível salvar o pedido."
+
       );
+
     } finally {
+
       setSalvando(
+
         false
+
       );
+
     }
+
   }
+
   return (
+
     <main
+
       className="relative min-h-screen overflow-hidden bg-cover bg-center bg-no-repeat px-4 py-8 text-white"
+
       style={{
+
         backgroundImage:
+
           "url('/fotos/fundo-geral.jpg')",
+
       }}
+
     >
+
       <div className="absolute inset-0 bg-black/45" />
+
       <div className="relative z-10 mx-auto max-w-6xl">
+
         <section className="rounded-3xl border border-white/20 bg-emerald-950/70 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left">
+
             <div className="flex w-full max-w-[180px] items-center justify-center rounded-2xl border border-white/20 bg-white/10 p-4">
+
               <img
+
                 src="/logo-final.png"
+
                 alt="Logo Parque Mundo Novo"
+
                 className="w-full max-w-[140px] rounded-xl"
+
               />
+
             </div>
+
             <div>
+
               <h1 className="text-4xl font-bold drop-shadow-lg sm:text-5xl">
+
                 Ingresso Parque
+
               </h1>
+
               <p className="mt-4 max-w-3xl text-lg leading-relaxed text-white/90 sm:text-xl">
+
                 Preencha os dados
+
                 abaixo para comprar
+
                 seu ingresso online
+
                 com praticidade e
+
                 segurança.
+
               </p>
+
               <p className="mt-3 text-sm text-white/80">
+
                 O QR Code do ingresso
+
                 será liberado após
+
                 confirmação do
+
                 pagamento.
+
               </p>
+
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
+
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+
                   🔒 Compra segura via
+
                   Pix ou cartão, com
+
                   confirmação
+
                   automática.
+
                 </div>
+
                 <div className="rounded-2xl border border-emerald-300/30 bg-white/10 p-4 text-sm font-semibold text-emerald-50">
+
                   🌎 Visitantes
+
                   estrangeiros podem
+
                   comprar sem CPF
+
                   usando documento
+
                   nacional de
+
                   identidade,
+
                   passaporte ou outro
+
                   documento oficial.
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
+
         </section>
+
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
+
           <div className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md">
+
             <h2 className="mb-6 text-3xl font-bold text-[#166534]">
+
               Dados do comprador
+
             </h2>
+
             <div className="mb-6 rounded-2xl border border-blue-300 bg-blue-50 p-4 text-sm leading-relaxed text-blue-950">
+
               <p className="mb-2 font-black">
+
                 📌 Informações
+
                 importantes
+
               </p>
+
               <ul className="list-disc space-y-2 pl-5">
+
                 <li>
+
                   Este ingresso é
+
                   válido para acesso ao
+
                   Parque Mundo Novo.
+
                 </li>
+
                 <li>
+
                   O{" "}
+
                   <strong>
+
                     Elevador Panorâmico
+
                   </strong>{" "}
+
                   é uma atração
-                  opcional e possui
-                  ingresso vendido
-                  separadamente.
-                </li>
-                <li>
-                  O ingresso é pessoal
-                  e poderá ser
-                  solicitado
-                  juntamente com um
-                  documento oficial com
-                  foto.
-                </li>
-                <li>
-                  Visitantes
-                  estrangeiros não
-                  precisam informar
-                  CPF. Informe o país,
-                  o tipo de documento e
-                  o número de um
-                  documento oficial.
-                </li>
-                <li>
-                  Após a validação na
-                  portaria, este
-                  ingresso não poderá
-                  ser reutilizado.
-                </li>
-              </ul>
-            </div>
-            <div className="mb-6 rounded-2xl border-4 border-red-500 bg-red-50 p-5 text-sm leading-relaxed text-red-950 shadow-lg shadow-red-500/20 motion-safe:animate-pulse">
-              <p className="text-base font-black">
-                ⚠️ Vai fazer Tirolesa,
-                Salto do Pêndulo ou
-                Skybike?
-              </p>
-              <p className="mt-2 font-semibold">
-                Algumas experiências
-                operadas pela Natural
-                Extremo podem incluir o
-                acesso ao Parque Mundo
-                Novo.
-              </p>
-              <p className="mt-2 font-bold">
-                Antes de comprar o
-                ingresso do parque
-                separadamente, confirme
-                com a Natural Extremo as
-                condições da atividade
-                escolhida.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Campo label="Nome completo">
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={(e) =>
-                    setNome(
-                      e.target.value
-                    )
-                  }
-                  placeholder="Digite seu nome"
-                  autoComplete="name"
-                  className={inputClass}
-                />
-              </Campo>
-              <Campo label="Nacionalidade / documento">
-                <select
-                  value={tipoDocumento}
-                  onChange={(e) => {
-                    const novoTipo =
-                      e.target
-                        .value as TipoDocumento;
-                    setTipoDocumento(
-                      novoTipo
-                    );
-                    setCpf(
-                      ""
-                    );
-                    setPaisDocumento(
-                      ""
-                    );
-                    setTipoDocumentoEstrangeiro(
-                      "identidade_nacional"
-                    );
-                    setDocumentoEstrangeiro(
-                      ""
-                    );
-                  }}
-                  className={inputClass}
-                >
-                  <option value="cpf">
-                    Brasileiro — CPF
-                  </option>
-                  <option value="estrangeiro">
-                    Estrangeiro —
-                    Documento de
-                    identificação
-                  </option>
-                </select>
-              </Campo>
-              {tipoDocumento ===
-                "cpf" ? (
-                <Campo label="CPF">
-                  <input
-                    type="text"
-                    value={cpf}
-                    onChange={(e) =>
-                      setCpf(
-                        e.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(
-                            0,
-                            11
-                          )
-                      )
-                    }
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="Digite os 11 números do CPF"
-                    className={inputClass}
-                  />
-                </Campo>
-              ) : (
-                <>
-                  <Campo label="País do documento">
-                    <input
-                      type="text"
-                      value={
-                        paisDocumento
-                      }
-                      onChange={(e) =>
-                        setPaisDocumento(
-                          e.target
-                            .value
-                        )
-                      }
-                      autoComplete="country-name"
-                      placeholder="Ex.: Argentina, Uruguai, Chile, Estados Unidos"
-                      className={inputClass}
-                    />
-                  </Campo>
-                  <Campo label="Tipo de documento">
-                    <select
-                      value={
-                        tipoDocumentoEstrangeiro
-                      }
-                      onChange={(
-                        e
-                      ) =>
-                        setTipoDocumentoEstrangeiro(
-                          e.target
-                            .value as TipoDocumentoEstrangeiro
-                        )
-                      }
-                      className={inputClass}
-                    >
-                      <option value="identidade_nacional">
-                        Documento
-                        nacional de
-                        identidade
-                      </option>
-                      <option value="passaporte">
-                        Passaporte
-                      </option>
-                      <option value="outro">
-                        Outro documento
-                        oficial
-                      </option>
-                    </select>
-                  </Campo>
-                  <Campo label="Número do documento">
-                    <input
-                      type="text"
-                      value={
-                        documentoEstrangeiro
-                      }
-                      onChange={(e) =>
-                        setDocumentoEstrangeiro(
-                          e.target
-                            .value
-                            .toUpperCase()
-                            .slice(
-                              0,
-                              40
-                            )
-                        )
-                      }
-                      autoCapitalize="characters"
-                      autoCorrect="off"
-                      spellCheck={
-                        false
-                      }
-                      autoComplete="off"
-                      placeholder="Ex.: AB1234567"
-                      className={inputClass}
-                    />
-                    <p className="mt-2 text-xs text-gray-500">
-                      Informe o número
-                      exatamente como
-                      aparece no
-                      documento oficial.
-                    </p>
-                  </Campo>
-                </>
-              )}
-              <Campo label="Telefone / WhatsApp">
-                <input
-                  type="tel"
-                  value={telefone}
-                  onChange={(e) =>
-                    setTelefone(
-                      e.target.value
-                    )
-                  }
-                  placeholder={
-                    tipoDocumento ===
-                      "estrangeiro"
-                      ? "Ex.: +54 9 11 1234-5678"
-                      : "Digite seu telefone"
-                  }
-                  autoComplete="tel"
-                  className={inputClass}
-                />
-              </Campo>
-              <Campo label="E-mail">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) =>
-                    setEmail(
-                      e.target.value.toLowerCase()
-                    )
-                  }
-                  onBlur={() =>
-                    setEmail(
-                      normalizarEmail(
-                        email
-                      )
-                    )
-                  }
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={
-                    false
-                  }
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder="Digite seu e-mail"
-                  className={inputClass}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Confira o e-mail. O
-                  ingresso também será
-                  enviado para este
-                  endereço.
-                </p>
-              </Campo>
-              <Campo label="Data da visita">
-                <input
-                  type="date"
-                  value={
-                    dataVisita
-                  }
-                  min={
-                    dataMinimaVisita
-                  }
-                  onChange={(e) =>
-                    setDataVisita(
-                      e.target
-                        .value
-                    )
-                  }
-                  className={
-                    inputClass
-                  }
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Selecione a data de
-                  hoje ou uma data
-                  futura.
-                </p>
-              </Campo>
-              <Campo label="Quantidade de ingressos">
-                <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setQuantidade(
-                        (
-                          q
-                        ) =>
-                          Math.max(
-                            1,
-                            q -
-                            1
-                          )
-                      )
-                    }
-                    className={
-                      contadorClass
-                    }
-                  >
-                    \-
-                  </button>
-                  <span className="text-2xl font-bold text-gray-900">
-                    {
-                      quantidade
-                    }
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setQuantidade(
-                        (
-                          q
-                        ) =>
-                          q +
-                          1
-                      )
-                    }
-                    className={
-                      contadorClass
-                    }
-                  >
-                    +
-                  </button>
-                </div>
-              </Campo>
-            </div>
-            {tipoDocumento ===
-              "estrangeiro" && (
-                <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
-                  <strong>
-                    Visitante estrangeiro:
-                  </strong>{" "}
-                  você poderá seguir
-                  normalmente para o
-                  pagamento. O
-                  documento informado
-                  ficará vinculado ao
-                  pedido no lugar do
-                  CPF.
-                </div>
-              )}
-          </div>
-          <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
-            <h2 className="mb-6 text-3xl font-bold text-[#166534]">
-              Resumo
-            </h2>
-            <div className="space-y-3 text-base">
-              <p>
-                <strong>
-                  Produto:
-                </strong>{" "}
-                Ingresso Parque
-              </p>
-              <p>
-                <strong>
-                  Valor unitário:
-                </strong>{" "}
-                {
-                  valorUnitarioFormatado
-                }
-              </p>
-              <p>
-                <strong>
-                  Quantidade:
-                </strong>{" "}
-                {
-                  quantidade
-                }
-              </p>
-              <p>
-                <strong>
-                  Data da visita:
-                </strong>{" "}
-                {dataVisita ||
-                  "Não informada"}
-              </p>
-              <p>
-                <strong>
-                  Documento:
-                </strong>{" "}
-                {tipoDocumento ===
-                  "cpf"
-                  ? "CPF"
-                  : tipoDocumentoEstrangeiro ===
-                    "passaporte"
-                    ? "Passaporte"
-                    : tipoDocumentoEstrangeiro ===
-                      "identidade_nacional"
-                      ? "Documento nacional de identidade"
-                      : "Outro documento oficial"}
-              </p>
-            </div>
-            <hr className="my-6 border-gray-300" />
-            <p className="mb-6 text-4xl font-bold text-[#166534]">
-              {
-                valorTotalFormatado
-              }
-            </p>
-            <div className="mb-5 rounded-2xl border-4 border-red-500 bg-red-50 p-4 text-red-950 shadow-lg shadow-red-500/20 motion-safe:animate-pulse">
-              <p className="font-black">
-                ⚠️ Atenção antes de
-                continuar
-              </p>
-              <p className="mt-2 text-sm font-semibold leading-relaxed">
-                Algumas experiências
-                da Natural Extremo,
-                como Tirolesa, Salto do
-                Pêndulo e Skybike,
-                podem incluir o acesso
-                ao Parque Mundo Novo.
-                Confirme as condições
-                da atividade antes de
-                comprar o ingresso do
-                parque separadamente.
-              </p>
-              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border-2 border-red-400 bg-white p-3">
-                <input
-                  type="checkbox"
-                  checked={
-                    aceiteNaturalExtremo
-                  }
-                  onChange={(e) =>
-                    setAceiteNaturalExtremo(
-                      e.target.checked
-                    )
-                  }
-                  className="mt-1 h-5 w-5 shrink-0 accent-green-600"
-                />
-                <span className="text-sm font-bold leading-relaxed text-gray-800">
-                  Li e estou ciente
-                  deste aviso antes de
-                  continuar com a
+
+                  opcional, com ingresso
+
+                  próprio, e pode ser
+
+                  adicionado a esta mesma
+
                   compra.
-                </span>
-              </label>
+
+                </li>
+
+                <li>
+
+                  O ingresso é pessoal
+
+                  e poderá ser
+
+                  solicitado
+
+                  juntamente com um
+
+                  documento oficial com
+
+                  foto.
+
+                </li>
+
+                <li>
+
+                  Visitantes
+
+                  estrangeiros não
+
+                  precisam informar
+
+                  CPF. Informe o país,
+
+                  o tipo de documento e
+
+                  o número de um
+
+                  documento oficial.
+
+                </li>
+
+                <li>
+
+                  Após a validação na
+
+                  portaria, este
+
+                  ingresso não poderá
+
+                  ser reutilizado.
+
+                </li>
+
+              </ul>
+
             </div>
+
+            <div className="mb-6 rounded-2xl border-4 border-red-500 bg-red-50 p-5 text-sm leading-relaxed text-red-950 shadow-lg shadow-red-500/20 motion-safe:animate-pulse">
+
+              <p className="text-base font-black">
+
+                ⚠️ Vai fazer Tirolesa,
+
+                Salto do Pêndulo ou
+
+                Skybike?
+
+              </p>
+
+              <p className="mt-2 font-semibold">
+
+                Algumas experiências
+
+                operadas pela Natural
+
+                Extremo podem incluir o
+
+                acesso ao Parque Mundo
+
+                Novo.
+
+              </p>
+
+              <p className="mt-2 font-bold">
+
+                Antes de comprar o
+
+                ingresso do parque
+
+                separadamente, confirme
+
+                com a Natural Extremo as
+
+                condições da atividade
+
+                escolhida.
+
+              </p>
+
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+              <Campo label="Nome completo">
+
+                <input
+
+                  type="text"
+
+                  value={nome}
+
+                  onChange={(e) =>
+
+                    setNome(
+
+                      e.target.value
+
+                    )
+
+                  }
+
+                  placeholder="Digite seu nome"
+
+                  autoComplete="name"
+
+                  className={inputClass}
+
+                />
+
+              </Campo>
+
+              <Campo label="Nacionalidade / documento">
+
+                <select
+
+                  value={tipoDocumento}
+
+                  onChange={(e) => {
+
+                    const novoTipo =
+
+                      e.target
+
+                        .value as TipoDocumento;
+
+                    setTipoDocumento(
+
+                      novoTipo
+
+                    );
+
+                    setCpf(
+
+                      ""
+
+                    );
+
+                    setPaisDocumento(
+
+                      ""
+
+                    );
+
+                    setTipoDocumentoEstrangeiro(
+
+                      "identidade_nacional"
+
+                    );
+
+                    setDocumentoEstrangeiro(
+
+                      ""
+
+                    );
+
+                  }}
+
+                  className={inputClass}
+
+                >
+
+                  <option value="cpf">
+
+                    Brasileiro — CPF
+
+                  </option>
+
+                  <option value="estrangeiro">
+
+                    Estrangeiro —
+
+                    Documento de
+
+                    identificação
+
+                  </option>
+
+                </select>
+
+              </Campo>
+
+              {tipoDocumento ===
+
+                "cpf" ? (
+
+                <Campo label="CPF">
+
+                  <input
+
+                    type="text"
+
+                    value={cpf}
+
+                    onChange={(e) =>
+
+                      setCpf(
+
+                        e.target.value
+
+                          .replace(
+
+                            /\D/g,
+
+                            ""
+
+                          )
+
+                          .slice(
+
+                            0,
+
+                            11
+
+                          )
+
+                      )
+
+                    }
+
+                    inputMode="numeric"
+
+                    autoComplete="off"
+
+                    placeholder="Digite os 11 números do CPF"
+
+                    className={inputClass}
+
+                  />
+
+                </Campo>
+
+              ) : (
+
+                <>
+
+                  <Campo label="País do documento">
+
+                    <input
+
+                      type="text"
+
+                      value={
+
+                        paisDocumento
+
+                      }
+
+                      onChange={(e) =>
+
+                        setPaisDocumento(
+
+                          e.target
+
+                            .value
+
+                        )
+
+                      }
+
+                      autoComplete="country-name"
+
+                      placeholder="Ex.: Argentina, Uruguai, Chile, Estados Unidos"
+
+                      className={inputClass}
+
+                    />
+
+                  </Campo>
+
+                  <Campo label="Tipo de documento">
+
+                    <select
+
+                      value={
+
+                        tipoDocumentoEstrangeiro
+
+                      }
+
+                      onChange={(
+
+                        e
+
+                      ) =>
+
+                        setTipoDocumentoEstrangeiro(
+
+                          e.target
+
+                            .value as TipoDocumentoEstrangeiro
+
+                        )
+
+                      }
+
+                      className={inputClass}
+
+                    >
+
+                      <option value="identidade_nacional">
+
+                        Documento
+
+                        nacional de
+
+                        identidade
+
+                      </option>
+
+                      <option value="passaporte">
+
+                        Passaporte
+
+                      </option>
+
+                      <option value="outro">
+
+                        Outro documento
+
+                        oficial
+
+                      </option>
+
+                    </select>
+
+                  </Campo>
+
+                  <Campo label="Número do documento">
+
+                    <input
+
+                      type="text"
+
+                      value={
+
+                        documentoEstrangeiro
+
+                      }
+
+                      onChange={(e) =>
+
+                        setDocumentoEstrangeiro(
+
+                          e.target
+
+                            .value
+
+                            .toUpperCase()
+
+                            .slice(
+
+                              0,
+
+                              40
+
+                            )
+
+                        )
+
+                      }
+
+                      autoCapitalize="characters"
+
+                      autoCorrect="off"
+
+                      spellCheck={
+
+                        false
+
+                      }
+
+                      autoComplete="off"
+
+                      placeholder="Ex.: AB1234567"
+
+                      className={inputClass}
+
+                    />
+
+                    <p className="mt-2 text-xs text-gray-500">
+
+                      Informe o número
+
+                      exatamente como
+
+                      aparece no
+
+                      documento oficial.
+
+                    </p>
+
+                  </Campo>
+
+                </>
+
+              )}
+
+              <Campo label="Telefone / WhatsApp">
+
+                <input
+
+                  type="tel"
+
+                  value={telefone}
+
+                  onChange={(e) =>
+
+                    setTelefone(
+
+                      e.target.value
+
+                    )
+
+                  }
+
+                  placeholder={
+
+                    tipoDocumento ===
+
+                      "estrangeiro"
+
+                      ? "Ex.: +54 9 11 1234-5678"
+
+                      : "Digite seu telefone"
+
+                  }
+
+                  autoComplete="tel"
+
+                  className={inputClass}
+
+                />
+
+              </Campo>
+
+              <Campo label="E-mail">
+
+                <input
+
+                  type="email"
+
+                  value={email}
+
+                  onChange={(e) =>
+
+                    setEmail(
+
+                      e.target.value.toLowerCase()
+
+                    )
+
+                  }
+
+                  onBlur={() =>
+
+                    setEmail(
+
+                      normalizarEmail(
+
+                        email
+
+                      )
+
+                    )
+
+                  }
+
+                  autoCapitalize="none"
+
+                  autoCorrect="off"
+
+                  spellCheck={
+
+                    false
+
+                  }
+
+                  inputMode="email"
+
+                  autoComplete="email"
+
+                  placeholder="Digite seu e-mail"
+
+                  className={inputClass}
+
+                />
+
+                <p className="mt-2 text-xs text-gray-500">
+
+                  Confira o e-mail. O
+
+                  ingresso também será
+
+                  enviado para este
+
+                  endereço.
+
+                </p>
+
+              </Campo>
+
+              <Campo label="Data da visita">
+
+                <input
+
+                  type="date"
+
+                  value={
+
+                    dataVisita
+
+                  }
+
+                  min={
+
+                    dataMinimaVisita
+
+                  }
+
+                  onChange={(e) =>
+
+                    setDataVisita(
+
+                      e.target
+
+                        .value
+
+                    )
+
+                  }
+
+                  className={
+
+                    inputClass
+
+                  }
+
+                />
+
+                <p className="mt-2 text-xs text-gray-500">
+
+                  Selecione a data de
+
+                  hoje ou uma data
+
+                  futura.
+
+                </p>
+
+              </Campo>
+
+              <Campo label="Quantidade de ingressos">
+
+                <div className="flex items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
+
+                  <button
+
+                    type="button"
+
+                    onClick={() =>
+
+                      setQuantidade(
+
+                        (
+
+                          q
+
+                        ) =>
+
+                          Math.max(
+
+                            1,
+
+                            q -
+
+                            1
+
+                          )
+
+                      )
+
+                    }
+
+                    className={
+
+                      contadorClass
+
+                    }
+
+                  >
+
+                    -
+
+                  </button>
+
+                  <span className="text-2xl font-bold text-gray-900">
+
+                    {
+
+                      quantidade
+
+                    }
+
+                  </span>
+
+                  <button
+
+                    type="button"
+
+                    onClick={() =>
+
+                      setQuantidade(
+
+                        (
+
+                          q
+
+                        ) =>
+
+                          q +
+
+                          1
+
+                      )
+
+                    }
+
+                    className={
+
+                      contadorClass
+
+                    }
+
+                  >
+
+                    +
+
+                  </button>
+
+                </div>
+
+              </Campo>
+
+            </div>
+
+            <div className="mt-6 rounded-3xl border-2 border-sky-200 bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm">
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
+                <div>
+
+                  <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-sky-800">
+
+                    Complete sua experiência
+
+                  </span>
+
+                  <h3 className="mt-3 text-2xl font-black text-sky-950">
+
+                    🛗 Elevador Panorâmico
+
+                  </h3>
+
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
+
+                    Adicione agora o ingresso do Elevador Panorâmico e pague tudo junto em uma única transação. O ingresso do elevador terá QR Code próprio e será validado somente no elevador.
+
+                  </p>
+
+                </div>
+
+                <div className="shrink-0 rounded-2xl bg-sky-900 px-4 py-3 text-center text-white">
+
+                  <p className="text-xs font-semibold uppercase tracking-wide text-sky-100">
+
+                    Por pessoa
+
+                  </p>
+
+                  <p className="text-2xl font-black">
+
+                    {valorUnitarioElevadorFormatado}
+
+                  </p>
+
+                  <p className="mt-1 text-[11px] font-semibold text-sky-100">
+
+                    {quantidadeElevador >= 2
+                      ? "Promoção aplicada"
+                      : "A partir de 2: R$ 60 cada"}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-sky-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+
+                <div>
+
+                  <p className="font-bold text-gray-900">
+
+                    Quantidade de ingressos do elevador
+
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-500">
+
+                    Deixe em 0 se não quiser adicionar o elevador nesta compra.
+
+                  </p>
+
+                </div>
+
+                <div className="flex min-w-[190px] items-center justify-between rounded-2xl border border-gray-300 bg-white px-3 py-3 shadow-sm">
+
+                  <button
+
+                    type="button"
+
+                    onClick={() =>
+
+                      setQuantidadeElevador((q) =>
+
+                        Math.max(0, q - 1)
+
+                      )
+
+                    }
+
+                    className={contadorClass}
+
+                  >
+
+                    -
+
+                  </button>
+
+                  <span className="text-2xl font-bold text-gray-900">
+
+                    {quantidadeElevador}
+
+                  </span>
+
+                  <button
+
+                    type="button"
+
+                    onClick={() =>
+
+                      setQuantidadeElevador((q) => q + 1)
+
+                    }
+
+                    className={contadorClass}
+
+                  >
+
+                    +
+
+                  </button>
+
+                </div>
+
+              </div>
+
+              {quantidadeElevador > 0 && (
+
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-950">
+
+                  ✅ {quantidadeElevador} ingresso(s) do Elevador Panorâmico adicionado(s) ao carrinho — {quantidadeElevador >= 2 ? "promoção de R$ 60 por pessoa aplicada — " : ""}subtotal {valorElevadorFormatado}.
+
+                </div>
+
+              )}
+
+            </div>
+
+            {tipoDocumento ===
+
+              "estrangeiro" && (
+
+                <div className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+
+                  <strong>
+
+                    Visitante estrangeiro:
+
+                  </strong>{" "}
+
+                  você poderá seguir
+
+                  normalmente para o
+
+                  pagamento. O
+
+                  documento informado
+
+                  ficará vinculado ao
+
+                  pedido no lugar do
+
+                  CPF.
+
+                </div>
+
+              )}
+
+          </div>
+
+          <aside className="rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl backdrop-blur-md lg:sticky lg:top-5">
+
+            <h2 className="mb-6 text-3xl font-bold text-[#166534]">
+
+              Resumo
+
+            </h2>
+
+            <div className="space-y-4 text-base">
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+
+                <div className="flex items-start justify-between gap-4">
+
+                  <div>
+
+                    <p className="font-black text-emerald-950">
+
+                      🎟️ Ingresso Parque
+
+                    </p>
+
+                    <p className="mt-1 text-sm text-gray-600">
+
+                      {quantidade} × {valorUnitarioFormatado}
+
+                    </p>
+
+                  </div>
+
+                  <p className="font-black text-emerald-950">
+
+                    {valorParqueFormatado}
+
+                  </p>
+
+                </div>
+
+              </div>
+
+              {quantidadeElevador > 0 && (
+
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+
+                  <div className="flex items-start justify-between gap-4">
+
+                    <div>
+
+                      <p className="font-black text-sky-950">
+
+                        🛗 Elevador Panorâmico
+
+                      </p>
+
+                      <p className="mt-1 text-sm text-gray-600">
+
+                        {quantidadeElevador} × {valorUnitarioElevadorFormatado}
+
+                      </p>
+
+                    </div>
+
+                    <p className="font-black text-sky-950">
+
+                      {valorElevadorFormatado}
+
+                    </p>
+
+                  </div>
+
+                </div>
+
+              )}
+
+              <p>
+
+                <strong>Data da visita:</strong>{" "}
+
+                {dataVisita || "Não informada"}
+
+              </p>
+
+              <p>
+
+                <strong>Documento:</strong>{" "}
+
+                {tipoDocumento ===
+
+                  "cpf"
+
+                  ? "CPF"
+
+                  : tipoDocumentoEstrangeiro ===
+
+                    "passaporte"
+
+                    ? "Passaporte"
+
+                    : tipoDocumentoEstrangeiro ===
+
+                      "identidade_nacional"
+
+                      ? "Documento nacional de identidade"
+
+                      : "Outro documento oficial"}
+
+              </p>
+
+              {quantidadeElevador > 0 && (
+
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-3 text-xs leading-relaxed text-gray-600">
+
+                  Parque e Elevador serão pagos juntos, mas cada atração terá seu próprio ingresso e QR Code para validação separada.
+
+                </div>
+
+              )}
+
+            </div>
+
+            <hr className="my-6 border-gray-300" />
+
+            <div className="mb-6">
+
+              <p className="text-sm font-bold uppercase tracking-wide text-gray-500">
+
+                Total do carrinho
+
+              </p>
+
+              <p className="mt-1 text-4xl font-bold text-[#166534]">
+
+                {valorTotalFormatado}
+
+              </p>
+
+              {quantidadeElevador > 0 && (
+
+                <p className="mt-2 text-sm font-semibold text-emerald-700">
+
+                  Um único pagamento para os dois ingressos.
+
+                </p>
+
+              )}
+
+            </div>
+
+            <div className="mb-5 rounded-2xl border-4 border-red-500 bg-red-50 p-4 text-red-950 shadow-lg shadow-red-500/20 motion-safe:animate-pulse">
+
+              <p className="font-black">
+
+                ⚠️ Atenção antes de
+
+                continuar
+
+              </p>
+
+              <p className="mt-2 text-sm font-semibold leading-relaxed">
+
+                Algumas experiências
+
+                da Natural Extremo,
+
+                como Tirolesa, Salto do
+
+                Pêndulo e Skybike,
+
+                podem incluir o acesso
+
+                ao Parque Mundo Novo.
+
+                Confirme as condições
+
+                da atividade antes de
+
+                comprar o ingresso do
+
+                parque separadamente.
+
+              </p>
+
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border-2 border-red-400 bg-white p-3">
+
+                <input
+
+                  type="checkbox"
+
+                  checked={
+
+                    aceiteNaturalExtremo
+
+                  }
+
+                  onChange={(e) =>
+
+                    setAceiteNaturalExtremo(
+
+                      e.target.checked
+
+                    )
+
+                  }
+
+                  className="mt-1 h-5 w-5 shrink-0 accent-green-600"
+
+                />
+
+                <span className="text-sm font-bold leading-relaxed text-gray-800">
+
+                  Li e estou ciente
+
+                  deste aviso antes de
+
+                  continuar com a
+
+                  compra.
+
+                </span>
+
+              </label>
+
+            </div>
+
             <button
+
               type="button"
+
               onClick={
+
                 continuarParaResumo
+
               }
+
               disabled={
+
                 salvando ||
+
                 !aceiteNaturalExtremo
+
               }
+
               className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-50"
+
             >
+
               {salvando
+
                 ? "Salvando pedido..."
+
                 : !aceiteNaturalExtremo
+
                   ? "Marque o aceite para continuar"
+
                   : "Continuar para pagamento"}
+
             </button>
+
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
+
               O ingresso será
+
               liberado somente após
+
               confirmação automática
+
               do pagamento.
+
             </p>
+
             <p className="mt-3 text-xs leading-relaxed text-gray-500">
+
               Ao prosseguir com a
+
               compra, você declara
+
               estar ciente das regras
+
               de utilização, da
+
               política de
+
               cancelamento e das
+
               informações específicas
+
               do ingresso selecionado.
+
             </p>
+
           </aside>
+
         </section>
+
       </div>
+
     </main>
+
   );
+
 }
+
 function Campo({
+
   label,
+
   children,
+
 }: {
+
   label:
+
   string;
+
   children:
+
   React.ReactNode;
+
 }) {
+
   return (
+
     <div>
+
       <label className="mb-2 block font-semibold text-gray-700">
+
         {
+
           label
+
         }
+
       </label>
+
       {
+
         children
+
       }
+
     </div>
+
   );
+
 }
+
 const inputClass =
+
   "w-full rounded-2xl border border-gray-300 bg-white px-4 py-4 text-base outline-none transition focus:border-[#166534] focus:ring-2 focus:ring-[#166534]/20";
+
 const contadorClass =
+
   "flex h-12 w-12 items-center justify-center rounded-2xl bg-[#166534] text-2xl font-bold text-white transition hover:bg-[#14532d]";

@@ -84,6 +84,29 @@ export default function SucessoPage() {
   const [codigoIngresso, setCodigoIngresso] =
     useState("");
   const [qrCode, setQrCode] = useState("");
+
+  const [
+    codigoIngressoElevador,
+    setCodigoIngressoElevador,
+  ] = useState("");
+
+  const [
+    qrCodeElevador,
+    setQrCodeElevador,
+  ] = useState("");
+
+  const [
+    quantidadeParque,
+    setQuantidadeParque,
+  ] = useState(0);
+
+  const [
+    quantidadeElevador,
+    setQuantidadeElevador,
+  ] = useState(0);
+
+  const [ehCarrinho, setEhCarrinho] =
+    useState(false);
   const [carregando, setCarregando] = useState(true);
   const [pago, setPago] = useState(false);
   const [valorDivergente, setValorDivergente] =
@@ -141,26 +164,106 @@ export default function SucessoPage() {
              QR CODE
           =============================================== */
 
+          const carrinho =
+            String(
+              pedido.tipo || ""
+            ) === "carrinho" &&
+            Number(
+              pedido.quantidadeParque || 0
+            ) > 0 &&
+            Number(
+              pedido.quantidadeElevador || 0
+            ) > 0;
+
+          setEhCarrinho(carrinho);
+
+          const qtdParque =
+            Number(
+              pedido.quantidadeParque ||
+              pedido.quantidade ||
+              0
+            );
+
+          const qtdElevador =
+            Number(
+              pedido.quantidadeElevador ||
+              0
+            );
+
+          setQuantidadeParque(
+            qtdParque
+          );
+
+          setQuantidadeElevador(
+            qtdElevador
+          );
+
           const codigo =
-            pedido.codigoIngresso || pedido.id;
+            pedido.codigoIngressoParque ||
+            pedido.codigoIngresso ||
+            pedido.id;
 
           setCodigoIngresso(codigo);
 
-          const qrConteudo = JSON.stringify({
-            codigo,
-            pedidoId: pedido.id,
-          });
+          const qrConteudo =
+            JSON.stringify({
+              codigo,
+              pedidoId:
+                pedido.id,
+              tipo:
+                "parque",
+            });
 
-          const qrData = await QRCode.toDataURL(
-            qrConteudo,
-            {
-              width: 400,
-              margin: 2,
-              errorCorrectionLevel: "H",
-            }
-          );
+          const qrData =
+            await QRCode.toDataURL(
+              qrConteudo,
+              {
+                width: 400,
+                margin: 2,
+                errorCorrectionLevel: "H",
+              }
+            );
 
           setQrCode(qrData);
+
+          if (carrinho) {
+            const codigoElevador =
+              String(
+                pedido.codigoIngressoElevador ||
+                ""
+              );
+
+            setCodigoIngressoElevador(
+              codigoElevador
+            );
+
+            if (codigoElevador) {
+              const qrElevadorConteudo =
+                JSON.stringify({
+                  codigo:
+                    codigoElevador,
+                  pedidoId:
+                    pedido.id,
+                  tipo:
+                    "elevador",
+                });
+
+              const qrElevadorData =
+                await QRCode.toDataURL(
+                  qrElevadorConteudo,
+                  {
+                    width: 400,
+                    margin: 2,
+                    errorCorrectionLevel:
+                      "H",
+                  }
+                );
+
+              setQrCodeElevador(
+                qrElevadorData
+              );
+            }
+          }
         } else if (divergente) {
           setStatus("Pagamento com valor divergente");
         } else {
@@ -230,13 +333,17 @@ export default function SucessoPage() {
 
           <h1 className="mt-3 text-4xl font-bold drop-shadow-lg sm:text-5xl">
             {pago
-              ? "Ingresso liberado!"
+              ? ehCarrinho
+                ? "Ingressos liberados!"
+                : "Ingresso liberado!"
               : "Pedido registrado!"}
           </h1>
 
           <p className="mx-auto mt-4 max-w-2xl text-lg text-white/90">
             {pago
-              ? "Pagamento confirmado. Seu ingresso digital está disponível."
+              ? ehCarrinho
+                ? "Pagamento confirmado. Os ingressos do Parque e do Elevador estão disponíveis separadamente."
+                : "Pagamento confirmado. Seu ingresso digital está disponível."
               : "Seu pedido foi criado e está aguardando a confirmação do pagamento."}
           </p>
         </section>
@@ -385,12 +492,64 @@ export default function SucessoPage() {
             </div>
 
             {pago && codigoIngresso && (
-              <p className="mt-5 break-words text-lg font-black text-gray-900">
-                Código: {codigoIngresso}
-              </p>
+              <>
+                <p className="mt-5 break-words text-lg font-black text-gray-900">
+                  Código: {codigoIngresso}
+                </p>
+
+                {quantidadeParque > 0 && (
+                  <p className="mt-1 text-sm text-gray-600">
+                    Quantidade: {quantidadeParque}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </section>
+
+        {pago && ehCarrinho && (
+          <section className="mt-6 rounded-3xl border border-sky-300 bg-sky-50 p-6 text-center text-gray-900 shadow-2xl">
+            <h2 className="mb-3 text-3xl font-black text-sky-800">
+              🛗 Ingresso do Elevador Panorâmico
+            </h2>
+
+            <p className="mx-auto mb-5 max-w-2xl text-sm font-semibold text-sky-950">
+              Este QR Code é exclusivo do Elevador.
+              Não use este código na portaria do Parque.
+            </p>
+
+            <div className="flex justify-center">
+              {qrCodeElevador ? (
+                <img
+                  src={qrCodeElevador}
+                  alt="QR Code oficial do Elevador Panorâmico"
+                  className="h-[280px] w-[280px] rounded-3xl border border-sky-200 bg-white p-4 shadow-lg"
+                />
+              ) : (
+                <div className="flex h-[280px] w-[280px] items-center justify-center rounded-3xl border border-sky-300 bg-sky-100 p-6 text-center font-bold text-sky-900">
+                  QR Code do Elevador ainda não disponível.
+                </div>
+              )}
+            </div>
+
+            {codigoIngressoElevador && (
+              <p className="mt-5 break-words text-lg font-black">
+                Código: {codigoIngressoElevador}
+              </p>
+            )}
+
+            {quantidadeElevador > 0 && (
+              <p className="mt-1 text-sm text-gray-600">
+                Quantidade: {quantidadeElevador}
+              </p>
+            )}
+
+            <div className="mx-auto mt-5 max-w-2xl rounded-2xl border border-sky-300 bg-white p-4 text-sm font-bold text-sky-950">
+              O QR do Parque continua sendo validado somente na portaria.
+              O QR acima é validado somente no Elevador Panorâmico.
+            </div>
+          </section>
+        )}
 
         {pago && pedidoId && (
           <section className="mt-8 rounded-3xl border border-white/20 bg-white/95 p-6 text-gray-900 shadow-2xl">

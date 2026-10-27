@@ -717,6 +717,126 @@ export default function PortariaPage() {
         ).trim();
     }
 
+    function campoPedidoPortaria(
+        item:
+            PedidoPortaria,
+        campo:
+            string
+    ) {
+        return (
+            item as unknown as
+            Record<string, unknown>
+        )[campo];
+    }
+
+    function pedidoEhCarrinhoParqueElevador(
+        item?:
+            PedidoPortaria |
+            null
+    ) {
+        if (!item) {
+            return false;
+        }
+
+        return (
+            limpar(
+                item.tipo
+            ).toLowerCase() ===
+            "carrinho" &&
+            Number(
+                campoPedidoPortaria(
+                    item,
+                    "quantidadeParque"
+                ) ||
+                0
+            ) > 0 &&
+            Number(
+                campoPedidoPortaria(
+                    item,
+                    "quantidadeElevador"
+                ) ||
+                0
+            ) > 0
+        );
+    }
+
+    function codigoParquePedido(
+        item:
+            PedidoPortaria
+    ) {
+        return limpar(
+            campoPedidoPortaria(
+                item,
+                "codigoIngressoParque"
+            ) ||
+            item.codigoIngresso
+        );
+    }
+
+    function qrParquePedido(
+        item:
+            PedidoPortaria
+    ) {
+        return limpar(
+            campoPedidoPortaria(
+                item,
+                "qrCodeIngressoParque"
+            ) ||
+            item.qrCodeIngresso
+        );
+    }
+
+    function codigoElevadorPedido(
+        item:
+            PedidoPortaria
+    ) {
+        return limpar(
+            campoPedidoPortaria(
+                item,
+                "codigoIngressoElevador"
+            )
+        );
+    }
+
+    function qrElevadorPedido(
+        item:
+            PedidoPortaria
+    ) {
+        return limpar(
+            campoPedidoPortaria(
+                item,
+                "qrCodeIngressoElevador"
+            )
+        );
+    }
+
+    function quantidadeParquePedido(
+        item:
+            PedidoPortaria
+    ) {
+        const quantidadeCarrinho =
+            Number(
+                campoPedidoPortaria(
+                    item,
+                    "quantidadeParque"
+                ) ||
+                0
+            );
+
+        if (
+            pedidoEhCarrinhoParqueElevador(
+                item
+            ) &&
+            quantidadeCarrinho > 0
+        ) {
+            return quantidadeCarrinho;
+        }
+
+        return quantidadeDoPedido(
+            item
+        );
+    }
+
     function pedidoExclusivoElevador(
         item?:
             Pedido |
@@ -1299,7 +1419,7 @@ export default function PortariaPage() {
                         "principal"
                     ) {
                         somar(
-                            quantidadeDoPedido(
+                            quantidadeParquePedido(
                                 item
                             ),
 
@@ -1648,9 +1768,22 @@ export default function PortariaPage() {
         );
 
         setCodigoManual(
-            encontrado.codigoIngresso ||
-            codigo ||
-            ""
+            localValidacao === "elevador"
+                ? (
+                    codigoElevadorPedido(
+                        encontrado
+                    ) ||
+                    encontrado.codigoIngresso ||
+                    codigo ||
+                    ""
+                )
+                : (
+                    codigoParquePedido(
+                        encontrado
+                    ) ||
+                    codigo ||
+                    ""
+                )
         );
 
         if (
@@ -1706,14 +1839,37 @@ export default function PortariaPage() {
             return;
         }
 
-        const exclusivoElevador = pedidoExclusivoElevador(encontrado);
-        if (localValidacao === "elevador" && !exclusivoElevador) {
-            setMensagem("INGRESSO DO PARQUE NÃO É VÁLIDO NO ELEVADOR");
+        const exclusivoElevador =
+            pedidoExclusivoElevador(
+                encontrado
+            );
+
+        const carrinhoParqueElevador =
+            pedidoEhCarrinhoParqueElevador(
+                encontrado
+            );
+
+        if (
+            localValidacao ===
+            "elevador" &&
+            !exclusivoElevador &&
+            !carrinhoParqueElevador
+        ) {
+            setMensagem(
+                "INGRESSO DO PARQUE NÃO É VÁLIDO NO ELEVADOR"
+            );
             vibrar("erro");
             return;
         }
-        if (localValidacao !== "elevador" && exclusivoElevador) {
-            setMensagem("INGRESSO EXCLUSIVO DO ELEVADOR — UTILIZE O LEITOR DO ELEVADOR");
+
+        if (
+            localValidacao !==
+            "elevador" &&
+            exclusivoElevador
+        ) {
+            setMensagem(
+                "INGRESSO EXCLUSIVO DO ELEVADOR — UTILIZE O LEITOR DO ELEVADOR"
+            );
             vibrar("erro");
             return;
         }
@@ -2147,6 +2303,31 @@ export default function PortariaPage() {
                     (
                         item
                     ) => {
+                        const ehCarrinho =
+                            pedidoEhCarrinhoParqueElevador(
+                                item
+                            );
+
+                        const codigoParque =
+                            codigoParquePedido(
+                                item
+                            );
+
+                        const qrParque =
+                            qrParquePedido(
+                                item
+                            );
+
+                        const codigoElevador =
+                            codigoElevadorPedido(
+                                item
+                            );
+
+                        const qrElevador =
+                            qrElevadorPedido(
+                                item
+                            );
+
                         const codigoIngresso =
                             limpar(
                                 item.codigoIngresso
@@ -2162,6 +2343,57 @@ export default function PortariaPage() {
                                 item.id
                             );
 
+                        /*
+                         * CARRINHO NOVO:
+                         * cada leitor aceita somente
+                         * o código da atração correta.
+                         *
+                         * Não usamos pedidoId sozinho,
+                         * pois Parque e Elevador possuem
+                         * o mesmo pedidoId.
+                         */
+                        if (ehCarrinho) {
+                            if (
+                                localValidacao ===
+                                "elevador"
+                            ) {
+                                return (
+                                    (
+                                        !!dadosQr.codigo &&
+                                        dadosQr.codigo ===
+                                        codigoElevador
+                                    ) ||
+                                    (
+                                        !!dadosQr.codigo &&
+                                        dadosQr.codigo ===
+                                        qrElevador
+                                    )
+                                );
+                            }
+
+                            /*
+                             * Portaria principal e
+                             * Cachoeira usam o ingresso
+                             * principal do Parque.
+                             */
+                            return (
+                                (
+                                    !!dadosQr.codigo &&
+                                    dadosQr.codigo ===
+                                    codigoParque
+                                ) ||
+                                (
+                                    !!dadosQr.codigo &&
+                                    dadosQr.codigo ===
+                                    qrParque
+                                )
+                            );
+                        }
+
+                        /*
+                         * PEDIDOS ANTIGOS:
+                         * mantém compatibilidade.
+                         */
                         return (
                             codigoIngresso ===
                             dadosQr.codigo ||
@@ -2416,14 +2648,37 @@ export default function PortariaPage() {
             return;
         }
 
-        const exclusivoElevador = pedidoExclusivoElevador(pedido);
-        if (localValidacao === "elevador" && !exclusivoElevador) {
-            setMensagem("INGRESSO DO PARQUE NÃO É VÁLIDO NO ELEVADOR");
+        const exclusivoElevador =
+            pedidoExclusivoElevador(
+                pedido
+            );
+
+        const carrinhoParqueElevador =
+            pedidoEhCarrinhoParqueElevador(
+                pedido
+            );
+
+        if (
+            localValidacao ===
+            "elevador" &&
+            !exclusivoElevador &&
+            !carrinhoParqueElevador
+        ) {
+            setMensagem(
+                "INGRESSO DO PARQUE NÃO É VÁLIDO NO ELEVADOR"
+            );
             vibrar("erro");
             return;
         }
-        if (localValidacao !== "elevador" && exclusivoElevador) {
-            setMensagem("INGRESSO EXCLUSIVO DO ELEVADOR — UTILIZE O LEITOR DO ELEVADOR");
+
+        if (
+            localValidacao !==
+            "elevador" &&
+            exclusivoElevador
+        ) {
+            setMensagem(
+                "INGRESSO EXCLUSIVO DO ELEVADOR — UTILIZE O LEITOR DO ELEVADOR"
+            );
             vibrar("erro");
             return;
         }
@@ -2521,7 +2776,20 @@ export default function PortariaPage() {
                 elevadorValidado: true,
                 elevadorValidadoPor: funcionario,
                 elevadorValidadoEm: agora,
-                elevadorQuantidadeValidada: quantidadeDoPedido(pedido),
+                elevadorQuantidadeValidada:
+                    pedidoEhCarrinhoParqueElevador(
+                        pedido
+                    )
+                        ? Number(
+                            campoPedidoPortaria(
+                                pedido,
+                                "quantidadeElevador"
+                            ) ||
+                            0
+                        )
+                        : quantidadeDoPedido(
+                            pedido
+                        ),
             };
         } else if (
             localValidacao ===
@@ -2970,8 +3238,17 @@ export default function PortariaPage() {
             pedido.statusOperacional !==
             "cancelado" &&
             (localValidacao === "elevador"
-                ? pedidoExclusivoElevador(pedido)
-                : !pedidoExclusivoElevador(pedido)) &&
+                ? (
+                    pedidoExclusivoElevador(
+                        pedido
+                    ) ||
+                    pedidoEhCarrinhoParqueElevador(
+                        pedido
+                    )
+                )
+                : !pedidoExclusivoElevador(
+                    pedido
+                )) &&
             validadeAtual.valido &&
             !usado;
 
@@ -3025,8 +3302,22 @@ export default function PortariaPage() {
 
     const quantidadeAtual =
         pedido
-            ? quantidadeDoPedido(
-                pedido
+            ? (
+                localValidacao ===
+                    "elevador" &&
+                    pedidoEhCarrinhoParqueElevador(
+                        pedido
+                    )
+                    ? Number(
+                        campoPedidoPortaria(
+                            pedido,
+                            "quantidadeElevador"
+                        ) ||
+                        0
+                    )
+                    : quantidadeParquePedido(
+                        pedido
+                    )
             )
             : reservaAgencia
                 ? quantidadeDaReserva(
@@ -3500,8 +3791,21 @@ export default function PortariaPage() {
                                 </p>
 
                                 <p className="font-black">
-                                    {pedido.codigoIngresso ||
-                                        pedido.id}
+                                    {localValidacao ===
+                                        "elevador"
+                                        ? (
+                                            codigoElevadorPedido(
+                                                pedido
+                                            ) ||
+                                            pedido.codigoIngresso ||
+                                            pedido.id
+                                        )
+                                        : (
+                                            codigoParquePedido(
+                                                pedido
+                                            ) ||
+                                            pedido.id
+                                        )}
                                 </p>
                             </div>
 
@@ -3569,7 +3873,12 @@ export default function PortariaPage() {
                             <div className="rounded-2xl bg-white/10 p-4">
                                 <p className="font-black">🛗 Elevador Panorâmico</p>
                                 <p className="mt-1 font-bold">
-                                    {pedidoExclusivoElevador(pedido)
+                                    {pedidoExclusivoElevador(
+                                        pedido
+                                    ) ||
+                                        pedidoEhCarrinhoParqueElevador(
+                                            pedido
+                                        )
                                         ? pedido.elevadorValidado
                                             ? `✅ Validado${pedido.elevadorValidadoEm ? ` em ${formatarDataHora(pedido.elevadorValidadoEm)}` : ""}`
                                             : "⏳ Ainda não validado"

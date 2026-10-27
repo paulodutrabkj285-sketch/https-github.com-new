@@ -86,6 +86,10 @@ type QrExtraido = {
     | "pedido"
     | "reserva_agencia"
     | "desconhecido";
+    destino:
+    | "parque"
+    | "elevador"
+    | "";
 };
 
 /* ==========================================
@@ -116,6 +120,64 @@ function campoPedido(
         pedido as unknown as
         Record<string, unknown>
     )[campo];
+}
+
+function pedidoEhCarrinhoParqueElevador(
+    pedido: Pedido
+) {
+    return (
+        normalizarCodigo(
+            pedido.tipo
+        ) === "CARRINHO" &&
+        numeroSeguro(
+            campoPedido(
+                pedido,
+                "quantidadeParque"
+            )
+        ) > 0 &&
+        numeroSeguro(
+            campoPedido(
+                pedido,
+                "quantidadeElevador"
+            )
+        ) > 0
+    );
+}
+
+function codigoElevadorPedido(
+    pedido: Pedido
+) {
+    return normalizarCodigo(
+        campoPedido(
+            pedido,
+            "codigoIngressoElevador"
+        ) ||
+        (
+            pedidoEhCarrinhoParqueElevador(
+                pedido
+            )
+                ? ""
+                : pedido.codigoIngresso
+        )
+    );
+}
+
+function qrElevadorPedido(
+    pedido: Pedido
+) {
+    return limpar(
+        campoPedido(
+            pedido,
+            "qrCodeIngressoElevador"
+        ) ||
+        (
+            pedidoEhCarrinhoParqueElevador(
+                pedido
+            )
+                ? ""
+                : pedido.qrCodeIngresso
+        )
+    );
 }
 
 function formatarData(valor?: string) {
@@ -197,6 +259,17 @@ function pedidoTemElevador(
         numeroSeguro(
             campoPedido(
                 pedido,
+                "quantidadeElevador"
+            )
+        ) > 0
+    ) {
+        return true;
+    }
+
+    if (
+        numeroSeguro(
+            campoPedido(
+                pedido,
                 "qtdElevador"
             )
         ) > 0
@@ -228,6 +301,18 @@ function pedidoEhAcessoPrincipal(
 
     if (tipo === "ELEVADOR") {
         return false;
+    }
+
+    if (
+        tipo === "CARRINHO" &&
+        numeroSeguro(
+            campoPedido(
+                pedido,
+                "quantidadeParque"
+            )
+        ) > 0
+    ) {
+        return true;
     }
 
     if (
@@ -273,6 +358,20 @@ function pedidoEhAcessoPrincipal(
 function quantidadeElevadorPedido(
     pedido: Pedido
 ) {
+    const quantidadeCarrinho =
+        numeroSeguro(
+            campoPedido(
+                pedido,
+                "quantidadeElevador"
+            )
+        );
+
+    if (
+        quantidadeCarrinho > 0
+    ) {
+        return quantidadeCarrinho;
+    }
+
     const quantidadeEspecifica =
         numeroSeguro(
             campoPedido(
@@ -626,6 +725,7 @@ function extrairQr(
             pedidoId: "",
             codigoGrupo: "",
             tipo: "desconhecido",
+            destino: "",
         };
     }
 
@@ -652,6 +752,7 @@ function extrairQr(
                 codigoGrupo,
                 tipo:
                     "reserva_agencia",
+                destino: "",
             };
         }
 
@@ -669,11 +770,24 @@ function extrairQr(
                 ""
             );
 
+        const tipoQr =
+            normalizarCodigo(
+                dados?.tipo ||
+                dados?.destino ||
+                ""
+            );
+
         return {
             codigo,
             pedidoId,
             codigoGrupo: "",
             tipo: "pedido",
+            destino:
+                tipoQr === "ELEVADOR"
+                    ? "elevador"
+                    : tipoQr === "PARQUE"
+                        ? "parque"
+                        : "",
         };
     } catch {
         const codigo =
@@ -693,6 +807,7 @@ function extrairQr(
                     codigo,
                 tipo:
                     "reserva_agencia",
+                destino: "",
             };
         }
 
@@ -706,6 +821,7 @@ function extrairQr(
                 )
                     ? "pedido"
                     : "desconhecido",
+            destino: "",
         };
     }
 }
@@ -1293,6 +1409,9 @@ export default function ElevadorValidacaoPage() {
         });
 
         setCodigoManual(
+            codigoElevadorPedido(
+                pedido
+            ) ||
             pedido.codigoIngresso ||
             ""
         );
@@ -1551,6 +1670,19 @@ export default function ElevadorValidacaoPage() {
                PEDIDO
             ================================== */
 
+            if (
+                dadosQr.destino ===
+                "parque"
+            ) {
+                setMensagem(
+                    "QR CODE DO PARQUE — NÃO LIBERAR NO ELEVADOR"
+                );
+
+                vibrar("erro");
+
+                return;
+            }
+
             const pedidos =
                 await obterPedidosParaBusca();
 
@@ -1572,17 +1704,37 @@ export default function ElevadorValidacaoPage() {
             const encontrado =
                 pedidos.find(
                     (item) => {
-                        const codigoIngresso =
+                        const ehCarrinho =
+                            pedidoEhCarrinhoParqueElevador(
+                                item
+                            );
+
+                        const codigoElevador =
+                            codigoElevadorPedido(
+                                item
+                            );
+
+                        const qrElevador =
+                            qrElevadorPedido(
+                                item
+                            );
+
+                        const qrElevadorNormalizado =
+                            normalizarCodigo(
+                                qrElevador
+                            );
+
+                        const codigoIngressoAntigo =
                             normalizarCodigo(
                                 item.codigoIngresso
                             );
 
-                        const qrCodeIngresso =
+                        const qrAntigo =
                             limpar(
                                 item.qrCodeIngresso
                             );
 
-                        const qrNormalizado =
+                        const qrAntigoNormalizado =
                             normalizarCodigo(
                                 item.qrCodeIngresso
                             );
@@ -1592,9 +1744,54 @@ export default function ElevadorValidacaoPage() {
                                 item.id
                             );
 
+                        /*
+                         * CARRINHO NOVO:
+                         * somente o código/QR específico
+                         * do Elevador pode localizar o pedido.
+                         *
+                         * O pedidoId NÃO pode liberar o
+                         * Elevador, pois o QR do Parque usa
+                         * o mesmo pedidoId.
+                         */
+                        if (ehCarrinho) {
+                            if (
+                                codigoQr &&
+                                codigoElevador &&
+                                codigoElevador ===
+                                codigoQr
+                            ) {
+                                return true;
+                            }
+
+                            if (
+                                codigoQr &&
+                                qrElevadorNormalizado &&
+                                qrElevadorNormalizado ===
+                                codigoQr
+                            ) {
+                                return true;
+                            }
+
+                            if (
+                                qrElevador &&
+                                textoOriginal &&
+                                qrElevador ===
+                                textoOriginal
+                            ) {
+                                return true;
+                            }
+
+                            return false;
+                        }
+
+                        /*
+                         * PEDIDOS ANTIGOS / ELEVADOR
+                         * COMPRADO SEPARADAMENTE:
+                         * mantém compatibilidade total.
+                         */
                         if (
                             codigoQr &&
-                            codigoIngresso ===
+                            codigoIngressoAntigo ===
                             codigoQr
                         ) {
                             return true;
@@ -1620,17 +1817,17 @@ export default function ElevadorValidacaoPage() {
 
                         if (
                             codigoQr &&
-                            qrNormalizado &&
-                            qrNormalizado ===
+                            qrAntigoNormalizado &&
+                            qrAntigoNormalizado ===
                             codigoQr
                         ) {
                             return true;
                         }
 
                         if (
-                            qrCodeIngresso &&
+                            qrAntigo &&
                             textoOriginal &&
-                            qrCodeIngresso ===
+                            qrAntigo ===
                             textoOriginal
                         ) {
                             return true;
@@ -2499,8 +2696,8 @@ export default function ElevadorValidacaoPage() {
 
                             <span
                                 className={`h-3 w-3 rounded-full ${isOnline
-                                        ? "bg-green-500"
-                                        : "bg-red-500"
+                                    ? "bg-green-500"
+                                    : "bg-red-500"
                                     }`}
                             />
 
@@ -2737,7 +2934,10 @@ export default function ElevadorValidacaoPage() {
                             </p>
 
                             <p className="font-mono text-2xl font-black">
-                                {entidade.pedido.codigoIngresso}
+                                {codigoElevadorPedido(
+                                    entidade.pedido
+                                ) ||
+                                    entidade.pedido.codigoIngresso}
                             </p>
 
                             <div className="mt-4 rounded-2xl bg-sky-100 p-5 text-center text-sky-950">
@@ -2764,10 +2964,10 @@ export default function ElevadorValidacaoPage() {
 
                             <div
                                 className={`mt-4 rounded-2xl p-4 ${entidade
-                                        .resultadoElevador
-                                        .saldo > 0
-                                        ? "bg-emerald-100 text-emerald-950"
-                                        : "bg-red-100 text-red-950"
+                                    .resultadoElevador
+                                    .saldo > 0
+                                    ? "bg-emerald-100 text-emerald-950"
+                                    : "bg-red-100 text-red-950"
                                     }`}
                             >
 
@@ -3009,10 +3209,10 @@ export default function ElevadorValidacaoPage() {
 
                             <div
                                 className={`mt-4 rounded-2xl p-4 ${entidade
-                                        .resultadoElevador
-                                        .saldo > 0
-                                        ? "bg-emerald-100 text-emerald-950"
-                                        : "bg-red-100 text-red-950"
+                                    .resultadoElevador
+                                    .saldo > 0
+                                    ? "bg-emerald-100 text-emerald-950"
+                                    : "bg-red-100 text-red-950"
                                     }`}
                             >
 
