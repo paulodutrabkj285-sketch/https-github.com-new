@@ -137,8 +137,14 @@ export default function PagamentoPage() {
   const [cvv, setCvv] =
     useState("");
 
+  const [pixPrazoEncerrado, setPixPrazoEncerrado] = useState(false);
   const mensagemPixExpirado =
-    "PIX expirado. Gere um novo pedido para realizar o pagamento.";
+    "Prazo do Pix encerrado. Se já pagou, consulte a confirmação bancária antes de criar outro pedido.";
+
+  function sinalizarPixExpirado() {
+    setPixPrazoEncerrado(true);
+    setErro(mensagemPixExpirado);
+  }
 
   function nomeTipoDocumentoEstrangeiro(
     tipoDoc: TipoDocumentoEstrangeiro
@@ -530,9 +536,7 @@ export default function PagamentoPage() {
             ?.statusPagamento ===
           "expirado"
         ) {
-          setErro(
-            mensagemPixExpirado
-          );
+          sinalizarPixExpirado();
 
           return;
         }
@@ -551,9 +555,7 @@ export default function PagamentoPage() {
             pedido.statusPagamento !==
             "pago"
           ) {
-            setErro(
-              mensagemPixExpirado
-            );
+            sinalizarPixExpirado();
 
             return;
           }
@@ -714,9 +716,7 @@ export default function PagamentoPage() {
               pedido.statusPagamento ===
               "expirado"
             ) {
-              setErro(
-                mensagemPixExpirado
-              );
+              sinalizarPixExpirado();
 
               return;
             }
@@ -735,9 +735,7 @@ export default function PagamentoPage() {
                 pedido.statusPagamento !==
                 "pago"
               ) {
-                setErro(
-                  mensagemPixExpirado
-                );
+                sinalizarPixExpirado();
               }
             }
           } catch (error) {
@@ -794,7 +792,7 @@ export default function PagamentoPage() {
     );
 
   const pixExpirado =
-    erro ===
+    pixPrazoEncerrado || erro ===
     mensagemPixExpirado;
 
   async function copiarPix() {
@@ -815,10 +813,6 @@ export default function PagamentoPage() {
   }
 
   async function verificarPagamento() {
-    if (pixExpirado) {
-      return;
-    }
-
     try {
       setVerificando(
         true
@@ -1513,10 +1507,9 @@ export default function PagamentoPage() {
                     </h3>
 
                     <p className="mt-2">
-                      Gere um novo
-                      pedido para
-                      realizar o
-                      pagamento.
+                      Se já pagou, use o botão de consulta
+                      para verificar a confirmação bancária.
+                      Se ainda não pagou, crie um novo pedido.
                     </p>
 
                   </div>
@@ -1795,10 +1788,9 @@ export default function PagamentoPage() {
             ) : pixExpirado ? (
 
               <div className="mb-4 rounded-2xl border border-red-300 bg-red-100 p-4 text-sm leading-relaxed text-red-900">
-                Este Pix expirou.
-                Volte para a página de
-                ingressos e crie um
-                novo pedido.
+                O prazo deste Pix terminou. Se já pagou,
+                consulte a confirmação no botão abaixo antes
+                de criar outro pedido.
               </div>
 
             ) : (
@@ -1823,15 +1815,14 @@ export default function PagamentoPage() {
                     verificarPagamento
                   }
                   disabled={
-                    verificando ||
-                    pixExpirado
+                    verificando
                   }
                   className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {pixExpirado
-                    ? "PIX expirado"
-                    : verificando
-                      ? "Verificando pagamento..."
+                  {verificando
+                    ? "Verificando pagamento..."
+                    : pixExpirado
+                      ? "Já paguei — consultar confirmação"
                       : "Já fiz o PIX"}
                 </button>
 
@@ -1858,7 +1849,6 @@ export default function PagamentoPage() {
               )}
 
             {mensagem &&
-              !pixExpirado &&
               formaPagamento ===
               "pix" && (
 

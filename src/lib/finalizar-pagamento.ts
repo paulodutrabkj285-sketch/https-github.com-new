@@ -1,3 +1,6 @@
+import { lerNotificacaoPagbank, pagamentoPagbank } from "@/lib/pagbank-notificacao";
+import { randomUUID } from "crypto";
+import { consultarPixConfirmado } from "@/lib/sicredi-pix";
 import {
     atualizarPedido,
     buscarPedidoPorId,
@@ -14,6 +17,7 @@ import {
 import {
     doc,
     updateDoc,
+    runTransaction,
 } from "firebase/firestore";
 
 type FormaPagamento =
@@ -27,6 +31,8 @@ type FinalizarPagamentoParams = {
     FormaPagamento;
 
     valorPago?: number;
+
+    pagbankNotificacao?: { raw: string; assinatura: string };
 
     // Dados opcionais do Pix
     pixEndToEndId?: string;
@@ -51,7 +57,8 @@ type FinalizarPagamentoResultado = {
     | "pago"
     | "ja_pago"
     | "valor_divergente"
-    | "pedido_nao_encontrado";
+    | "pedido_nao_encontrado"
+    | "banco_nao_confirmado";
 
     codigoIngresso?: string;
 
@@ -498,9 +505,10 @@ async function marcarValorDivergenteReservaAgencia({
                 reservaAgenciaId
             );
 
-        await updateDoc(
-            reservaRef,
-            {
+        await runTransaction(db, async (tx) => {
+            const pedidoAtual = await tx.get(doc(db, "pedidos", pedidoId));
+            if (pedidoAtual.data()?.statusPagamento !== "valor_divergente") return;
+            tx.update(reservaRef, {
                 statusPagamento:
                     "valor_divergente",
 
@@ -525,8 +533,8 @@ async function marcarValorDivergenteReservaAgencia({
 
                 updatedAt:
                     new Date(),
-            }
-        );
+            });
+        });
     } catch (
     error
     ) {
@@ -556,6 +564,7 @@ export async function finalizarPagamento({
     cartaoBandeira,
     cartaoUltimosDigitos,
     cartaoParcelas,
+    pagbankNotificacao,
 }: FinalizarPagamentoParams): Promise<FinalizarPagamentoResultado> {
     if (
         !pedidoId
@@ -593,6 +602,15 @@ export async function finalizarPagamento({
             mensagem:
                 "Pedido não encontrado.",
         };
+    }
+
+    let pagbankTransacaoId = "";
+    if (pagbankNotificacao) {
+        const pagamento = pagamentoPagbank(lerNotificacaoPagbank(pagbankNotificacao.raw, pagbankNotificacao.assinatura), pedidoId);
+        if (!pagamento) return { ok: false, pedidoId, status: "banco_nao_confirmado", mensagem: "PagBank sem confirmação válida." };
+        formaPagamento = pagamento.forma;
+        valorPago = pagamento.valor;
+        pagbankTransacaoId = pagamento.transacaoId;
     }
 
     const ehCarrinho =
@@ -714,6 +732,29 @@ export async function finalizarPagamento({
         };
     }
 
+    // O webhook é apenas um aviso. A prova vem da API autenticada do banco.
+    if (formaPagamento === "pix" && !pagbankNotificacao) {
+        const txid = String(pedido.sicrediTxid || "").trim();
+        if (!txid || (sicrediTxid && sicrediTxid !== txid)) {
+            return { ok: false, pedidoId, status: "banco_nao_confirmado", mensagem: "TXID inválido." };
+        }
+        const confirmado = await consultarPixConfirmado(txid);
+        if (!confirmado) {
+            return { ok: false, pedidoId, status: "banco_nao_confirmado", mensagem: "Pix ainda não confirmado pelo banco." };
+        }
+        valorPago = confirmado.valor;
+        pixEndToEndId = confirmado.endToEndId;
+        pixHorario = confirmado.horario;
+        sicrediTxid = txid;
+    }
+
+    if (!Number.isFinite(valorPago) || Number(valorPago) <= 0 ||
+        (formaPagamento === "cartao" && !pagbankNotificacao &&
+            (!cartaoTransacaoId || !["aprovado", "aprovado_simulacao"].includes(cartaoStatus || "")))) {
+        return { ok: false, pedidoId, status: "banco_nao_confirmado", mensagem: "Confirmação bancária incompleta." };
+    }
+
+
     /* =====================================================
        CONFERÊNCIA DO VALOR
     ===================================================== */
@@ -736,7 +777,10 @@ export async function finalizarPagamento({
             valorPagoCentavos !==
             valorPedidoCentavos
         ) {
-            await atualizarPedido(
+            if (pagbankNotificacao) return {
+                ok: false, pedidoId, status: "valor_divergente", mensagem: "O valor pago é diferente do valor do pedido.",
+            };
+            const divergenciaGravada = await gravarSeNaoPago(
                 pedidoId,
                 {
                     statusPagamento:
@@ -810,6 +854,15 @@ export async function finalizarPagamento({
                             .toISOString(),
                 }
             );
+
+            if (!divergenciaGravada) {
+                const atual = await buscarPedidoPorId(pedidoId);
+                if (atual?.statusPagamento === "pago") return {
+                    ok: true, pedidoId, status: "ja_pago", codigoIngresso: atual.codigoIngresso,
+                    emailEnviado: Boolean(atual.emailIngressoEnviado), mensagem: "Pedido já confirmado.",
+                };
+                throw new Error("Pedido alterado durante a conferência do valor.");
+            }
 
             await marcarValorDivergenteReservaAgencia(
                 {
@@ -1015,14 +1068,44 @@ export async function finalizarPagamento({
             dataConfirmacao;
     }
 
+    if (pagbankNotificacao) {
+        // PagBank tem identificadores próprios; não sobrescrever dados Sicredi.
+        for (const campo of ["sicrediStatus", "sicrediTxid", "pixEndToEndId", "pixHorario"]) delete dadosPagamento[campo];
+        dadosPagamento.pagbankStatus = "PAID";
+        dadosPagamento.pagbankTransacaoId = pagbankTransacaoId;
+    }
+
     /* =====================================================
        ATUALIZA PEDIDO
     ===================================================== */
 
-    await atualizarPedido(
-        pedidoId,
-        dadosPagamento
-    );
+    const gravado = await runTransaction(db, async (tx) => {
+        const ref = doc(db, "pedidos", pedidoId);
+        const snap = await tx.get(ref);
+        if (!snap.exists()) throw new Error("Pedido não encontrado.");
+        const atual = snap.data();
+        if (atual.statusPagamento === "pago") return false;
+        if ((valorPago !== undefined && converterParaCentavos(atual.valorTotal) !== converterParaCentavos(valorPago)) ||
+            (formaPagamento === "pix" && !pagbankNotificacao && atual.sicrediTxid !== sicrediTxid)) {
+            throw new Error("Pedido alterado durante a confirmação bancária.");
+        }
+        // Nunca reativar ingresso cancelado, bloqueado ou já utilizado.
+        if (["cancelado", "bloqueado", "utilizado"].includes(atual.statusOperacional)) {
+            dadosPagamento.statusOperacional = atual.statusOperacional;
+        }
+        dadosPagamento.codigoIngresso = atual.codigoIngresso || dadosPagamento.codigoIngresso;
+        dadosPagamento.qrCodeIngresso = atual.qrCodeIngresso || dadosPagamento.qrCodeIngresso;
+        for (const campo of ["codigoIngressoParque", "qrCodeIngressoParque", "codigoIngressoElevador", "qrCodeIngressoElevador", "elevadorValidado", "elevadorQuantidadeValidada"]) {
+            if (atual[campo] !== undefined && atual[campo] !== "") dadosPagamento[campo] = atual[campo];
+        }
+        tx.update(ref, { ...dadosPagamento, updatedAt: dataConfirmacao });
+        return true;
+    });
+    if (!gravado) {
+        return { ok: true, pedidoId, status: "ja_pago", codigoIngresso,
+            emailEnviado: Boolean((await buscarPedidoPorId(pedidoId))?.emailIngressoEnviado),
+            mensagem: "Pedido já confirmado por outra execução." };
+    }
 
     console.log(
         "FINALIZAÇÃO: PAGAMENTO CONFIRMADO",
@@ -1153,7 +1236,7 @@ export async function finalizarPagamento({
    ENVIO DO E-MAIL + WHATSAPP
 ========================================================= */
 
-async function tentarEnviarEmail({
+async function tentarEnviarEmailSemLease({
     pedido,
     pedidoId,
     codigoIngresso,
@@ -1552,5 +1635,39 @@ async function tentarEnviarEmail({
          * mesmo se o envio do ingresso falhar.
          */
         return false;
+    }
+}
+async function gravarSeNaoPago(pedidoId: string, dados: Record<string, unknown>) {
+    return runTransaction(db, async (tx) => {
+        const ref = doc(db, "pedidos", pedidoId);
+        const snap = await tx.get(ref);
+        if (!snap.exists() || snap.data().statusPagamento === "pago") return false;
+        tx.update(ref, dados);
+        return true;
+    });
+}
+
+// Serializa tentativas de envio entre webhook, polling e cron. O lease permite
+// nova tentativa após interrupção; o status financeiro não depende do e-mail.
+async function tentarEnviarEmail(params: { pedido: any; pedidoId: string; codigoIngresso: string }) {
+    const ref = doc(db, "pedidos", params.pedidoId);
+    const owner = randomUUID();
+    const estado = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) throw new Error("Pedido não encontrado.");
+        const atual = snap.data();
+        if (atual.emailIngressoEnviado) return { status: "enviado" as const, pedido: atual };
+        if (Number(atual.emailIngressoLeaseAte || 0) > Date.now()) return { status: "ocupado" as const, pedido: atual };
+        tx.update(ref, { emailIngressoLeaseOwner: owner, emailIngressoLeaseAte: Date.now() + 120000 });
+        return { status: "adquirido" as const, pedido: atual };
+    });
+    if (estado.status !== "adquirido") return estado.status === "enviado";
+    try { return await tentarEnviarEmailSemLease({ ...params, pedido: { ...estado.pedido, id: params.pedidoId },
+        codigoIngresso: estado.pedido.codigoIngresso || params.codigoIngresso }); }
+    finally {
+        await runTransaction(db, async (tx) => {
+            const snap = await tx.get(ref);
+            if (snap.data()?.emailIngressoLeaseOwner === owner) tx.update(ref, { emailIngressoLeaseAte: 0 });
+        }).catch(() => {});
     }
 }

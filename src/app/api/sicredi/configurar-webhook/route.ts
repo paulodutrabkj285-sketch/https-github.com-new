@@ -1,188 +1,36 @@
-import { NextResponse } from "next/server";
-import https from "https";
+import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
+import { criarClientePix } from "@/lib/sicredi-pix";
 
 export const runtime = "nodejs";
+const webhookUrl = "https://www.parquemundonovooficial.com.br/api/sicredi/webhook";
 
-function criarHttpsAgent() {
-    return new https.Agent({
-        cert: Buffer.from(
-            process.env.SICREDI_CERT_BASE64 || "",
-            "base64"
-        ).toString("utf8"),
-
-        key: Buffer.from(
-            process.env.SICREDI_KEY_BASE64 || "",
-            "base64"
-        ).toString("utf8"),
-
-        rejectUnauthorized: true,
-    });
-}
-
-function normalizarChavePix(chave: string) {
-    const chaveLimpa = String(
-        chave || ""
-    ).trim();
-
-    if (chaveLimpa.includes("@")) {
-        return chaveLimpa.toLowerCase();
+async function executar(req: NextRequest, alterar: boolean) {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || secret.includes("[SENSITIVE]")) {
+        return NextResponse.json({ ok: false, error: "CRON_SECRET não configurado." }, { status: 500 });
     }
-
-    return chaveLimpa.replace(/\s/g, "");
-}
-
-async function obterToken() {
-    const baseUrl =
-        process.env.SICREDI_BASE_URL!;
-
-    const clientId =
-        process.env.SICREDI_CLIENT_ID!;
-
-    const clientSecret =
-        process.env.SICREDI_CLIENT_SECRET!;
-
-    const response = await axios.post(
-        `${baseUrl}/oauth/token`,
-
-        new URLSearchParams({
-            grant_type: "client_credentials",
-        }).toString(),
-
-        {
-            httpsAgent: criarHttpsAgent(),
-
-            headers: {
-                Authorization:
-                    "Basic " +
-                    Buffer.from(
-                        `${clientId}:${clientSecret}`
-                    ).toString("base64"),
-
-                "Content-Type":
-                    "application/x-www-form-urlencoded",
-            },
-        }
-    );
-
-    return response.data.access_token;
-}
-
-export async function GET() {
+    if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+        return NextResponse.json({ ok: false, error: "Não autorizado." }, { status: 401 });
+    }
+    const chave = String(process.env.SICREDI_PIX_KEY || "").trim().replace(/\s/g, "");
+    if (!chave || chave.includes("[SENSITIVE]")) {
+        return NextResponse.json({ ok: false, error: "Chave Pix não configurada." }, { status: 500 });
+    }
     try {
-        const baseUrl =
-            process.env.SICREDI_BASE_URL!;
-
-        const chavePix =
-            normalizarChavePix(
-                process.env.SICREDI_PIX_KEY || ""
-            );
-
-        if (!chavePix) {
-            return NextResponse.json(
-                {
-                    ok: false,
-                    error:
-                        "Chave Pix Sicredi não configurada.",
-                },
-                {
-                    status: 500,
-                }
-            );
-        }
-
-        const token =
-            await obterToken();
-
-        /*
-         * URL oficial de produção que receberá
-         * as notificações de pagamento do Sicredi.
-         */
-        const webhookUrl =
-            "https://www.parquemundonovooficial.com.br/api/sicredi/webhook";
-
-        console.log(
-            "CONFIGURANDO WEBHOOK SICREDI:",
-            {
-                webhookUrl,
-            }
-        );
-
-        const response =
-            await axios.put(
-                `${baseUrl}/api/v2/webhook/${encodeURIComponent(
-                    chavePix
-                )}`,
-
-                {
-                    webhookUrl,
-                },
-
-                {
-                    httpsAgent:
-                        criarHttpsAgent(),
-
-                    headers: {
-                        Authorization:
-                            `Bearer ${token}`,
-
-                        "Content-Type":
-                            "application/json",
-                    },
-                }
-            );
-
-        console.log(
-            "WEBHOOK SICREDI CONFIGURADO:",
-            {
-                webhookUrl,
-                resposta:
-                    response.data,
-            }
-        );
-
-        return NextResponse.json({
-            ok: true,
-
-            mensagem:
-                "Webhook Sicredi configurado com sucesso.",
-
-            webhookUrl,
-
-            resposta:
-                response.data,
-        });
-    } catch (error: any) {
-        const detalhes =
-            error?.response?.data ||
-            error?.message ||
-            "Erro desconhecido";
-
-        console.error(
-            "ERRO CONFIGURAR WEBHOOK SICREDI:",
-            JSON.stringify(
-                detalhes,
-                null,
-                2
-            )
-        );
-
-        return NextResponse.json(
-            {
-                ok: false,
-
-                error:
-                    "Erro ao configurar webhook Sicredi.",
-
-                details:
-                    detalhes,
-            },
-
-            {
-                status:
-                    error?.response?.status ||
-                    500,
-            }
-        );
+        const { baseUrl, config } = await criarClientePix();
+        const url = `${baseUrl}/api/v2/webhook/${encodeURIComponent(chave.includes("@") ? chave.toLowerCase() : chave)}`;
+        // GET consulta somente. O cadastro exige POST administrativo explícito.
+        const response = alterar
+            ? await axios.put(url, { webhookUrl }, config)
+            : await axios.get(url, config);
+        return NextResponse.json({ ok: true, webhookUrlEsperada: webhookUrl,
+            callbackEsperado: `${webhookUrl}/pix`, cadastro: response.data });
+    } catch (error) {
+        console.error("ERRO CADASTRO WEBHOOK SICREDI:", axios.isAxiosError(error) ? error.response?.status : "erro de configuração");
+        return NextResponse.json({ ok: false, error: "Não foi possível consultar ou configurar o webhook Sicredi." }, { status: 502 });
     }
 }
+
+export async function GET(req: NextRequest) { return executar(req, false); }
+export async function POST(req: NextRequest) { return executar(req, true); }

@@ -3,178 +3,35 @@ import { buscarPedidoPorTxid } from "@/lib/pedidos";
 import { finalizarPagamento } from "@/lib/finalizar-pagamento";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
+// Compatível com a URL cadastrada e com o sufixo /pix do protocolo Pix.
 export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
-
-        console.log(
-            "WEBHOOK SICREDI RECEBIDO:",
-            JSON.stringify(body, null, 2)
-        );
-
-        const pixLista = Array.isArray(body?.pix)
-            ? body.pix
-            : [];
-
-        if (pixLista.length === 0) {
-            return NextResponse.json({
-                ok: true,
-                mensagem: "Webhook recebido sem Pix.",
-            });
-        }
-
-        const resultados: any[] = [];
-
-        for (const pix of pixLista) {
-            const txid = String(
-                pix?.txid || ""
-            ).trim();
-
-            const valorPago = Number(
-                pix?.valor || 0
-            );
-
-            const endToEndId = String(
-                pix?.endToEndId || ""
-            );
-
-            const horario = String(
-                pix?.horario || ""
-            );
-
-            /* ======================================
-               VALIDAR TXID
-            ====================================== */
-
-            if (!txid) {
-                console.log(
-                    "WEBHOOK: PIX SEM TXID",
-                    pix
-                );
-
-                resultados.push({
-                    ok: false,
-                    motivo: "pix_sem_txid",
-                });
-
-                continue;
-            }
-
-            /* ======================================
-               BUSCAR PEDIDO
-            ====================================== */
-
-            const pedido: any =
-                await buscarPedidoPorTxid(
-                    txid
-                );
-
+    let body;
+    try { body = await req.json(); }
+    catch { return NextResponse.json({ ok: false, error: "JSON inválido." }, { status: 400 }); }
+    if (!Array.isArray(body?.pix)) return NextResponse.json({ ok: false, error: "Lista pix inválida." }, { status: 400 });
+    const pixLista = body.pix;
+    const resultados = [];
+    let falha = false;
+    for (const txid of new Set<string>(pixLista.map((pix: { txid?: unknown }) =>
+        typeof pix?.txid === "string" ? pix.txid.trim() : ""))) {
+        if (!txid) { falha = true; resultados.push({ ok: false, motivo: "pix_sem_txid" }); continue; }
+        try {
+            const pedido = await buscarPedidoPorTxid(txid);
             if (!pedido) {
-                console.error(
-                    "WEBHOOK: PEDIDO NÃO ENCONTRADO",
-                    {
-                        txid,
-                        valorPago,
-                        endToEndId,
-                    }
-                );
-
-                resultados.push({
-                    ok: false,
-                    motivo: "pedido_nao_encontrado",
-                    txid,
-                });
-
-                /*
-                 * Não devolvemos erro geral
-                 * porque pode haver outros Pix
-                 * no mesmo webhook.
-                 */
+                falha = true; // Pode haver corrida entre criação do Pix e gravação do TXID.
+                resultados.push({ ok: false, txid, motivo: "pedido_nao_encontrado" });
                 continue;
             }
-
-            console.log(
-                "WEBHOOK: PEDIDO ENCONTRADO",
-                {
-                    pedidoId: pedido.id,
-                    codigoIngresso:
-                        pedido.codigoIngresso || null,
-                    statusPagamento:
-                        pedido.statusPagamento || null,
-                    statusOperacional:
-                        pedido.statusOperacional || null,
-                    valorPedido:
-                        pedido.valorTotal || 0,
-                    valorPago,
-                    txid,
-                }
-            );
-
-            /* ======================================
-               FINALIZAÇÃO CENTRALIZADA
-            ====================================== */
-
-            const resultado =
-                await finalizarPagamento({
-                    pedidoId: pedido.id,
-                    formaPagamento: "pix",
-                    valorPago,
-                    pixEndToEndId: endToEndId,
-                    pixHorario: horario,
-                    sicrediTxid: txid,
-                });
-
-            /*
-             * resultado já contém pedidoId.
-             * Não repetimos pedidoId aqui.
-             */
-            resultados.push({
-                txid,
-                ...resultado,
-            });
-
-            console.log(
-                "WEBHOOK: RESULTADO FINALIZAÇÃO",
-                {
-                    txid,
-                    ...resultado,
-                }
-            );
+            const resultado = await finalizarPagamento({ pedidoId: pedido.id, formaPagamento: "pix", sicrediTxid: txid });
+            if (resultado.status === "banco_nao_confirmado") falha = true;
+            resultados.push({ txid, ...resultado });
+        } catch {
+            falha = true;
+            resultados.push({ ok: false, txid, motivo: "erro_confirmacao_bancaria" });
         }
-
-        /* ======================================
-           RESPOSTA
-        ====================================== */
-
-        return NextResponse.json({
-            ok: true,
-            mensagem: "Webhook Sicredi processado.",
-            quantidade: resultados.length,
-            resultados,
-        });
-    } catch (error: any) {
-        const mensagem = String(
-            error?.message ||
-            error ||
-            "Erro desconhecido"
-        );
-
-        console.error(
-            "ERRO WEBHOOK SICREDI:",
-            mensagem
-        );
-
-        return NextResponse.json(
-            {
-                ok: false,
-                error:
-                    "Erro ao processar webhook Sicredi.",
-                details: mensagem,
-            },
-            {
-                status: 500,
-            }
-        );
     }
+    // Repetição do lote é segura; falha transitória precisa de nova entrega.
+    return NextResponse.json({ ok: !falha, quantidade: resultados.length, resultados }, { status: falha ? 503 : 200 });
 }
