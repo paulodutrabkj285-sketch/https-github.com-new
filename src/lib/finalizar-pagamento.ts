@@ -8,6 +8,7 @@ import {
 
 import {
     enviarIngressoPorEmail,
+    enviarCorrecaoIngressoElevadorPorEmail,
 } from "@/lib/email";
 
 import {
@@ -141,6 +142,43 @@ function obterCodigosCarrinho(
     return {
         codigoParque,
         codigoElevador,
+    };
+}
+
+function obterPrecoElevadorCarrinho(
+    pedido: any
+) {
+    const quantidadeElevador =
+        Number(
+            pedido?.quantidadeElevador ||
+            pedido?.qtdElevador ||
+            0
+        );
+
+    if (
+        !Number.isFinite(
+            quantidadeElevador
+        ) ||
+        quantidadeElevador <= 0
+    ) {
+        return {
+            quantidadeElevador: 0,
+            valorUnitarioElevador: 75,
+            valorElevador: 0,
+        };
+    }
+
+    const valorUnitarioElevador =
+        quantidadeElevador >= 2
+            ? 60
+            : 75;
+
+    return {
+        quantidadeElevador,
+        valorUnitarioElevador,
+        valorElevador:
+            quantidadeElevador *
+            valorUnitarioElevador,
     };
 }
 
@@ -633,6 +671,17 @@ export async function finalizarPagamento({
         pedido.id || pedidoId
     );
 
+    const {
+        quantidadeElevador:
+        quantidadeElevadorCarrinho,
+        valorUnitarioElevador:
+        valorUnitarioElevadorCarrinho,
+        valorElevador:
+        valorElevadorCarrinho,
+    } = obterPrecoElevadorCarrinho(
+        pedido
+    );
+
     /* =====================================================
        PEDIDO JÁ PAGO
     ===================================================== */
@@ -953,6 +1002,18 @@ export async function finalizarPagamento({
                 qrCodeIngressoElevador:
                     codigoElevador,
 
+                quantidadeElevador:
+                    quantidadeElevadorCarrinho,
+
+                qtdElevador:
+                    quantidadeElevadorCarrinho,
+
+                valorUnitarioElevador:
+                    valorUnitarioElevadorCarrinho,
+
+                valorElevador:
+                    valorElevadorCarrinho,
+
                 elevador:
                     true,
 
@@ -1102,9 +1163,11 @@ export async function finalizarPagamento({
         return true;
     });
     if (!gravado) {
-        return { ok: true, pedidoId, status: "ja_pago", codigoIngresso,
+        return {
+            ok: true, pedidoId, status: "ja_pago", codigoIngresso,
             emailEnviado: Boolean((await buscarPedidoPorId(pedidoId))?.emailIngressoEnviado),
-            mensagem: "Pedido já confirmado por outra execução." };
+            mensagem: "Pedido já confirmado por outra execução."
+        };
     }
 
     console.log(
@@ -1637,6 +1700,302 @@ async function tentarEnviarEmailSemLease({
         return false;
     }
 }
+
+/* =========================================================
+   REENVIO CORRETIVO DO INGRESSO DO ELEVADOR
+   - somente pedidos pagos
+   - somente carrinho Parque + Elevador
+   - reutiliza o codigoIngressoElevador existente
+   - não altera Pix, statusPagamento ou valorTotal
+========================================================= */
+
+export async function reenviarCorrecaoIngressoElevador(
+    pedidoId: string
+) {
+    const id =
+        String(
+            pedidoId || ""
+        ).trim();
+
+    if (!id) {
+        throw new Error(
+            "O ID do pedido não foi informado."
+        );
+    }
+
+    const pedido: any =
+        await buscarPedidoPorId(
+            id
+        );
+
+    if (!pedido) {
+        throw new Error(
+            "Pedido não encontrado."
+        );
+    }
+
+    if (
+        pedido.statusPagamento !==
+        "pago"
+    ) {
+        throw new Error(
+            "O ingresso do Elevador só pode ser reenviado para pedido pago."
+        );
+    }
+
+    if (
+        !pedidoEhCarrinhoParqueElevador(
+            pedido
+        )
+    ) {
+        throw new Error(
+            "Este pedido não é um carrinho Parque + Elevador."
+        );
+    }
+
+    const quantidadeElevador =
+        Number(
+            pedido.quantidadeElevador ||
+            pedido.qtdElevador ||
+            0
+        );
+
+    if (
+        !Number.isFinite(
+            quantidadeElevador
+        ) ||
+        quantidadeElevador <= 0
+    ) {
+        throw new Error(
+            "O pedido não possui quantidade válida de ingressos do Elevador."
+        );
+    }
+
+    const codigoElevador =
+        String(
+            pedido.codigoIngressoElevador ||
+            ""
+        ).trim();
+
+    if (!codigoElevador) {
+        throw new Error(
+            "O pedido não possui codigoIngressoElevador. O reenvio foi bloqueado para não gerar um código novo."
+        );
+    }
+
+    const email =
+        String(
+            pedido.email ||
+            ""
+        ).trim();
+
+    if (!email) {
+        throw new Error(
+            "O pedido não possui e-mail para reenvio."
+        );
+    }
+
+    /*
+     * Regra oficial:
+     * 1 ingresso = R$ 75
+     * 2 ou mais = R$ 60 por pessoa
+     */
+    const valorUnitarioElevador =
+        quantidadeElevador >= 2
+            ? 60
+            : 75;
+
+    const valorElevadorCorreto =
+        quantidadeElevador *
+        valorUnitarioElevador;
+
+    /*
+     * Para pedidos já pagos:
+     * - NÃO alteramos valorTotal
+     * - NÃO alteramos valorPago
+     * - NÃO alteramos Pix/TXID
+     * - NÃO alteramos códigos
+     *
+     * Só corrigimos os campos descritivos do Elevador
+     * quando o subtotal já armazenado confirma a regra.
+     */
+    const valorElevadorAtual =
+        Number(
+            pedido.valorElevador ||
+            0
+        );
+
+    const podeCorrigirPreco =
+        converterParaCentavos(
+            valorElevadorAtual
+        ) ===
+        converterParaCentavos(
+            valorElevadorCorreto
+        );
+
+    const agora =
+        new Date()
+            .toISOString();
+
+    try {
+        await enviarCorrecaoIngressoElevadorPorEmail(
+            {
+                para:
+                    email,
+
+                nome:
+                    pedido.nome ||
+                    "Cliente",
+
+                quantidade:
+                    quantidadeElevador,
+
+                codigoIngressoElevador:
+                    codigoElevador,
+
+                pedidoId:
+                    id,
+
+                dataVisita:
+                    pedido.dataVisita ||
+                    pedido.dataEntrada ||
+                    "",
+            }
+        );
+
+        const dadosAtualizacao:
+            Record<
+                string,
+                unknown
+            > = {
+            emailElevadorCorrecaoEnviado:
+                true,
+
+            emailElevadorCorrecaoEnviadoEm:
+                agora,
+
+            emailElevadorCorrecaoCodigo:
+                codigoElevador,
+
+            emailElevadorCorrecaoErro:
+                "",
+
+            emailElevadorCorrecaoErroEm:
+                "",
+        };
+
+        if (
+            podeCorrigirPreco
+        ) {
+            dadosAtualizacao
+                .valorUnitarioElevador =
+                valorUnitarioElevador;
+
+            dadosAtualizacao
+                .valorElevador =
+                valorElevadorCorreto;
+
+            dadosAtualizacao
+                .quantidadeElevador =
+                quantidadeElevador;
+
+            dadosAtualizacao
+                .qtdElevador =
+                quantidadeElevador;
+        }
+
+        await atualizarPedido(
+            id,
+            dadosAtualizacao
+        );
+
+        console.log(
+            "CORREÇÃO ELEVADOR: INGRESSO REENVIADO",
+            {
+                pedidoId:
+                    id,
+
+                email,
+
+                codigoIngressoElevador:
+                    codigoElevador,
+
+                quantidadeElevador,
+
+                valorUnitarioElevador,
+
+                valorElevador:
+                    valorElevadorCorreto,
+
+                precoCorrigidoNoFirestore:
+                    podeCorrigirPreco,
+            }
+        );
+
+        return {
+            ok:
+                true,
+
+            pedidoId:
+                id,
+
+            email,
+
+            codigoIngressoElevador:
+                codigoElevador,
+
+            quantidadeElevador,
+
+            valorUnitarioElevador,
+
+            valorElevador:
+                valorElevadorCorreto,
+
+            precoCorrigidoNoFirestore:
+                podeCorrigirPreco,
+        };
+    } catch (
+    error: any
+    ) {
+        const mensagemErro =
+            String(
+                error?.message ||
+                error ||
+                "Erro desconhecido no reenvio corretivo do Elevador."
+            );
+
+        await atualizarPedido(
+            id,
+            {
+                emailElevadorCorrecaoEnviado:
+                    false,
+
+                emailElevadorCorrecaoErro:
+                    mensagemErro,
+
+                emailElevadorCorrecaoErroEm:
+                    agora,
+            }
+        ).catch(
+            () => { }
+        );
+
+        console.error(
+            "CORREÇÃO ELEVADOR: ERRO NO REENVIO",
+            {
+                pedidoId:
+                    id,
+
+                erro:
+                    mensagemErro,
+            }
+        );
+
+        throw error;
+    }
+}
+
+
 async function gravarSeNaoPago(pedidoId: string, dados: Record<string, unknown>) {
     return runTransaction(db, async (tx) => {
         const ref = doc(db, "pedidos", pedidoId);
@@ -1662,12 +2021,16 @@ async function tentarEnviarEmail(params: { pedido: any; pedidoId: string; codigo
         return { status: "adquirido" as const, pedido: atual };
     });
     if (estado.status !== "adquirido") return estado.status === "enviado";
-    try { return await tentarEnviarEmailSemLease({ ...params, pedido: { ...estado.pedido, id: params.pedidoId },
-        codigoIngresso: estado.pedido.codigoIngresso || params.codigoIngresso }); }
+    try {
+        return await tentarEnviarEmailSemLease({
+            ...params, pedido: { ...estado.pedido, id: params.pedidoId },
+            codigoIngresso: estado.pedido.codigoIngresso || params.codigoIngresso
+        });
+    }
     finally {
         await runTransaction(db, async (tx) => {
             const snap = await tx.get(ref);
             if (snap.data()?.emailIngressoLeaseOwner === owner) tx.update(ref, { emailIngressoLeaseAte: 0 });
-        }).catch(() => {});
+        }).catch(() => { });
     }
 }
