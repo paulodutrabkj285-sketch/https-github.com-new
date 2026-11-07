@@ -409,8 +409,13 @@ export default function PortariaPage() {
                 setMensagem(
                     "PORTARIA PRINCIPAL - Aguardando ingresso ou grupo"
                 );
-            } else if (localValidacao === "elevador") {
-                setMensagem("ELEVADOR PANORÂMICO - Aguardando ingresso ou grupo");
+            } else if (
+                localValidacao ===
+                "elevador"
+            ) {
+                setMensagem(
+                    "ELEVADOR PANORÂMICO - Aguardando ingresso ou grupo"
+                );
             } else {
                 setMensagem(
                     "CACHOEIRA MUNDO NOVO - Aguardando ingresso ou grupo"
@@ -488,8 +493,6 @@ export default function PortariaPage() {
                 return;
             }
 
-            /* PEDIDOS */
-
             try {
                 const pedidosNuvem =
                     await listarPedidosAtivosPortaria();
@@ -506,8 +509,6 @@ export default function PortariaPage() {
                 );
             }
 
-            /* RESERVAS */
-
             try {
                 const reservas =
                     await listarReservasAgenciasNuvem();
@@ -523,8 +524,6 @@ export default function PortariaPage() {
                     error
                 );
             }
-
-            /* SINCRONIZAÇÃO */
 
             try {
                 await sincronizarPendentes();
@@ -703,9 +702,10 @@ export default function PortariaPage() {
             );
         }
     }
+
     /* ======================================
-   AUXILIARES
-====================================== */
+       AUXILIARES
+    ====================================== */
 
     function limpar(
         valor:
@@ -1057,7 +1057,12 @@ export default function PortariaPage() {
             return "Cachoeira Mundo Novo";
         }
 
-        if (localValidacao === "elevador") return "Elevador Panorâmico";
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            return "Elevador Panorâmico";
+        }
 
         return "Local não selecionado";
     }
@@ -1117,13 +1122,6 @@ export default function PortariaPage() {
                 dataCompraIngresso.getTime()
             );
 
-        /*
-         * PEDIDO NORMAL:
-         * pode antecipar em até 5 dias.
-         *
-         * RESERVA DE AGÊNCIA:
-         * mantém a regra anterior de 1 dia.
-         */
         const diasAntecipacao =
             temDataCompraValida
                 ? 5
@@ -1152,20 +1150,11 @@ export default function PortariaPage() {
         if (
             temDataCompraValida
         ) {
-            /*
-             * Ingresso normal:
-             * validade de 6 meses
-             * a partir da compra.
-             */
             fimPermitido.setMonth(
                 fimPermitido.getMonth() +
                 6
             );
         } else {
-            /*
-             * Reserva de agência:
-             * mantém a regra já existente.
-             */
             fimPermitido.setDate(
                 fimPermitido.getDate() +
                 30
@@ -1408,8 +1397,6 @@ export default function PortariaPage() {
                 }
             }
 
-            /* PEDIDOS */
-
             pedidos.forEach(
                 (
                     item
@@ -1430,11 +1417,20 @@ export default function PortariaPage() {
                             item.validadoEm ||
                             ""
                         );
-                    } else if (localValidacao === "elevador") {
+                    } else if (
+                        localValidacao ===
+                        "elevador"
+                    ) {
                         somar(
-                            quantidadeDoPedido(item),
-                            item.elevadorValidado === true,
-                            item.elevadorValidadoEm || ""
+                            quantidadeDoPedido(
+                                item
+                            ),
+
+                            item.elevadorValidado ===
+                            true,
+
+                            item.elevadorValidadoEm ||
+                            ""
                         );
                     } else {
                         somar(
@@ -1451,8 +1447,6 @@ export default function PortariaPage() {
                     }
                 }
             );
-
-            /* RESERVAS DE AGÊNCIA */
 
             reservas.forEach(
                 (
@@ -1475,11 +1469,22 @@ export default function PortariaPage() {
                                 item.validadoEm
                             )
                         );
-                    } else if (localValidacao === "elevador") {
+                    } else if (
+                        localValidacao ===
+                        "elevador"
+                    ) {
                         somar(
-                            Number(item.qtdElevador || 0),
-                            item.elevadorValidado === true,
-                            limpar(item.elevadorValidadoEm)
+                            Number(
+                                item.qtdElevador ||
+                                0
+                            ),
+
+                            item.elevadorValidado ===
+                            true,
+
+                            limpar(
+                                item.elevadorValidadoEm
+                            )
                         );
                     } else {
                         somar(
@@ -1607,7 +1612,14 @@ export default function PortariaPage() {
             );
         }
 
-        if (localValidacao === "elevador") return item.elevadorValidado === true;
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            return item.elevadorValidado ===
+                true;
+        }
+
         return (
             item.cachoeiraMundoNovoValidado ===
             true
@@ -1636,7 +1648,16 @@ export default function PortariaPage() {
             );
         }
 
-        if (localValidacao === "elevador") return item.elevadorValidadoEm || "";
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            return (
+                item.elevadorValidadoEm ||
+                ""
+            );
+        }
+
         return (
             item.cachoeiraMundoNovoValidadoEm ||
             ""
@@ -1664,7 +1685,16 @@ export default function PortariaPage() {
             );
         }
 
-        if (localValidacao === "elevador") return item.elevadorValidadoPor || "";
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            return (
+                item.elevadorValidadoPor ||
+                ""
+            );
+        }
+
         return (
             item.cachoeiraMundoNovoValidadoPor ||
             ""
@@ -1689,7 +1719,14 @@ export default function PortariaPage() {
             );
         }
 
-        if (localValidacao === "elevador") return item.elevadorValidado === true;
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            return item.elevadorValidado ===
+                true;
+        }
+
         return (
             item.cachoeiraMundoNovoValidado ===
             true
@@ -1717,7 +1754,15 @@ export default function PortariaPage() {
             );
         }
 
-        if (localValidacao === "elevador") return limpar(item.elevadorValidadoEm);
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            return limpar(
+                item.elevadorValidadoEm
+            );
+        }
+
         return limpar(
             item.cachoeiraMundoNovoValidadoEm
         );
@@ -1743,14 +1788,23 @@ export default function PortariaPage() {
             );
         }
 
-        if (localValidacao === "elevador") return limpar(item.elevadorValidadoPor);
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            return limpar(
+                item.elevadorValidadoPor
+            );
+        }
+
         return limpar(
             item.cachoeiraMundoNovoValidadoPor
         );
     }
+
     /* ======================================
-   VALIDAR PEDIDO NORMAL
-====================================== */
+       VALIDAR PEDIDO NORMAL
+    ====================================== */
 
     function validarPedidoEncontrado(
         encontrado:
@@ -1768,7 +1822,8 @@ export default function PortariaPage() {
         );
 
         setCodigoManual(
-            localValidacao === "elevador"
+            localValidacao ===
+                "elevador"
                 ? (
                     codigoElevadorPedido(
                         encontrado
@@ -1815,10 +1870,6 @@ export default function PortariaPage() {
             return;
         }
 
-        /* ==================================
-           CANCELADO / BLOQUEADO
-        ================================== */
-
         if (
             encontrado.statusOperacional ===
             "cancelado" ||
@@ -1858,7 +1909,11 @@ export default function PortariaPage() {
             setMensagem(
                 "INGRESSO DO PARQUE NÃO É VÁLIDO NO ELEVADOR"
             );
-            vibrar("erro");
+
+            vibrar(
+                "erro"
+            );
+
             return;
         }
 
@@ -1870,7 +1925,11 @@ export default function PortariaPage() {
             setMensagem(
                 "INGRESSO EXCLUSIVO DO ELEVADOR — UTILIZE O LEITOR DO ELEVADOR"
             );
-            vibrar("erro");
+
+            vibrar(
+                "erro"
+            );
+
             return;
         }
 
@@ -1895,19 +1954,35 @@ export default function PortariaPage() {
             return;
         }
 
-        /* ELEVADOR PANORÂMICO */
-        if (localValidacao === "elevador") {
-            if (encontrado.elevadorValidado === true) {
-                setMensagem("INGRESSO DO ELEVADOR JÁ UTILIZADO");
-                vibrar("erro");
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            if (
+                encontrado.elevadorValidado ===
+                true
+            ) {
+                setMensagem(
+                    "INGRESSO DO ELEVADOR JÁ UTILIZADO"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
                 return;
             }
-            setMensagem("INGRESSO DO ELEVADOR VÁLIDO");
-            vibrar("sucesso");
+
+            setMensagem(
+                "INGRESSO DO ELEVADOR VÁLIDO"
+            );
+
+            vibrar(
+                "sucesso"
+            );
+
             return;
         }
-
-        /* PORTARIA PRINCIPAL */
 
         if (
             localValidacao ===
@@ -1938,8 +2013,6 @@ export default function PortariaPage() {
 
             return;
         }
-
-        /* CACHOEIRA */
 
         if (
             encontrado.statusOperacional !==
@@ -2050,33 +2123,70 @@ export default function PortariaPage() {
             return;
         }
 
-        /* ==================================
-           ELEVADOR PANORÂMICO - RESERVA DE AGÊNCIA
-        ================================== */
-        if (localValidacao === "elevador") {
-            if (encontrada.elevador !== true || Number(encontrada.qtdElevador || 0) <= 0) {
-                setMensagem("RESERVA SEM ACESSO AO ELEVADOR");
-                vibrar("erro");
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            if (
+                encontrada.elevador !==
+                true ||
+                Number(
+                    encontrada.qtdElevador ||
+                    0
+                ) <=
+                0
+            ) {
+                setMensagem(
+                    "RESERVA SEM ACESSO AO ELEVADOR"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
                 return;
             }
-            if (encontrada.statusOperacional !== "utilizado") {
-                setMensagem("VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL");
-                vibrar("erro");
+
+            if (
+                encontrada.statusOperacional !==
+                "utilizado"
+            ) {
+                setMensagem(
+                    "VALIDAR PRIMEIRO NA PORTARIA PRINCIPAL"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
                 return;
             }
-            if (encontrada.elevadorValidado === true) {
-                setMensagem("ACESSO AO ELEVADOR JÁ UTILIZADO");
-                vibrar("erro");
+
+            if (
+                encontrada.elevadorValidado ===
+                true
+            ) {
+                setMensagem(
+                    "ACESSO AO ELEVADOR JÁ UTILIZADO"
+                );
+
+                vibrar(
+                    "erro"
+                );
+
                 return;
             }
-            setMensagem("ACESSO AO ELEVADOR VÁLIDO");
-            vibrar("sucesso");
+
+            setMensagem(
+                "ACESSO AO ELEVADOR VÁLIDO"
+            );
+
+            vibrar(
+                "sucesso"
+            );
+
             return;
         }
-
-        /* ==================================
-           PORTARIA PRINCIPAL
-        ================================== */
 
         if (
             localValidacao ===
@@ -2142,10 +2252,6 @@ export default function PortariaPage() {
 
             return;
         }
-
-        /* ==================================
-           CACHOEIRA
-        ================================== */
 
         if (
             encontrada.statusOperacional !==
@@ -2226,10 +2332,6 @@ export default function PortariaPage() {
                     textoQr
                 );
 
-            /* ==================================
-               QR EXPLÍCITO DE AGÊNCIA
-            ================================== */
-
             const pareceReserva =
                 dadosQr.tipo ===
                 "reserva_agencia" ||
@@ -2291,10 +2393,6 @@ export default function PortariaPage() {
                 return;
             }
 
-            /* ==================================
-               PRIMEIRO PROCURA INGRESSO NORMAL
-            ================================== */
-
             const pedidos =
                 await obterListaDePedidosAtiva();
 
@@ -2343,16 +2441,9 @@ export default function PortariaPage() {
                                 item.id
                             );
 
-                        /*
-                         * CARRINHO NOVO:
-                         * cada leitor aceita somente
-                         * o código da atração correta.
-                         *
-                         * Não usamos pedidoId sozinho,
-                         * pois Parque e Elevador possuem
-                         * o mesmo pedidoId.
-                         */
-                        if (ehCarrinho) {
+                        if (
+                            ehCarrinho
+                        ) {
                             if (
                                 localValidacao ===
                                 "elevador"
@@ -2371,11 +2462,6 @@ export default function PortariaPage() {
                                 );
                             }
 
-                            /*
-                             * Portaria principal e
-                             * Cachoeira usam o ingresso
-                             * principal do Parque.
-                             */
                             return (
                                 (
                                     !!dadosQr.codigo &&
@@ -2390,10 +2476,6 @@ export default function PortariaPage() {
                             );
                         }
 
-                        /*
-                         * PEDIDOS ANTIGOS:
-                         * mantém compatibilidade.
-                         */
                         return (
                             codigoIngresso ===
                             dadosQr.codigo ||
@@ -2422,10 +2504,6 @@ export default function PortariaPage() {
 
                 return;
             }
-
-            /* ==================================
-               PROCURA RESERVA POR GRP DIGITADO
-            ================================== */
 
             const reservas =
                 await obterListaDeReservasAtiva();
@@ -2624,10 +2702,6 @@ export default function PortariaPage() {
             return;
         }
 
-        /* ==================================
-           PROTEÇÃO: CANCELADO / BLOQUEADO
-        ================================== */
-
         if (
             pedido.statusOperacional ===
             "cancelado" ||
@@ -2667,7 +2741,11 @@ export default function PortariaPage() {
             setMensagem(
                 "INGRESSO DO PARQUE NÃO É VÁLIDO NO ELEVADOR"
             );
-            vibrar("erro");
+
+            vibrar(
+                "erro"
+            );
+
             return;
         }
 
@@ -2679,12 +2757,28 @@ export default function PortariaPage() {
             setMensagem(
                 "INGRESSO EXCLUSIVO DO ELEVADOR — UTILIZE O LEITOR DO ELEVADOR"
             );
-            vibrar("erro");
+
+            vibrar(
+                "erro"
+            );
+
             return;
         }
-        if (localValidacao === "elevador" && pedido.elevadorValidado === true) {
-            setMensagem("INGRESSO DO ELEVADOR JÁ UTILIZADO");
-            vibrar("erro");
+
+        if (
+            localValidacao ===
+            "elevador" &&
+            pedido.elevadorValidado ===
+            true
+        ) {
+            setMensagem(
+                "INGRESSO DO ELEVADOR JÁ UTILIZADO"
+            );
+
+            vibrar(
+                "erro"
+            );
+
             return;
         }
 
@@ -2771,11 +2865,20 @@ export default function PortariaPage() {
                 unknown
             >;
 
-        if (localValidacao === "elevador") {
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
             dadosUtilizacao = {
-                elevadorValidado: true,
-                elevadorValidadoPor: funcionario,
-                elevadorValidadoEm: agora,
+                elevadorValidado:
+                    true,
+
+                elevadorValidadoPor:
+                    funcionario,
+
+                elevadorValidadoEm:
+                    agora,
+
                 elevadorQuantidadeValidada:
                     pedidoEhCarrinhoParqueElevador(
                         pedido
@@ -2848,14 +2951,16 @@ export default function PortariaPage() {
             localValidacao ===
                 "principal"
                 ? "ENTRADA PRINCIPAL CONFIRMADA"
-                : localValidacao === "elevador"
+                : localValidacao ===
+                    "elevador"
                     ? "ACESSO AO ELEVADOR CONFIRMADO"
                     : "ACESSO À CACHOEIRA CONFIRMADO"
         );
     }
+
     /* ======================================
-   CONFIRMAR RESERVA DE AGÊNCIA
-====================================== */
+       CONFIRMAR RESERVA DE AGÊNCIA
+    ====================================== */
 
     async function confirmarReservaAgencia() {
         if (
@@ -2865,9 +2970,24 @@ export default function PortariaPage() {
             return;
         }
 
-        if (["cancelado", "bloqueado"].includes(limpar(reservaAgencia.statusOperacional).toLowerCase())) {
-            setMensagem("RESERVA CANCELADA OU BLOQUEADA");
-            vibrar("erro");
+        if (
+            [
+                "cancelado",
+                "bloqueado",
+            ].includes(
+                limpar(
+                    reservaAgencia.statusOperacional
+                ).toLowerCase()
+            )
+        ) {
+            setMensagem(
+                "RESERVA CANCELADA OU BLOQUEADA"
+            );
+
+            vibrar(
+                "erro"
+            );
+
             return;
         }
 
@@ -2901,22 +3021,48 @@ export default function PortariaPage() {
                 unknown
             >;
 
-        /* ==================================
-           PORTARIA PRINCIPAL
-        ================================== */
+        if (
+            localValidacao ===
+            "elevador"
+        ) {
+            if (
+                reservaAgencia.elevador !==
+                true ||
+                Number(
+                    reservaAgencia.qtdElevador ||
+                    0
+                ) <=
+                0 ||
+                reservaAgencia.statusOperacional !==
+                "utilizado" ||
+                reservaAgencia.elevadorValidado ===
+                true
+            ) {
+                setMensagem(
+                    "ACESSO AO ELEVADOR NÃO AUTORIZADO OU JÁ UTILIZADO"
+                );
 
-        if (localValidacao === "elevador") {
-            if (reservaAgencia.elevador !== true || Number(reservaAgencia.qtdElevador || 0) <= 0 ||
-                reservaAgencia.statusOperacional !== "utilizado" || reservaAgencia.elevadorValidado === true) {
-                setMensagem("ACESSO AO ELEVADOR NÃO AUTORIZADO OU JÁ UTILIZADO");
-                vibrar("erro");
+                vibrar(
+                    "erro"
+                );
+
                 return;
             }
+
             dadosUtilizacao = {
-                elevadorValidado: true,
-                elevadorValidadoPor: funcionario,
-                elevadorValidadoEm: agora,
-                elevadorQuantidadeValidada: Number(reservaAgencia.qtdElevador),
+                elevadorValidado:
+                    true,
+
+                elevadorValidadoPor:
+                    funcionario,
+
+                elevadorValidadoEm:
+                    agora,
+
+                elevadorQuantidadeValidada:
+                    Number(
+                        reservaAgencia.qtdElevador
+                    ),
             };
         } else if (
             localValidacao ===
@@ -2994,10 +3140,6 @@ export default function PortariaPage() {
                     ),
             };
         } else {
-            /* ==================================
-               CACHOEIRA
-            ================================== */
-
             if (
                 reservaAgencia.statusOperacional !==
                 "utilizado"
@@ -3070,7 +3212,8 @@ export default function PortariaPage() {
                         reservaAgencia
                     )
                 )} CONFIRMADOS`
-                : localValidacao === "elevador"
+                : localValidacao ===
+                    "elevador"
                     ? "ACESSO DO GRUPO AO ELEVADOR CONFIRMADO"
                     : "ACESSO DO GRUPO À CACHOEIRA CONFIRMADO"
         );
@@ -3225,8 +3368,6 @@ export default function PortariaPage() {
     let valido =
         false;
 
-    /* PEDIDO NORMAL */
-
     if (
         pedido
     ) {
@@ -3237,24 +3378,34 @@ export default function PortariaPage() {
             "bloqueado" &&
             pedido.statusOperacional !==
             "cancelado" &&
-            (localValidacao === "elevador"
-                ? (
-                    pedidoExclusivoElevador(
-                        pedido
-                    ) ||
-                    pedidoEhCarrinhoParqueElevador(
+            (
+                localValidacao ===
+                    "elevador"
+                    ? (
+                        pedidoExclusivoElevador(
+                            pedido
+                        ) ||
+                        pedidoEhCarrinhoParqueElevador(
+                            pedido
+                        )
+                    )
+                    : !pedidoExclusivoElevador(
                         pedido
                     )
-                )
-                : !pedidoExclusivoElevador(
-                    pedido
-                )) &&
+            ) &&
             validadeAtual.valido &&
             !usado;
 
-        if (valido && localValidacao === "elevador") {
-            valido = pedido.elevadorValidado !== true;
+        if (
+            valido &&
+            localValidacao ===
+            "elevador"
+        ) {
+            valido =
+                pedido.elevadorValidado !==
+                true;
         }
+
         if (
             valido &&
             localValidacao ===
@@ -3266,8 +3417,6 @@ export default function PortariaPage() {
         }
     }
 
-    /* RESERVA DE AGÊNCIA */
-
     if (
         reservaAgencia
     ) {
@@ -3278,17 +3427,37 @@ export default function PortariaPage() {
             "pago";
 
         valido =
-            !["bloqueado", "cancelado"].includes(limpar(reservaAgencia.statusOperacional).toLowerCase()) &&
+            ![
+                "bloqueado",
+                "cancelado",
+            ].includes(
+                limpar(
+                    reservaAgencia.statusOperacional
+                ).toLowerCase()
+            ) &&
             validadeAtual.valido &&
             !usado &&
             pagamentoAceito;
 
-        if (valido && localValidacao === "elevador") {
-            valido = reservaAgencia.elevador === true &&
-                Number(reservaAgencia.qtdElevador || 0) > 0 &&
-                reservaAgencia.statusOperacional === "utilizado" &&
-                reservaAgencia.elevadorValidado !== true;
+        if (
+            valido &&
+            localValidacao ===
+            "elevador"
+        ) {
+            valido =
+                reservaAgencia.elevador ===
+                true &&
+                Number(
+                    reservaAgencia.qtdElevador ||
+                    0
+                ) >
+                0 &&
+                reservaAgencia.statusOperacional ===
+                "utilizado" &&
+                reservaAgencia.elevadorValidado !==
+                true;
         }
+
         if (
             valido &&
             localValidacao ===
@@ -3526,10 +3695,16 @@ export default function PortariaPage() {
 
                         <button
                             type="button"
-                            onClick={() => setLocalValidacao("elevador")}
-                            className={`rounded-2xl px-2 py-4 text-xs font-black ${localValidacao === "elevador"
+                            onClick={() =>
+                                setLocalValidacao(
+                                    "elevador"
+                                )
+                            }
+                            className={`rounded-2xl px-2 py-4 text-xs font-black ${localValidacao ===
+                                "elevador"
                                 ? "bg-amber-400 text-black"
-                                : "bg-white/10 text-white"}`}
+                                : "bg-white/10 text-white"
+                                }`}
                         >
                             🛗 ELEVADOR
                         </button>
@@ -3587,42 +3762,6 @@ export default function PortariaPage() {
                         )}
                     </select>
                 </section>
-
-                {/* CONTADORES */}
-
-                {localValidacao && (
-                    <section className="mb-4 grid grid-cols-3 gap-2">
-                        <div className="rounded-2xl border border-white/15 bg-black/40 p-3 text-center backdrop-blur-md">
-                            <p className="text-xs font-bold text-white/60">
-                                HOJE
-                            </p>
-
-                            <p className="mt-1 text-2xl font-black">
-                                {entradasHoje}
-                            </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-white/15 bg-black/40 p-3 text-center backdrop-blur-md">
-                            <p className="text-xs font-bold text-white/60">
-                                MÊS
-                            </p>
-
-                            <p className="mt-1 text-2xl font-black">
-                                {entradasMes}
-                            </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-white/15 bg-black/40 p-3 text-center backdrop-blur-md">
-                            <p className="text-xs font-bold text-white/60">
-                                TOTAL
-                            </p>
-
-                            <p className="mt-1 text-2xl font-black">
-                                {totalUtilizados}
-                            </p>
-                        </div>
-                    </section>
-                )}
 
                 {/* LEITOR */}
 
@@ -3871,7 +4010,10 @@ export default function PortariaPage() {
                             </div>
 
                             <div className="rounded-2xl bg-white/10 p-4">
-                                <p className="font-black">🛗 Elevador Panorâmico</p>
+                                <p className="font-black">
+                                    🛗 Elevador Panorâmico
+                                </p>
+
                                 <p className="mt-1 font-bold">
                                     {pedidoExclusivoElevador(
                                         pedido
@@ -3880,7 +4022,12 @@ export default function PortariaPage() {
                                             pedido
                                         )
                                         ? pedido.elevadorValidado
-                                            ? `✅ Validado${pedido.elevadorValidadoEm ? ` em ${formatarDataHora(pedido.elevadorValidadoEm)}` : ""}`
+                                            ? `✅ Validado${pedido.elevadorValidadoEm
+                                                ? ` em ${formatarDataHora(
+                                                    pedido.elevadorValidadoEm
+                                                )}`
+                                                : ""
+                                            }`
                                             : "⏳ Ainda não validado"
                                         : "Não incluso neste ingresso"}
                                 </p>
@@ -3973,9 +4120,10 @@ export default function PortariaPage() {
                                 </p>
 
                                 <p className="font-bold">
-                                    {limpar(reservaAgencia.nomeAgencia) ||
+                                    {limpar(
+                                        reservaAgencia.nomeAgencia
+                                    ) ||
                                         "Agência parceira"}
-
                                 </p>
                             </div>
 
@@ -4011,12 +4159,12 @@ export default function PortariaPage() {
                                 </p>
 
                                 <p className="font-bold">
-
                                     {formatarMoeda(
-                                        Number(reservaAgencia.valorTotal || 0)
+                                        Number(
+                                            reservaAgencia.valorTotal ||
+                                            0
+                                        )
                                     )}
-
-
                                 </p>
                             </div>
 
@@ -4076,7 +4224,8 @@ export default function PortariaPage() {
                             className={`mt-5 w-full rounded-3xl px-5 py-6 text-xl font-black text-white shadow-xl disabled:opacity-60 ${localValidacao ===
                                 "principal"
                                 ? "bg-green-500"
-                                : localValidacao === "elevador"
+                                : localValidacao ===
+                                    "elevador"
                                     ? "bg-amber-500"
                                     : "bg-blue-500"
                                 }`}
@@ -4094,8 +4243,16 @@ export default function PortariaPage() {
                                     ? `✅ CONFIRMAR ENTRADA DE ${textoPessoas(
                                         quantidadeAtual
                                     )}`
-                                    : localValidacao === "elevador"
-                                        ? `🛗 CONFIRMAR ELEVADOR DE ${textoPessoas(reservaAgencia ? Number(reservaAgencia.qtdElevador || 0) : quantidadeAtual)}`
+                                    : localValidacao ===
+                                        "elevador"
+                                        ? `🛗 CONFIRMAR ELEVADOR DE ${textoPessoas(
+                                            reservaAgencia
+                                                ? Number(
+                                                    reservaAgencia.qtdElevador ||
+                                                    0
+                                                )
+                                                : quantidadeAtual
+                                        )}`
                                         : `💦 CONFIRMAR ACESSO DE ${textoPessoas(
                                             quantidadeAtual
                                         )}`}
