@@ -45,7 +45,6 @@ import {
 
 const FUNCIONARIOS = [
     "HANDERSON",
-    "DANIELA",
     "JULIA",
     "JHAMES",
     "JOSEVITOR",
@@ -53,9 +52,6 @@ const FUNCIONARIOS = [
     "VICTOR",
     "WELLINGTON",
     "PEDRO",
-    "FRANCISCO",
-    "Perteson",
-    "Matheus matias",
     "NORTON",
 ];
 
