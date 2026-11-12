@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomInt } from 'node:crypto';
 import { deleteApp, initializeServerApp, type FirebaseServerApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { doc, getFirestore, runTransaction, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getFirestore, limit, or, query, runTransaction, updateDoc, where } from 'firebase/firestore';
 import { auth } from '@/lib/firebase';
 import { prepararPedido } from '@/lib/preparar-pedido';
-import { gerarCodigoIngresso, gerarCodigosCarrinho } from '@/lib/codigos-ingresso';
 import { enviarIngressoPorEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
@@ -43,13 +43,27 @@ export async function POST(req: NextRequest) {
     }
     const db = getFirestore(app);
     const ref = doc(db, 'pedidos', 'EMADM-' + chave);
+    // A consulta inclui códigos legados e os QR das duas atrações, sem exigir
+    // índices compostos. Não altera pedidos existentes nem as vendas normais.
+    async function gerarCodigoCurto(excluidos: string[] = []) {
+      const campos = ['codigoIngresso', 'codigoIngressoParque', 'codigoIngressoElevador',
+        'qrCodeIngresso', 'qrCodeIngressoParque', 'qrCodeIngressoElevador'];
+      for (let tentativa = 0; tentativa < 100; tentativa++) {
+        // Mesmo intervalo das vendas em prepararPedido, com aleatoriedade do Node.
+        const codigo = `PMN-${randomInt(10000, 100000)}`;
+        if (excluidos.includes(codigo)) continue;
+        const existentes = await getDocs(query(collection(db, 'pedidos'),
+          or(...campos.map(campo => where(campo, '==', codigo))), limit(1)));
+        if (existentes.empty) return codigo;
+      }
+      throw new Error('Não foi possível encontrar um código de cortesia disponível.');
+    }
     const resultado = await runTransaction(db, async tx => {
       const snap = await tx.get(ref);
       if (snap.exists()) return { criado: false, pedido: snap.data() };
-      // Mantém o formato PMN usado nas compras normais.
-      // O ID Firestore torna os códigos exclusivos e estáveis em novas tentativas.
-      const codigo = gerarCodigoIngresso(ref.id);
-      const codigoElevador = parque ? gerarCodigosCarrinho(ref.id).codigoElevador : codigo;
+      // Só gera códigos para pedidos novos; o ID EMADM e a idempotência permanecem.
+      const codigo = await gerarCodigoCurto();
+      const codigoElevador = parque && elevador ? await gerarCodigoCurto([codigo]) : codigo;
       const pedido = prepararPedido({
         nome, email, cpf: '', telefone: '', dataVisita, quantidade,
         produto: parque ? 'Ingresso Parque' : 'Elevador Panorâmico',
