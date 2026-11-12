@@ -26,8 +26,23 @@ export async function POST(req: NextRequest) {
     // Somente ler claims após o Firebase autenticar o token recebido.
     const { claims } = await usuario.getIdTokenResult();
     // Autenticação sozinha não concede permissão para emitir ingressos gratuitos.
-    const uids = (process.env.ADMIN_EMISSAO_UIDS || '').split(',').map(s => s.trim()).filter(Boolean);
-    if (claims.admin !== true && !uids.includes(usuario.uid)) {
+    const uids = (process.env.ADMIN_EMISSAO_UIDS || '')
+      .trim()
+      .split(',')
+      .map(uid => uid.trim())
+      .filter(Boolean);
+    const adminPorClaim = claims.admin === true;
+    const autorizadoPorUid = uids.includes(usuario.uid);
+    // Diagnóstico temporário apenas no servidor. Nunca registrar token ou UID completo.
+    // Oculta também valores curtos para não registrar um UID completo por acidente.
+    const prefixoUid = (uid: string) => uid.length > 6 ? uid.slice(0, 6) : '[oculto]';
+    console.info('EMISSÃO DE CORTESIA: diagnóstico de autorização', {
+      uidAutenticadoPrefixo: prefixoUid(usuario.uid),
+      uidsAutorizadosPrefixos: uids.map(prefixoUid),
+      adminPorClaim,
+      autorizadoPorUid,
+    });
+    if (!adminPorClaim && !autorizadoPorUid) {
       return NextResponse.json({ erro: 'Usuário sem permissão administrativa para emitir cortesia.' }, { status: 403 });
     }
     const body = await req.json();
