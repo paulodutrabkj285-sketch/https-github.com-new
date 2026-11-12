@@ -357,6 +357,11 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <Botao
+              texto="Emitir cortesia"
+              classe="bg-green-800 hover:bg-green-900"
+              onClick={() => router.push("/admin/dashboard/emitir-cortesia")}
+            />
 
             <Botao
               texto="🏢 Agências e Reservas"
