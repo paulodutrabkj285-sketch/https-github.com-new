@@ -4,7 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { doc, getFirestore, runTransaction, updateDoc } from 'firebase/firestore';
 import { auth } from '@/lib/firebase';
 import { prepararPedido } from '@/lib/preparar-pedido';
-import { gerarCodigoIngresso, obterCodigosCarrinho } from '@/lib/finalizar-pagamento';
+import { gerarCodigoIngresso } from '@/lib/finalizar-pagamento';
 import { enviarIngressoPorEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
       // Usa o gerador e o formato compartilhados com as compras normais.
       // O ID Firestore torna os códigos exclusivos e estáveis em novas tentativas.
       const codigo = gerarCodigoIngresso(ref.id);
-      const codigoElevador = parque ? obterCodigosCarrinho({}, ref.id).codigoElevador : codigo;
+      // Mesma regra de obterCodigosCarrinho: o Elevador tem código próprio no combo.
+      const codigoElevador = parque ? `PMN-ELEV-${ref.id}` : codigo;
       const pedido = prepararPedido({
         nome, email, cpf: '', telefone: '', dataVisita, quantidade,
         produto: parque ? 'Ingresso Parque' : 'Elevador Panorâmico',
