@@ -37,13 +37,14 @@ function cenario({ claims = { admin: true }, uid = 'admin-teste', invalido = fal
   };
   const preco = carregar('src/lib/preco-elevador.ts');
   const preparar = carregar('src/lib/preparar-pedido.ts', { './preco-elevador': preco });
+  const email = { enviarIngressoPorEmail: async dados => {
+    if (falhaEmail) throw new Error('Falha SMTP simulada');
+    emails.push(dados); return {};
+  } };
   const finalizar = carregar('src/lib/finalizar-pagamento.ts', {
     crypto: { randomUUID: () => 'lease' }, '@/lib/sicredi-pix': {}, '@/lib/pagbank-notificacao': {},
     '@/lib/pedidos': {}, '@/lib/firebase': {}, 'firebase/firestore': firestore,
-    '@/lib/email': { enviarIngressoPorEmail: async dados => {
-      if (falhaEmail) throw new Error('Falha SMTP simulada');
-      emails.push(dados); return {};
-    } },
+    '@/lib/email': email,
   });
   const rota = carregar('src/app/api/admin/emitir-acessos/route.ts', {
     'next/server': { NextResponse: { json: (body, options) => ({ body, status: options?.status || 200 }) } },
@@ -68,7 +69,10 @@ function cenario({ claims = { admin: true }, uid = 'admin-teste', invalido = fal
     'firebase/firestore': firestore,
     '@/lib/firebase': { auth: { app: appExistente } },
     '@/lib/preparar-pedido': preparar,
-    '@/lib/finalizar-pagamento': finalizar,
+    // A rota não deve depender do wrapper interno de envio da finalização.
+    '@/lib/finalizar-pagamento': { gerarCodigoIngresso: finalizar.gerarCodigoIngresso,
+      obterCodigosCarrinho: finalizar.obterCodigosCarrinho },
+    '@/lib/email': email,
   }, { ADMIN_EMISSAO_UIDS: uids });
   const emitir = (dados = {}, token = 'token-teste') => rota.POST({
     headers: { get: () => token ? `Bearer ${token}` : null },

@@ -4,7 +4,8 @@ import { getAuth } from 'firebase/auth';
 import { doc, getFirestore, runTransaction, updateDoc } from 'firebase/firestore';
 import { auth } from '@/lib/firebase';
 import { prepararPedido } from '@/lib/preparar-pedido';
-import { gerarCodigoIngresso, obterCodigosCarrinho, tentarEnviarEmailSemLease } from '@/lib/finalizar-pagamento';
+import { gerarCodigoIngresso, obterCodigosCarrinho } from '@/lib/finalizar-pagamento';
+import { enviarIngressoPorEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -75,12 +76,44 @@ export async function POST(req: NextRequest) {
     });
     const pedido = resultado.pedido;
     // Repetir a mesma requisição nunca emite outro pedido nem duplica o envio.
-    const emailEnviado = resultado.criado && email
-      ? await tentarEnviarEmailSemLease({ pedido, pedidoId: ref.id,
-          codigoIngresso: String(pedido.codigoIngresso),
-          salvarPedido: async (_id, dados) => { await updateDoc(ref, { ...dados, updatedAt: new Date().toISOString() }); },
-        })
-      : Boolean("emailIngressoEnviado" in pedido && pedido.emailIngressoEnviado);
+    let emailEnviado = Boolean("emailIngressoEnviado" in pedido && pedido.emailIngressoEnviado);
+    if (resultado.criado && pedido.email) {
+      // A mesma função usada nas compras gera QR, PDF e e-mail por atração.
+      const ingressos = pedido.tipo === 'carrinho'
+        ? [
+            { produto: 'Ingresso Parque', quantidade: pedido.quantidadeParque,
+              codigoIngresso: pedido.codigoIngressoParque, campoEnvio: 'emailParqueEnviado' },
+            { produto: 'Elevador Panorâmico', quantidade: pedido.quantidadeElevador,
+              codigoIngresso: pedido.codigoIngressoElevador, campoEnvio: 'emailElevadorEnviado' },
+          ]
+        : [{ produto: pedido.produto, quantidade: pedido.quantidade,
+             codigoIngresso: pedido.codigoIngresso,
+             campoEnvio: pedido.tipo === 'elevador' ? 'emailElevadorEnviado' : 'emailParqueEnviado' }];
+      try {
+        for (const ingresso of ingressos) {
+          await enviarIngressoPorEmail({
+            para: pedido.email, nome: pedido.nome, produto: ingresso.produto,
+            quantidade: Number(ingresso.quantidade), codigoIngresso: String(ingresso.codigoIngresso),
+            pedidoId: ref.id, dataVisita: pedido.dataVisita,
+          });
+          await updateDoc(ref, { [ingresso.campoEnvio]: true, updatedAt: new Date().toISOString() });
+        }
+        await updateDoc(ref, {
+          emailIngressoEnviado: true, emailIngressoEnviadoEm: new Date().toISOString(),
+          emailIngressoErro: '', emailIngressoErroEm: '',
+          ...(pedido.tipo === 'carrinho' ? { emailCarrinhoSeparado: true } : {}),
+          updatedAt: new Date().toISOString(),
+        });
+        emailEnviado = true;
+      } catch (error) {
+        // O pedido continua emitido mesmo se SMTP ou a atualização do envio falhar.
+        await updateDoc(ref, {
+          emailIngressoEnviado: false,
+          emailIngressoErro: error instanceof Error ? error.message : 'Falha ao enviar ingresso.',
+          emailIngressoErroEm: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        }).catch(() => {});
+      }
+    }
     return NextResponse.json({ ok: true, criado: resultado.criado, pedidoId: ref.id,
       codigoIngresso: pedido.codigoIngresso, codigoIngressoParque: pedido.codigoIngressoParque,
       codigoIngressoElevador: pedido.codigoIngressoElevador, emailEnviado,
