@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
 import { criarPedido } from "@/lib/pedidos";
+
 
 type TipoDocumento = "cpf" | "estrangeiro";
 
@@ -29,6 +30,30 @@ export default function ParquePage() {
   const router = useRouter();
 
   const [nome, setNome] = useState("");
+
+  const [comboPromocional, setComboPromocional] = useState(false);
+  const [verificandoCombo, setVerificandoCombo] = useState(true);
+  const [erroCombo, setErroCombo] = useState("");
+  useEffect(() => {
+    let ativo = true;
+    async function verificar() {
+      if (new URLSearchParams(window.location.search).get("combo") !== "parque-elevador") {
+        setVerificandoCombo(false);
+        return;
+      }
+      try {
+        const resposta = await fetch("/api/ingressos/combo?verificar=1", { cache: "no-store" });
+        if (!resposta.ok) throw new Error("Autorização expirada.");
+        if (ativo) { setComboPromocional(true); setQuantidadeElevador(1); }
+      } catch {
+        if (ativo) setErroCombo("Para comprar o combo, volte à página de ingressos e clique em Comprar combo agora.");
+      } finally {
+        if (ativo) setVerificandoCombo(false);
+      }
+    }
+    verificar();
+    return () => { ativo = false; };
+  }, []);
 
   const [
 
@@ -204,13 +229,26 @@ export default function ParquePage() {
 
     );
 
+  function alterarQuantidadeParque(novaQuantidade: number) {
+    setQuantidade(novaQuantidade);
+    if (comboPromocional) setQuantidadeElevador(novaQuantidade);
+  }
+
+  function alterarQuantidadeElevador(novaQuantidade: number) {
+    if (comboPromocional) {
+      alterarQuantidadeParque(Math.max(1, novaQuantidade));
+    } else {
+      setQuantidadeElevador(novaQuantidade);
+    }
+  }
+
   const valorUnitario =
 
     60;
 
   const valorUnitarioElevador =
 
-    quantidadeElevador >= 2 ? 60 : 75;
+    (comboPromocional && quantidadeElevador === quantidade) || quantidadeElevador >= 2 ? 60 : 75;
 
   const valorParque =
 
@@ -243,6 +281,7 @@ export default function ParquePage() {
       [
 
         quantidadeElevador,
+        valorUnitarioElevador,
 
       ]
 
@@ -679,6 +718,8 @@ export default function ParquePage() {
   }
 
   async function continuarParaResumo() {
+    if (verificandoCombo || erroCombo) return;
+
 
     const nomeFinal =
 
@@ -1132,13 +1173,21 @@ export default function ParquePage() {
 
       };
 
-      const pedidoId =
-
-        await criarPedido(
-
-          dadosPedido
-
-        );
+      let pedidoId: string;
+      if (comboPromocional) {
+        const resposta = await fetch("/api/ingressos/combo", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dadosPedido),
+        });
+        const resultado = await resposta.json();
+        if (!resposta.ok || !resultado.ok) {
+          alert(resultado.erro || "Não foi possível criar o combo.");
+          return;
+        }
+        pedidoId = resultado.pedidoId;
+      } else {
+        pedidoId = await criarPedido(dadosPedido);
+      }
 
       const params =
 
@@ -1433,6 +1482,13 @@ export default function ParquePage() {
           </div>
 
         </section>
+
+        {erroCombo && (
+          <div role="alert" className="mt-6 rounded-2xl bg-amber-50 p-5 font-semibold text-amber-950">
+            <p>{erroCombo}</p>
+            <a href="/ingressos" className="mt-2 inline-block underline">Voltar à página de ingressos</a>
+          </div>
+        )}
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
 
@@ -2060,29 +2116,7 @@ export default function ParquePage() {
 
                     type="button"
 
-                    onClick={() =>
-
-                      setQuantidade(
-
-                        (
-
-                          q
-
-                        ) =>
-
-                          Math.max(
-
-                            1,
-
-                            q -
-
-                            1
-
-                          )
-
-                      )
-
-                    }
+                    onClick={() => alterarQuantidadeParque(Math.max(1, quantidade - 1))}
 
                     className={
 
@@ -2110,23 +2144,7 @@ export default function ParquePage() {
 
                     type="button"
 
-                    onClick={() =>
-
-                      setQuantidade(
-
-                        (
-
-                          q
-
-                        ) =>
-
-                          q +
-
-                          1
-
-                      )
-
-                    }
+                    onClick={() => alterarQuantidadeParque(quantidade + 1)}
 
                     className={
 
@@ -2166,7 +2184,7 @@ export default function ParquePage() {
 
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
 
-                    Adicione agora o ingresso do Elevador Panorâmico e pague tudo junto em uma única transação. O ingresso do elevador terá QR Code próprio e será validado somente no elevador.
+                    Adicione agora o ingresso do Elevador Panorâmico e pague tudo junto em uma única transação. {comboPromocional && "No combo especial, selecione a mesma quantidade de ingressos do Parque e do Elevador: R$ 120 por combo."} O ingresso do elevador terá QR Code próprio e será validado somente no elevador.
 
                   </p>
 
@@ -2188,7 +2206,7 @@ export default function ParquePage() {
 
                   <p className="mt-1 text-[11px] font-semibold text-sky-100">
 
-                    {quantidadeElevador >= 2
+                    {(comboPromocional && quantidadeElevador === quantidade) || quantidadeElevador >= 2
                       ? "Promoção aplicada"
                       : "A partir de 2: R$ 60 cada"}
 
@@ -2210,7 +2228,7 @@ export default function ParquePage() {
 
                   <p className="mt-1 text-xs text-gray-500">
 
-                    Deixe em 0 se não quiser adicionar o elevador nesta compra.
+                    {comboPromocional ? "A quantidade acompanha os ingressos do Parque. Cada combo custa R$ 120." : "Deixe em 0 se não quiser adicionar o elevador nesta compra."}
 
                   </p>
 
@@ -2224,11 +2242,7 @@ export default function ParquePage() {
 
                     onClick={() =>
 
-                      setQuantidadeElevador((q) =>
-
-                        Math.max(0, q - 1)
-
-                      )
+                      alterarQuantidadeElevador(Math.max(0, quantidadeElevador - 1))
 
                     }
 
@@ -2252,7 +2266,7 @@ export default function ParquePage() {
 
                     onClick={() =>
 
-                      setQuantidadeElevador((q) => q + 1)
+                      alterarQuantidadeElevador(quantidadeElevador + 1)
 
                     }
 
@@ -2272,7 +2286,7 @@ export default function ParquePage() {
 
                 <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-950">
 
-                  ✅ {quantidadeElevador} ingresso(s) do Elevador Panorâmico adicionado(s) ao carrinho — {quantidadeElevador >= 2 ? "promoção de R$ 60 por pessoa aplicada — " : ""}subtotal {valorElevadorFormatado}.
+                  ✅ {quantidadeElevador} ingresso(s) do Elevador Panorâmico adicionado(s) ao carrinho — {(comboPromocional && quantidadeElevador === quantidade) || quantidadeElevador >= 2 ? "promoção de R$ 60 por pessoa aplicada — " : ""}subtotal {valorElevadorFormatado}.
 
                 </div>
 
@@ -2548,7 +2562,7 @@ export default function ParquePage() {
 
               disabled={
 
-                salvando ||
+                salvando || verificandoCombo || Boolean(erroCombo) ||
 
                 !aceiteNaturalExtremo
 

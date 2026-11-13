@@ -59,7 +59,12 @@ function central(pedido, banco) {
   const mem = memoria({ 'pedidos/ficticio': { id: 'ficticio', valorTotal: 60, statusPagamento: 'pendente',
     statusOperacional: 'pendente', sicrediTxid: 'TX-FICTICIO', codigoIngresso: 'QR-EXISTENTE', ...pedido } });
   let emails = 0;
+  const preco = carregar('src/lib/preco-elevador.ts');
   const mod = carregar('src/lib/finalizar-pagamento.ts', {
+    '@/lib/preco-elevador': preco,
+    '@/lib/combo-parque-elevador-server': carregar('src/lib/combo-parque-elevador-server.ts', {
+      'server-only': {}, 'node:crypto': crypto, './preco-elevador': preco,
+    }),
     '@/lib/firebase': { db: {} }, 'firebase/firestore': mem.firestore,
     '@/lib/pedidos': {
       buscarPedidoPorId: async id => structuredClone(mem.store.get(`pedidos/${id}`)),

@@ -1,3 +1,4 @@
+import { pedidoComboValidoNoServidor } from "@/lib/combo-parque-elevador-server";
 import { valorPromocionalValido } from "@/lib/preco-elevador";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -487,7 +488,7 @@ export async function POST(
        Firestore → pedido.valorTotal
     ===================================================== */
 
-    if (!valorPromocionalValido(pedido)) {
+    if (!valorPromocionalValido(pedido) || !pedidoComboValidoNoServidor(pedidoId, pedido)) {
       return NextResponse.json({ ok: false, error: "Valor da promoção divergente. Inicie uma nova compra.", mensagem: "Valor da promoção divergente. Inicie uma nova compra." }, { status: 400 });
     }
 

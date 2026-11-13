@@ -1,3 +1,4 @@
+import { pedidoComboValidoNoServidor } from "@/lib/combo-parque-elevador-server";
 import { valorPromocionalValido } from "@/lib/preco-elevador";
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
@@ -498,7 +499,7 @@ export async function POST(
            NÃO modifica o valor da cobrança.
         ================================================= */
 
-    if (!valorPromocionalValido(pedidoSalvo)) {
+    if (!valorPromocionalValido(pedidoSalvo) || !pedidoComboValidoNoServidor(pedidoId, pedidoSalvo)) {
       return NextResponse.json({ ok: false, error: "Valor da promoção divergente. Inicie uma nova compra.", mensagem: "Valor da promoção divergente. Inicie uma nova compra." }, { status: 400 });
     }
 

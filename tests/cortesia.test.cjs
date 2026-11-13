@@ -42,6 +42,10 @@ function cenario({ claims = { admin: true }, uid = 'admin-teste', invalido = fal
     emails.push(dados); return {};
   } };
   const finalizar = carregar('src/lib/finalizar-pagamento.ts', {
+    '@/lib/preco-elevador': preco,
+    '@/lib/combo-parque-elevador-server': carregar('src/lib/combo-parque-elevador-server.ts', {
+      'server-only': {}, 'node:crypto': require('node:crypto'), './preco-elevador': preco,
+    }),
     crypto: { randomUUID: () => 'lease' }, '@/lib/sicredi-pix': {}, '@/lib/pagbank-notificacao': {},
     '@/lib/pedidos': {}, '@/lib/firebase': {}, 'firebase/firestore': firestore,
     '@/lib/email': email,

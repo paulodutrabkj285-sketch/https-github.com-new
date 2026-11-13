@@ -19,8 +19,6 @@ export default function IngressosPage() {
 
 
 
-  const [imagemAtual, setImagemAtual] = useState(0);
-
   const [promocaoCriancasAtiva, setPromocaoCriancasAtiva] = useState(false);
 
 
@@ -108,94 +106,6 @@ export default function IngressosPage() {
 
 
     "⭐ 4,7/5 no Google • 11.557 avaliações";
-
-
-
-  const imagens = [
-
-
-
-    {
-
-
-
-      url: "/fotos/fundo-geral.jpg",
-
-
-
-      posicao: "center 35%",
-
-
-
-    },
-
-
-
-    {
-
-
-
-      url: "/fotos/cachoeira-alta.png",
-
-
-
-      posicao: "center 18%",
-
-
-
-    },
-
-
-
-    {
-
-
-
-      url: "/fotos/cachoeira-lago.png",
-
-
-
-      posicao: "center 25%",
-
-
-
-    },
-
-
-
-  ];
-
-
-
-  useEffect(() => {
-
-
-
-    const intervalo = setInterval(() => {
-
-
-
-      setImagemAtual(
-
-
-
-        (prev) => (prev + 1) % imagens.length
-
-
-
-      );
-
-
-
-    }, 7000);
-
-
-
-    return () => clearInterval(intervalo);
-
-
-
-  }, [imagens.length]);
 
 
 
@@ -1926,106 +1836,8 @@ export default function IngressosPage() {
 
 
 
-      <section className="relative min-h-screen overflow-hidden px-4 py-8">
-
-
-
-        {imagens.map(
-
-
-
-          (
-
-
-
-            img,
-
-
-
-            index
-
-
-
-          ) => (
-
-
-
-            <div
-
-
-
-              key={img.url}
-
-
-
-              className={`absolute inset-0 bg-no-repeat transition-opacity duration-[2000ms] ${imagemAtual === index
-
-
-
-                ? "opacity-100"
-
-
-
-                : "opacity-0"
-
-
-
-                }`}
-
-
-
-              style={{
-
-
-
-                backgroundImage:
-
-
-
-                  `url('${img.url}')`,
-
-
-
-                backgroundSize:
-
-
-
-                  "cover",
-
-
-
-                backgroundPosition:
-
-
-
-                  img.posicao,
-
-
-
-              }}
-
-
-
-            />
-
-
-
-          )
-
-
-
-        )}
-
-
-
-        <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/45 to-[#06150f]" />
-
-
-
-        <div className="relative z-10 mx-auto flex min-h-[calc(100vh-64px)] max-w-7xl flex-col">
-
-
-
+      <section aria-labelledby="titulo-ingressos" className="relative overflow-hidden bg-gradient-to-br from-[#06150f] via-[#0b3022] to-[#0b2619] px-4 py-6 sm:px-6 lg:py-8">
+        <div className="relative mx-auto max-w-7xl">
           <header className="flex items-center justify-between">
 
 
@@ -2126,147 +1938,37 @@ export default function IngressosPage() {
 
 
 
-          <div className="flex flex-1 items-center py-16">
 
-
-
-            <div className="max-w-4xl">
-
-
-
-              <span className="inline-flex rounded-full border border-yellow-300/30 bg-yellow-500/15 px-4 py-2 text-sm font-bold text-yellow-100 shadow-xl backdrop-blur-md">
-
-
-
-                {avaliacaoGoogle}
-
-
-
-              </span>
-
-
-
-              <h1 className="mt-6 text-5xl font-black leading-tight drop-shadow-2xl md:text-7xl">
-
-
-
-                Ingressos Parque Mundo Novo em Urubici
-
-
-
-              </h1>
-
-
-
-              <p className="mt-6 max-w-3xl text-xl font-medium leading-relaxed text-white/90 drop-shadow-md md:text-2xl">
-
-
-
-                Compre ingressos oficiais para o Parque Mundo Novo em Urubici/SC
-
-
-
-                e conheça cachoeiras, mirantes, camping, a Cascata do Avencal e
-
-
-
-                experiências inesquecíveis na Serra Catarinense.
-
-
-
-              </p>
-
-
-
-              <div className="mt-6 inline-flex max-w-3xl rounded-2xl border border-cyan-200/30 bg-cyan-500/15 px-5 py-4 shadow-2xl backdrop-blur-md">
-
-
-
-                <p className="font-black leading-relaxed text-cyan-50">
-
-
-
-                  🏆 Conheça o primeiro
-
-
-
-                  Elevador Panorâmico da
-
-
-
-                  América Latina com 100
-
-
-
-                  metros de altura.
-
-
-
-                </p>
-
-
-
+          <div className="grid items-center gap-10 py-10 sm:py-14 lg:grid-cols-2 lg:gap-12 lg:py-16">
+            <div className="min-w-0">
+              <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-amber-200 sm:text-sm">Combo especial Parque + Elevador</span>
+              <h1 id="titulo-ingressos" className="mt-6 text-4xl font-black leading-tight tracking-tight sm:text-5xl xl:text-6xl">Duas experiências.<br /><span className="text-emerald-300">Um dia inesquecível.</span></h1>
+              <p className="mt-5 max-w-lg text-base leading-relaxed text-emerald-50/85 sm:text-lg">Explore o Parque Mundo Novo e viva a vista do Elevador Panorâmico sobre a Cascata do Avencal, em Urubici.</p>
+              <div className="mt-7 border-l-2 border-amber-300 pl-5">
+                <p className="text-sm font-semibold text-emerald-100">1 ingresso Parque + 1 ingresso Elevador</p>
+                <p className="mt-1 text-5xl font-black tracking-tight text-white sm:text-6xl"><span className="mr-2 text-2xl text-amber-200">R$</span>120,00</p>
+                <p className="mt-2 font-bold text-amber-200">R$ 60,00 cada acesso no combo</p>
               </div>
-
-
-
-              <div className="mt-6 max-w-3xl rounded-2xl border-2 border-emerald-300 bg-emerald-950/85 p-5 shadow-2xl backdrop-blur-md" role="note" aria-label="Gratuidade para crianças até 10 anos">
-                <p className="text-xl font-black text-emerald-200 md:text-2xl">👧🧒 Crianças até 10 anos completos não pagam!</p>
-                <p className="mt-2 text-base font-semibold leading-relaxed text-white">Gratuidade na entrada do parque, no camping e no Elevador Panorâmico. A partir dos 11 anos, são cobrados os valores normais.</p>
+              <div className="mt-7 flex flex-col gap-3 xl:flex-row">
+                <a href="/api/ingressos/combo" className="inline-flex min-h-14 items-center justify-center rounded-2xl bg-amber-300 px-6 py-4 text-center font-black text-emerald-950 shadow-xl transition hover:-translate-y-1 hover:bg-amber-200 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-amber-200">Comprar combo agora <span aria-hidden="true" className="ml-3">→</span></a>
+                <a href="/ingressos/parque" className="inline-flex min-h-14 items-center justify-center rounded-2xl border border-emerald-200/40 bg-white/5 px-6 py-4 text-center font-bold text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-emerald-300">Comprar somente Parque</a>
               </div>
-
-              <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:flex-wrap">
-
-
-
-                <a
-
-
-
-                  href="#comprar-ingressos"
-
-
-
-                  className="rounded-full bg-emerald-500 px-8 py-4 text-center font-black text-emerald-950 shadow-2xl transition hover:-translate-y-1 hover:bg-emerald-400"
-
-
-
-                >
-
-
-
-                  Comprar Ingressos
-
-
-
-                </a>
-
-
-
-                <a
-
-
-
-                  href="#elevador-panoramico"
-
-
-
-                  className="rounded-full bg-cyan-500 px-8 py-4 text-center font-black text-cyan-950 shadow-2xl transition hover:-translate-y-1 hover:bg-cyan-400"
-
-
-
-                >
-
-
-
-                  Conhecer o Elevador
-
-
-
-                </a>
-
-
-
+              <p className="mt-5 text-sm font-semibold leading-relaxed text-emerald-200">Crianças até 10 anos completos não pagam no Parque e no Elevador Panorâmico.</p>
+              <p className="mt-4 text-xs font-semibold text-white/65">{avaliacaoGoogle}</p>
+            </div>
+            <div className="relative min-w-0 overflow-hidden rounded-[2rem] border border-white/20 bg-emerald-950 shadow-2xl">
+              <video autoPlay muted loop playsInline preload="metadata" poster="/fotos/elevador-novo.png" aria-label="Conheça o Elevador Panorâmico do Parque Mundo Novo" className="aspect-[4/5] max-h-[620px] w-full object-cover sm:aspect-[4/3] lg:aspect-[4/5]">
+                <source src="/videos/elevador-home.mp4" type="video/mp4" />
+                Seu navegador não suporta a reprodução de vídeo.
+              </video>
+              <div className="pointer-events-none absolute inset-x-4 bottom-16 rounded-2xl border border-white/20 bg-emerald-950/75 p-4 backdrop-blur-md sm:inset-x-6 sm:p-5">
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-200">Serra Catarinense</p>
+                <p className="mt-1 text-xl font-black sm:text-2xl">Elevador Panorâmico</p>
+                <p className="mt-1 text-sm text-white/85">Uma nova vista da Cascata do Avencal.</p>
+              </div>
+            </div>
+          </div>
+          <nav aria-label="Informações para sua visita" className="grid grid-cols-1 gap-3 border-t border-white/10 py-6 sm:grid-cols-2 lg:grid-cols-4">
                 <a
 
 
@@ -2275,7 +1977,7 @@ export default function IngressosPage() {
 
 
 
-                  className="rounded-full border border-white/30 bg-white/10 px-8 py-4 text-center font-black backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/20"
+                  className="flex min-h-14 min-w-0 items-center justify-center rounded-full border border-white/30 bg-white/10 px-4 py-4 text-center font-black backdrop-blur-md transition hover:bg-white/20"
 
 
 
@@ -2299,7 +2001,7 @@ export default function IngressosPage() {
 
 
 
-                  className="rounded-full border border-white/30 bg-white/10 px-8 py-4 text-center font-black backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/20"
+                  className="flex min-h-14 min-w-0 items-center justify-center rounded-full border border-white/30 bg-white/10 px-4 py-4 text-center font-black backdrop-blur-md transition hover:bg-white/20"
 
 
 
@@ -2347,7 +2049,7 @@ export default function IngressosPage() {
 
 
 
-                  className="rounded-full border border-white/30 bg-white/10 px-8 py-4 text-center font-black backdrop-blur-md transition hover:-translate-y-1 hover:bg-white/20"
+                  className="flex min-h-14 min-w-0 items-center justify-center rounded-full border border-white/30 bg-white/10 px-4 py-4 text-center font-black backdrop-blur-md transition hover:bg-white/20"
 
 
 
@@ -2403,7 +2105,7 @@ export default function IngressosPage() {
 
 
 
-                  className="rounded-full bg-yellow-500 px-8 py-4 text-center font-black text-yellow-950 shadow-2xl transition hover:-translate-y-1 hover:bg-yellow-400"
+                  className="flex min-h-14 min-w-0 items-center justify-center rounded-full bg-yellow-500 px-4 py-4 text-center font-black text-yellow-950 shadow-2xl transition hover:bg-yellow-400"
 
 
 
@@ -2419,78 +2121,7 @@ export default function IngressosPage() {
 
 
 
-              </div>
-
-
-
-              <div className="mt-8 flex flex-wrap gap-3">
-
-
-
-                <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
-
-
-
-                  🕒 Todos os dias das
-
-
-
-                  08h às 17h30
-
-
-
-                </span>
-
-
-
-                <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
-
-
-
-                  🎟️ Ingresso digital
-
-
-
-                  com QR Code
-
-
-
-                </span>
-
-
-
-                <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
-
-
-
-                  🐶 Pet Friendly
-
-
-
-                </span>
-
-
-
-                <span className="rounded-full bg-white/15 px-4 py-2 text-sm font-bold shadow backdrop-blur-md">
-
-
-
-                  🚐 Camping aceita
-
-
-
-                  motorhome
-
-
-
-                </span>
-
-
-
-              </div>
-
-
-
+                        </nav>
               {mostrarLocalizacao && (
 
 
@@ -2591,18 +2222,7 @@ export default function IngressosPage() {
 
 
 
-            </div>
-
-
-
-          </div>
-
-
-
         </div>
-
-
-
       </section>
 
 
@@ -2983,7 +2603,7 @@ export default function IngressosPage() {
 
 
 
-      <section className="relative z-20 -mt-20 px-4">
+      <section className="px-4 pt-8 sm:pt-10">
 
 
 
@@ -3079,7 +2699,7 @@ export default function IngressosPage() {
 
 
 
-      <section className="px-4 pb-10 pt-16">
+      <section className="px-4 pb-10 pt-20 md:pt-24">
 
 
 

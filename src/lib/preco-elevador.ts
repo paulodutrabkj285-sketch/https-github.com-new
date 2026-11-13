@@ -25,3 +25,17 @@ export function valorPromocionalValido(pedido: {
     Number.isSafeInteger(pedido.quantidade) && pedido.quantidade > 0 &&
     pedido.valorTotal === calcularPrecoElevador(pedido.quantidade).valorTotal;
 }
+
+export const PROMOCAO_PARQUE_ELEVADOR = "combo-parque-elevador-site-v1";
+
+// Só identifica o novo produto. Autorização e assinatura são verificadas no servidor.
+export function comboParqueElevadorAtivo(pedido: {
+  promocao?: string; origem?: string; cortesia?: boolean; tipo?: string;
+  quantidadeParque?: number; quantidadeElevador?: number;
+}) {
+  return pedido.promocao === PROMOCAO_PARQUE_ELEVADOR &&
+    pedido.origem === "site" && !pedido.cortesia && pedido.tipo === "carrinho" &&
+    Number.isSafeInteger(pedido.quantidadeParque) &&
+    Number(pedido.quantidadeParque) > 0 &&
+    pedido.quantidadeParque === pedido.quantidadeElevador;
+}

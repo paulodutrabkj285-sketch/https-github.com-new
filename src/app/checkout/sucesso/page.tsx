@@ -156,7 +156,7 @@ export default function SucessoPage() {
 
           enviarCompraMeta(
             pedido.id,
-            Number(pedido.valorTotal || 0),
+            Number(pedido.valorPago ?? pedido.valorTotal ?? 0),
             pedido.produto
           );
 

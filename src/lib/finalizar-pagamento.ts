@@ -1,3 +1,5 @@
+import { pedidoComboValidoNoServidor } from "@/lib/combo-parque-elevador-server";
+import { comboParqueElevadorAtivo } from "@/lib/preco-elevador";
 import { lerNotificacaoPagbank, pagamentoPagbank } from "@/lib/pagbank-notificacao";
 import { randomUUID } from "crypto";
 import { consultarPixConfirmado } from "@/lib/sicredi-pix";
@@ -99,7 +101,7 @@ function converterParaCentavos(
    CÓDIGO DO INGRESSO
 ========================================================= */
 
-function gerarCodigoIngresso(
+export function gerarCodigoIngresso(
     pedidoId: string
 ) {
     return `PMN-${pedidoId}`;
@@ -122,7 +124,7 @@ function pedidoEhCarrinhoParqueElevador(
     );
 }
 
-function obterCodigosCarrinho(
+export function obterCodigosCarrinho(
     pedido: any,
     pedidoId: string
 ) {
@@ -169,7 +171,7 @@ function obterPrecoElevadorCarrinho(
     }
 
     const valorUnitarioElevador =
-        quantidadeElevador >= 2
+        comboParqueElevadorAtivo(pedido) || quantidadeElevador >= 2
             ? 60
             : 75;
 
@@ -640,6 +642,10 @@ export async function finalizarPagamento({
             mensagem:
                 "Pedido não encontrado.",
         };
+    }
+
+    if (!pedidoComboValidoNoServidor(pedidoId, pedido)) {
+        return { ok: false, pedidoId, status: "valor_divergente", mensagem: "Combo sem autorização válida ou com valores divergentes." };
     }
 
     let pagbankTransacaoId = "";
@@ -1299,11 +1305,13 @@ export async function finalizarPagamento({
    ENVIO DO E-MAIL + WHATSAPP
 ========================================================= */
 
-async function tentarEnviarEmailSemLease({
+export async function tentarEnviarEmailSemLease({
     pedido,
     pedidoId,
     codigoIngresso,
+    salvarPedido = atualizarPedido,
 }: {
+    salvarPedido?: typeof atualizarPedido;
     pedido: any;
 
     pedidoId: string;
@@ -1327,7 +1335,7 @@ async function tentarEnviarEmailSemLease({
             }
         );
 
-        await atualizarPedido(
+        await salvarPedido(
             pedidoId,
             {
                 emailIngressoErro:
@@ -1481,7 +1489,7 @@ async function tentarEnviarEmailSemLease({
                 }
             );
 
-            await atualizarPedido(
+            await salvarPedido(
                 pedidoId,
                 {
                     emailParqueEnviado:
@@ -1584,7 +1592,7 @@ async function tentarEnviarEmailSemLease({
             new Date()
                 .toISOString();
 
-        await atualizarPedido(
+        await salvarPedido(
             pedidoId,
             {
                 emailIngressoEnviado:
@@ -1678,7 +1686,7 @@ async function tentarEnviarEmailSemLease({
             }
         );
 
-        await atualizarPedido(
+        await salvarPedido(
             pedidoId,
             {
                 emailIngressoEnviado:
@@ -1801,7 +1809,7 @@ export async function reenviarCorrecaoIngressoElevador(
      * 2 ou mais = R$ 60 por pessoa
      */
     const valorUnitarioElevador =
-        quantidadeElevador >= 2
+        comboParqueElevadorAtivo(pedido) || quantidadeElevador >= 2
             ? 60
             : 75;
 
