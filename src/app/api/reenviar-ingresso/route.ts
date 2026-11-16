@@ -1,3 +1,4 @@
+import { PROMOCAO_PARQUE_ELEVADOR } from "@/lib/preco-elevador";
 import {
     NextRequest,
     NextResponse,
@@ -57,17 +58,14 @@ function numeroSeguro(
 function pedidoEhCarrinhoParqueElevador(
     pedido: any
 ) {
-    return (
-        limpar(
-            pedido?.tipo
-        ).toLowerCase() ===
-        "carrinho" &&
-        numeroSeguro(
-            pedido?.quantidadeParque
-        ) > 0 &&
-        numeroSeguro(
-            pedido?.quantidadeElevador
-        ) > 0
+    // Reconhece também combos e pedidos antigos com qtdElevador.
+    return Boolean(
+        limpar(pedido?.id).startsWith("COMBO120-") ||
+        pedido?.promocao === PROMOCAO_PARQUE_ELEVADOR ||
+        (numeroSeguro(pedido?.quantidadeParque, numeroSeguro(pedido?.quantidade)) > 0 &&
+            numeroSeguro(pedido?.quantidadeElevador ?? pedido?.qtdElevador) > 0 &&
+            limpar(pedido?.tipo).toLowerCase() !== "elevador") ||
+        (pedido?.codigoIngressoParque && pedido?.codigoIngressoElevador)
     );
 }
 
@@ -146,9 +144,7 @@ function obterCodigoParque(
 ) {
     return limpar(
         pedido?.codigoIngressoParque ||
-        pedido?.qrCodeIngressoParque ||
         pedido?.codigoIngresso ||
-        pedido?.qrCodeIngresso ||
         ""
     );
 }
@@ -158,21 +154,8 @@ function obterCodigoElevador(
 ) {
     return limpar(
         pedido?.codigoIngressoElevador ||
-        pedido?.qrCodeIngressoElevador ||
         ""
     );
-}
-
-/* =========================================================
-   PREÇO UNITÁRIO DO ELEVADOR
-========================================================= */
-
-function calcularValorUnitarioElevador(
-    quantidadeElevador: number
-) {
-    return quantidadeElevador >= 2
-        ? 60
-        : 75;
 }
 
 /* =========================================================
@@ -367,7 +350,7 @@ export async function POST(
 
             const quantidadeElevador =
                 numeroSeguro(
-                    pedido.quantidadeElevador,
+                    pedido.quantidadeElevador ?? pedido.qtdElevador,
                     numeroSeguro(
                         pedido.qtdElevador,
                         0
@@ -415,88 +398,6 @@ export async function POST(
             ) {
                 throw new Error(
                     "Pedido sem codigoIngressoElevador. O reenvio foi bloqueado para não gerar um código incorreto."
-                );
-            }
-
-            const valorUnitarioElevadorCorreto =
-                calcularValorUnitarioElevador(
-                    quantidadeElevador
-                );
-
-            const valorElevadorCorreto =
-                quantidadeElevador *
-                valorUnitarioElevadorCorreto;
-
-            /*
-             * Corrige SOMENTE os campos internos
-             * inconsistentes da promoção.
-             *
-             * NÃO altera:
-             * valorTotal
-             * valorPago
-             * Pix
-             * TXID
-             * statusPagamento
-             * códigos dos ingressos
-             */
-            const atualizacoesPreco:
-                Record<
-                    string,
-                    unknown
-                > = {};
-
-            if (
-                numeroSeguro(
-                    pedido.valorUnitarioElevador
-                ) !==
-                valorUnitarioElevadorCorreto
-            ) {
-                atualizacoesPreco
-                    .valorUnitarioElevador =
-                    valorUnitarioElevadorCorreto;
-            }
-
-            if (
-                numeroSeguro(
-                    pedido.valorElevador
-                ) !==
-                valorElevadorCorreto
-            ) {
-                const valorParque =
-                    numeroSeguro(
-                        pedido.valorParque
-                    );
-
-                const valorTotal =
-                    numeroSeguro(
-                        pedido.valorTotal
-                    );
-
-                if (
-                    valorParque +
-                    valorElevadorCorreto ===
-                    valorTotal
-                ) {
-                    atualizacoesPreco
-                        .valorElevador =
-                        valorElevadorCorreto;
-                }
-            }
-
-            if (
-                Object.keys(
-                    atualizacoesPreco
-                ).length >
-                0
-            ) {
-                await atualizarPedido(
-                    pedido.id,
-                    {
-                        ...atualizacoesPreco,
-
-                        carrinhoElevadorCorrigidoEm:
-                            agora,
-                    }
                 );
             }
 
@@ -683,10 +584,10 @@ export async function POST(
                         quantidadeElevador,
 
                         valorUnitarioElevador:
-                            valorUnitarioElevadorCorreto,
+                            pedido.valorUnitarioElevador ?? null,
 
                         valorElevador:
-                            valorElevadorCorreto,
+                            pedido.valorElevador ?? null,
 
                         valorTotal:
                             pedido.valorTotal,
@@ -722,10 +623,14 @@ export async function POST(
 
         const codigoIngresso =
             limpar(
+                (pedido.tipo === "elevador" ? pedido.codigoIngressoElevador : pedido.codigoIngressoParque) ||
                 pedido.codigoIngresso ||
-                pedido.qrCodeIngresso ||
-                `PMN-${pedido.id}`
+                pedido.qrCodeIngresso
             );
+
+        if (!codigoIngresso) {
+            throw new Error("Pedido sem código de ingresso salvo. O reenvio não gera códigos novos.");
+        }
 
         console.log(
             "REENVIO: ENVIANDO INGRESSO NORMAL",

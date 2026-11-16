@@ -4,6 +4,7 @@
 
 import { buscarPedidoPorId, cancelarIngressoAdministrativo, Pedido } from "@/lib/pedidos";
 import { getAuth } from "firebase/auth";
+import { QRCodeSVG } from "qrcode.react";
 
 import { useParams, useRouter } from "next/navigation";
 
@@ -139,7 +140,7 @@ export default function PedidoDetalhePage() {
 
 
 
-      const resposta = await fetch("/api/ingressos/reenviar", {
+      const resposta = await fetch("/api/reenviar-ingresso", {
 
         method: "POST",
 
@@ -297,6 +298,22 @@ export default function PedidoDetalhePage() {
 
   const statusUtilizado = pedido.statusOperacional === "utilizado";
 
+  const temElevador = Boolean(
+    pedido.codigoIngressoElevador || pedido.qrCodeIngressoElevador ||
+    pedido.quantidadeElevador || pedido.qtdElevador || pedido.elevador ||
+    pedido.tipo === "elevador" ||
+    pedido.itensCarrinho?.some((item) => item.tipo === "elevador")
+  );
+  const temParque = pedido.tipo !== "elevador" || Boolean(
+    pedido.codigoIngressoParque || pedido.quantidadeParque ||
+    pedido.itensCarrinho?.some((item) => item.tipo === "parque")
+  );
+  // O código legado pertence somente ao Parque; nunca substitui o do Elevador.
+  const codigoParque = pedido.codigoIngressoParque || pedido.codigoIngresso;
+  const qrParque = pedido.qrCodeIngressoParque || pedido.qrCodeIngresso || codigoParque;
+  const qrElevador = pedido.qrCodeIngressoElevador || pedido.codigoIngressoElevador;
+
+
 
 
   return (
@@ -330,20 +347,6 @@ export default function PedidoDetalhePage() {
                 Detalhe do Pedido
 
               </h1>
-
-
-
-              <p className="mt-2 text-gray-500">
-
-                Código:{" "}
-
-                <span className="font-bold text-gray-800">
-
-                  {pedido.codigoIngresso || "-"}
-
-                </span>
-
-              </p>
 
 
 
@@ -527,37 +530,40 @@ export default function PedidoDetalhePage() {
 
           <div className="mt-6 grid gap-6 lg:grid-cols-2">
 
-            <Bloco titulo="QR Code do Ingresso">
+            {temParque && (
+              <Bloco titulo="PARQUE">
+                <Linha label="Código Parque" valor={codigoParque} />
+                <Linha label="Quantidade Parque" valor={pedido.quantidadeParque ?? pedido.quantidade} />
+                <Linha label="Status do Parque" valor={pedido.statusOperacional || "ativo"} />
+                <Linha label="Validação do Parque" valor={
+                  pedido.validadoEm || pedido.utilizadoEm || statusUtilizado
+                    ? "Validado" : "Ainda não validado"
+                } />
+                <Linha label="Funcionário" valor={pedido.validadoPor} />
+                <Linha label="Validado em" valor={formatarDataHora(pedido.validadoEm)} />
+                <Linha label="Utilizado em" valor={formatarDataHora(pedido.utilizadoEm)} />
+                <QrIngresso titulo="QR Code do Parque" conteudo={qrParque} />
+              </Bloco>
+            )}
 
-              {pedido.qrCodeIngresso ? (
-
-                <div className="rounded-2xl bg-gray-50 p-4">
-
-                  <p className="mb-3 text-sm text-gray-500">
-
-                    Conteúdo salvo do QR Code:
-
-                  </p>
-
-
-
-                  <pre className="max-h-60 overflow-auto rounded-xl bg-gray-900 p-4 text-xs text-green-300">
-
-                    {pedido.qrCodeIngresso}
-
-                  </pre>
-
-                </div>
-
-              ) : (
-
-                <p className="text-gray-500">QR Code ainda não gerado.</p>
-
-              )}
-
-            </Bloco>
-
-
+            {temElevador && (
+              <Bloco titulo="ELEVADOR">
+                <Linha label="Código Elevador" valor={pedido.codigoIngressoElevador} />
+                <Linha label="Quantidade Elevador" valor={pedido.quantidadeElevador ?? pedido.qtdElevador} />
+                <Linha label="Validado (elevadorValidado)" valor={
+                  pedido.elevadorValidado === undefined ? "Não informado" :
+                    pedido.elevadorValidado ? "Sim" : "Não"
+                } />
+                <Linha label="Quantidade validada" valor={pedido.elevadorQuantidadeValidada} />
+                {pedido.elevadorValidadoPor && (
+                  <Linha label="Funcionário" valor={pedido.elevadorValidadoPor} />
+                )}
+                {pedido.elevadorValidadoEm && (
+                  <Linha label="Validado em" valor={formatarDataHora(pedido.elevadorValidadoEm)} />
+                )}
+                <QrIngresso titulo="QR Code do Elevador" conteudo={qrElevador} />
+              </Bloco>
+            )}
 
             <Bloco titulo="PDF / Ingresso">
 
@@ -804,7 +810,7 @@ function Linha({
 
       <p className="break-words text-base font-semibold text-gray-900">
 
-        {valor || "-"}
+        {valor ?? "-"}
 
       </p>
 
@@ -830,4 +836,28 @@ function HistoricoItem({ titulo, valor }: { titulo: string; valor: string }) {
 
   );
 
+}
+
+function QrIngresso({ titulo, conteudo }: { titulo: string; conteudo?: string }) {
+  return (
+    <div className="mt-4 rounded-2xl bg-gray-50 p-4">
+      <h3 className="mb-3 font-bold text-gray-700">{titulo}</h3>
+      {conteudo ? (
+        <>
+          {conteudo.startsWith("data:image/") || /^https?:\/\//.test(conteudo) ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={conteudo} alt={titulo} className="h-48 w-48 object-contain" />
+          ) : (
+            <QRCodeSVG value={conteudo} size={192} marginSize={2} title={titulo} />
+          )}
+          <details className="mt-3 text-sm text-gray-600">
+            <summary>Conteúdo do QR Code</summary>
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all">{conteudo}</pre>
+          </details>
+        </>
+      ) : (
+        <p className="text-gray-500">QR Code não disponível no pedido.</p>
+      )}
+    </div>
+  );
 }
