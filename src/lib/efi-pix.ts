@@ -1,11 +1,12 @@
 import https from "https";
+import { isIP } from "net";
 import { createHash } from "crypto";
 import axios from "axios";
 import QRCode from "qrcode";
 import { validarCobrancaPix } from "@/lib/sicredi-pix";
 
 export const EFI_TEMPORARY_ENABLED = true;
-export const EFI_TEMPORARY_END_AT = "2026-11-18T20:00:00-03:00";
+export const EFI_TEMPORARY_END_AT = "2026-11-19T10:00:00-03:00";
 
 const inicio = Date.parse("2026-11-18T00:00:00-03:00");
 const fim = Date.parse(EFI_TEMPORARY_END_AT);
@@ -20,20 +21,46 @@ class ErroPixEfi extends Error {
     }
 }
 
+const codigoTransporte = /^(?:E[A-Z][A-Z0-9_]{1,63}|(?:CERT|UNABLE|DEPTH|SELF|HOSTNAME)_[A-Z0-9_]{1,63})$/;
+const mensagensTransporte = [
+    /^(?:mac verify failure|unsupported|unsupported algorithm|wrong tag|header too long|not enough data|nested asn1 error|bad decrypt|no start line|unknown pbe algorithm|parse error|invalid password|socket hang up|canceled|Network Error|unable to verify the first certificate|unable to get local issuer certificate|self-signed certificate(?: in certificate chain)?|certificate has expired|Client network socket disconnected before secure TLS connection was established)$/,
+    /^(?:Request failed with status code \d{3}|timeout of \d{1,8}ms exceeded)$/,
+    /^(?:connect|read|write|getaddrinfo|getnameinfo) E[A-Z0-9_]{1,63}(?: (?:pix\.api\.efipay\.com\.br|[\da-fA-F.:\[\]]+)(?::\d{1,5})?)?$/,
+    /^(?:write |read )?EPROTO$/,
+    /^error:[\da-fA-F]{8}:[a-zA-Z0-9 ._-]+:[a-zA-Z0-9 ._-]*:[a-zA-Z0-9 ._-]+$/,
+];
+
+function mensagemTransporte(valor: unknown) {
+    if (typeof valor !== "string") return undefined;
+    // OpenSSL pode anexar caminhos e detalhes após o diagnóstico.
+    const mensagem = valor.split("\n", 1)[0].trim();
+    if (mensagem.length <= 240 && mensagensTransporte.some(padrao => padrao.test(mensagem))) return mensagem;
+    const openssl = /\berror:[\da-fA-F]{8}:[a-zA-Z0-9 ._-]+:[a-zA-Z0-9 ._-]*:[a-zA-Z0-9 ._-]+/.exec(mensagem)?.[0];
+    return openssl && openssl.length <= 240 ? openssl.trimEnd() : "[redigido]";
+}
+
 function registrarFalhaEfi(etapa: EtapaEfi, erro: unknown, ultimoStatus?: number) {
     const { EFI_CLIENT_ID, EFI_CLIENT_SECRET, EFI_CERTIFICATE_P12_BASE64, EFI_PIX_KEY } = process.env;
     const certificado = EFI_CERTIFICATE_P12_BASE64?.trim();
-    const resposta = axios.isAxiosError<unknown>(erro) ? erro.response : undefined;
+    const erroAxios = axios.isAxiosError<unknown>(erro) ? erro : undefined;
+    const resposta = erroAxios?.response;
     const status = resposta?.status ?? (erro instanceof ErroPixEfi ? erro.status : undefined) ?? ultimoStatus;
-    const codigo = erro instanceof Error && "code" in erro ? erro.code : undefined;
-    const codigosSeguros = [
-        "ECONNABORTED", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN",
-        "EPIPE", "ERR_CANCELED", "ERR_BAD_REQUEST", "ERR_BAD_RESPONSE", "ERR_NETWORK",
-        "ERR_OSSL_EVP_UNSUPPORTED", "ERR_OSSL_PKCS12_MAC_VERIFY_FAILURE",
-        "ERR_SSL_TLSV1_ALERT_UNKNOWN_CA", "ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED",
-        "CERT_HAS_EXPIRED", "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-    ];
-    const code = typeof codigo === "string" && codigosSeguros.includes(codigo) ? codigo : undefined;
+    const original = erro && typeof erro === "object" ? erro as Record<string, unknown> : {};
+    const causa = original.cause && typeof original.cause === "object"
+        ? original.cause as Record<string, unknown> : undefined;
+    const authorization = erroAxios?.config?.headers?.get?.("Authorization");
+    const credenciais = [EFI_CLIENT_ID, EFI_CLIENT_SECRET, certificado, EFI_PIX_KEY,
+        typeof authorization === "string" ? authorization.replace(/^(?:Basic|Bearer)\s+/i, "") : undefined];
+    if (EFI_CLIENT_ID?.trim() && EFI_CLIENT_SECRET?.trim()) {
+        credenciais.push(Buffer.from(`${EFI_CLIENT_ID.trim()}:${EFI_CLIENT_SECRET.trim()}`).toString("base64"));
+    }
+    const segredos = credenciais.flatMap(valor => valor?.trim() ? [valor, valor.trim(), encodeURIComponent(valor.trim())] : []);
+    const proteger = (valor: string | undefined) => (
+        valor && segredos.some(segredo => valor.includes(segredo)) ? "[redigido]" : valor
+    );
+    const codigoSeguro = (valor: unknown) => (
+        typeof valor === "string" && codigoTransporte.test(valor) ? proteger(valor) : undefined
+    );
     const data = resposta?.data;
     const corpo = data && typeof data === "object" ? data as Record<string, unknown> : {};
     const errosConhecidos = [
@@ -48,11 +75,24 @@ function registrarFalhaEfi(etapa: EtapaEfi, erro: unknown, ultimoStatus?: number
         etapa,
         status,
         error: {
-            code,
-            message: erro instanceof ErroPixEfi ? erro.message
-                : resposta ? `Efí retornou HTTP ${resposta.status}.`
-                : code ? `Falha na comunicação com a Efí (${code}).`
-                : "Falha local ou de transporte na integração Efí.",
+            name: typeof original.name === "string" &&
+                /^(?:Error|AxiosError|CanceledError|TypeError|RangeError|AggregateError|SystemError|AbortError|TimeoutError)$/.test(original.name)
+                ? proteger(original.name) : undefined,
+            code: codigoSeguro(original.code),
+            errno: typeof original.errno === "number" ? original.errno : codigoSeguro(original.errno),
+            syscall: typeof original.syscall === "string" &&
+                /^(?:connect|read|write|writev|getaddrinfo|getnameinfo|socket|lookup|bind)$/.test(original.syscall)
+                ? proteger(original.syscall) : undefined,
+            address: typeof original.address === "string" && (isIP(original.address) || original.address === "pix.api.efipay.com.br")
+                ? proteger(original.address) : undefined,
+            port: typeof original.port === "number" && Number.isInteger(original.port) && original.port >= 0 && original.port <= 65535
+                ? original.port : undefined,
+            message: proteger(erro instanceof ErroPixEfi ? erro.message : mensagemTransporte(original.message)),
+            cause: causa && { code: codigoSeguro(causa.code), message: proteger(mensagemTransporte(causa.message)) },
+        },
+        axiosError: erroAxios && {
+            code: codigoSeguro(erroAxios.code),
+            message: proteger(mensagemTransporte(erroAxios.message)),
         },
         response: data === undefined ? undefined : {
             data: typeof tipo === "string" && errosConhecidos.includes(tipo) ? { tipo } : "[redigido]",
@@ -63,6 +103,20 @@ function registrarFalhaEfi(etapa: EtapaEfi, erro: unknown, ultimoStatus?: number
         EFI_CERTIFICATE_P12_BASE64: Boolean(certificado),
         EFI_PIX_KEY: Boolean(EFI_PIX_KEY?.trim()),
     });
+}
+
+// Teste temporário de ponta a ponta, restrito a um ID configurado no servidor.
+export const VALOR_TESTE_EFI = 0.01;
+
+export function pedidoAutorizadoParaTesteEfi(
+    pedidoId: string,
+    pedido: { email?: unknown; origem?: unknown; agenciaId?: unknown; cortesia?: unknown },
+) {
+    return pedidoId === process.env.EFI_TESTE_PEDIDO_ID?.trim() &&
+        typeof pedido.email === "string" &&
+        pedido.email.trim().toLowerCase() === "paulodutrabkj285@gmail.com" &&
+        (pedido.origem === undefined || pedido.origem === "site") &&
+        !pedido.agenciaId && !pedido.cortesia;
 }
 
 export function efiDisponivelParaCriacao(agora = Date.now()) {
