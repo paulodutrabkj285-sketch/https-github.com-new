@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import { validarCobrancaPix } from "@/lib/sicredi-pix";
 
 export const EFI_TEMPORARY_ENABLED = true;
-export const EFI_TEMPORARY_END_AT = "2026-11-18T14:00:00-03:00";
+export const EFI_TEMPORARY_END_AT = "2026-11-18T20:00:00-03:00";
 
 const inicio = Date.parse("2026-11-18T00:00:00-03:00");
 const fim = Date.parse(EFI_TEMPORARY_END_AT);
