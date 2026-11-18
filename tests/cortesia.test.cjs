@@ -46,7 +46,7 @@ function cenario({ claims = { admin: true }, uid = 'admin-teste', invalido = fal
     '@/lib/combo-parque-elevador-server': carregar('src/lib/combo-parque-elevador-server.ts', {
       'server-only': {}, 'node:crypto': require('node:crypto'), './preco-elevador': preco,
     }),
-    crypto: { randomUUID: () => 'lease' }, '@/lib/sicredi-pix': {}, '@/lib/pagbank-notificacao': {},
+    crypto: { randomUUID: () => 'lease' }, '@/lib/sicredi-pix': {}, '@/lib/efi-pix': {}, '@/lib/pagbank-notificacao': {},
     '@/lib/pedidos': {}, '@/lib/firebase': {}, 'firebase/firestore': firestore,
     '@/lib/email': email,
   });

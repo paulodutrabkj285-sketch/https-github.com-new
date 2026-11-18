@@ -44,14 +44,14 @@ export async function GET(req: NextRequest) {
                 const pedido = documento.data();
                 const txid = String(pedido.sicrediTxid || "").trim();
                 let resultado = "sem_txid";
-                if (txid && pedido.formaPagamento !== "cartao") {
+                if ((txid || pedido.efiTxid) && pedido.formaPagamento !== "cartao") {
                     try {
-                        const finalizacao = await finalizarPagamento({ pedidoId: documento.id, formaPagamento: "pix", sicrediTxid: txid });
+                        const finalizacao = await finalizarPagamento({ pedidoId: documento.id, formaPagamento: "pix" });
                         resultado = finalizacao.status;
                         if (finalizacao.ok) pagosRecuperados++;
                         else if (finalizacao.status === "banco_nao_confirmado") pendentes++;
                         else erros++;
-                    } catch { resultado = "erro_consulta_sicredi"; erros++; }
+                    } catch { resultado = "erro_consulta_pix"; erros++; }
                 } else { pendentes++; }
                 // Não expirar nem rebaixar status por relógio local ou resposta de erro.
                 // A API central recupera expirados somente com prova bancária válida.

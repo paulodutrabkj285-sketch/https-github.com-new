@@ -13,7 +13,7 @@ function carregar(file, mocks = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
-    Buffer, URL, URLSearchParams, Date, Set, process, console: { log() {}, error() {} },
+    AbortSignal, Buffer, URL, URLSearchParams, Date, Set, process, console: { log() {}, error() {}, warn() {} },
   })((id) => {
     if (Object.hasOwn(mocks, id)) return mocks[id];
     if (['https', 'crypto'].includes(id)) return require(id);
@@ -55,7 +55,7 @@ function memoria(initial) {
   };
   return { store, firestore };
 }
-function central(pedido, banco) {
+function central(pedido, banco, efi) {
   const mem = memoria({ 'pedidos/ficticio': { id: 'ficticio', valorTotal: 60, statusPagamento: 'pendente',
     statusOperacional: 'pendente', sicrediTxid: 'TX-FICTICIO', codigoIngresso: 'QR-EXISTENTE', ...pedido } });
   let emails = 0;
@@ -71,6 +71,7 @@ function central(pedido, banco) {
       atualizarPedido: async (id, data) => mem.firestore.updateDoc(`pedidos/${id}`, data),
     },
     '@/lib/email': { enviarIngressoPorEmail: async () => { emails++; return {}; } },
+    '@/lib/efi-pix': { consultarPixEfiConfirmado: efi },
     '@/lib/sicredi-pix': { consultarPixConfirmado: banco || (async () => ({ valor: 60, endToEndId: 'E-FICTICIO', horario: '2026-01-01T12:00:00Z' })) },
     '@/lib/pagbank-notificacao': carregar('src/lib/pagbank-notificacao.ts'),
   });
@@ -270,4 +271,172 @@ test('promoção Elevador preserva valores e valida pedido promocional', () => {
     assert.equal(mod.valorPromocionalValido({ tipo: 'elevador', origem: 'site', promocao: mod.PROMOCAO_ELEVADOR, quantidade: qtd, valorTotal: total }), true);
   }
   assert.equal(mod.valorPromocionalValido({ tipo: 'elevador', origem: 'site', promocao: mod.PROMOCAO_ELEVADOR, quantidade: 2, valorTotal: 150 }), false);
+});
+
+test('janela Efí considera somente 18/11 em São Paulo e exclui 14h em ponto', () => {
+  const { efiDisponivelParaCriacao } = carregar('src/lib/efi-pix.ts', {
+    axios: {}, qrcode: {}, '@/lib/sicredi-pix': {},
+  });
+  for (const [instante, esperado] of [
+    ['2026-11-18T02:59:59.999Z', false],
+    ['2026-11-18T03:00:00.000Z', true],
+    ['2026-11-18T16:59:59.999Z', true],
+    ['2026-11-18T17:00:00.000Z', false],
+    ['2026-11-19T09:00:00.000Z', false],
+  ]) assert.equal(efiDisponivelParaCriacao(Date.parse(instante)), esperado);
+});
+
+test('checkout usa Efí primeiro, cai para Sicredi a cada erro e só usa Sicredi fora da janela', async () => {
+  const chave = process.env.SICREDI_PIX_KEY;
+  const base = process.env.SICREDI_BASE_URL;
+  const config = Object.fromEntries(['SICREDI_CERT_BASE64', 'SICREDI_KEY_BASE64', 'SICREDI_CLIENT_ID',
+    'SICREDI_CLIENT_SECRET'].map(k => [k, process.env[k]]));
+  Object.assign(process.env, { SICREDI_PIX_KEY: 'fake', SICREDI_BASE_URL: 'https://banco.invalid',
+    ...Object.fromEntries(Object.keys(config).map(k => [k, 'fake'])) });
+  try {
+    for (const modo of ['efi', 'oauth', 'certificado', 'timeout', 'HTTP', 'QR inválido', 'ambos', 'depois']) {
+      const pedido = { valorTotal: 60, cpf: '52998224725', statusPagamento: 'pendente' };
+      const mem = memoria({ 'pedidos/ficticio': pedido });
+      const chamadas = [];
+      const route = carregar('src/app/api/sicredi/criar-pix/route.ts', {
+        'next/server': next, 'firebase/firestore': mem.firestore, '@/lib/firebase': { db: {} },
+        '@/lib/pedidos': { buscarPedidoPorId: async () => pedido },
+        '@/lib/preco-elevador': { valorPromocionalValido: () => true },
+        '@/lib/combo-parque-elevador-server': { pedidoComboValidoNoServidor: () => true },
+        '@/lib/finalizar-pagamento': {},
+        '@/lib/efi-pix': {
+          efiDisponivelParaCriacao: () => modo !== 'depois',
+          criarPixEfi: async () => {
+            chamadas.push('efi');
+            if (modo !== 'efi') throw new Error(modo);
+            return { txid: 'EFI', status: 'ATIVA', pixCopiaCola: 'QR-EFI', location: '' };
+          },
+        },
+        axios: { isAxiosError: () => false, post: async url => {
+          if (url.endsWith('/oauth/token')) {
+            chamadas.push('sicredi');
+            if (modo === 'ambos') throw new Error('Sicredi indisponível');
+            return { data: { access_token: 'x' } };
+          }
+          return { data: { txid: 'SICREDI', status: 'ATIVA', pixCopiaECola: 'QR-SICREDI' } };
+        } },
+      });
+      const res = await route.POST({ json: async () => ({ pedidoId: 'ficticio' }) });
+      assert.deepEqual(chamadas, modo === 'efi' ? ['efi'] : modo === 'depois' ? ['sicredi'] : ['efi', 'sicredi']);
+      assert.equal(res.status, modo === 'ambos' ? 500 : 200);
+      if (modo !== 'ambos') assert.equal(mem.store.get('pedidos/ficticio').pixProvider, modo === 'efi' ? 'efi' : 'sicredi');
+    }
+  } finally {
+    for (const [k, v] of Object.entries({ SICREDI_PIX_KEY: chave, SICREDI_BASE_URL: base, ...config })) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});
+
+test('confirmação Efí exige prova e valor exato mesmo após troca para Sicredi', async () => {
+  const comprovante = { valor: 60, endToEndId: 'E-FICTICIO-EFI', horario: '2026-11-18T18:00:00Z' };
+  const pedido = { efiTxid: 'TX-EFI', pixProvider: 'sicredi', email: 'ficticio@example.invalid' };
+  const c = central(pedido, async () => null, async () => comprovante);
+  const notificar = () => c.finalizar({ efiTxid: 'TX-EFI', efiEndToEndId: comprovante.endToEndId });
+  assert.equal((await c.finalizar({ efiTxid: 'TX-EFI', efiEndToEndId: 'FORJADO' })).status, 'banco_nao_confirmado');
+  const resultados = await Promise.all([notificar(), notificar(), notificar()]);
+  assert.equal(resultados.filter(r => r.status === 'pago').length, 1);
+  assert.equal(c.emails(), 1);
+  assert.equal(c.store.get('pedidos/ficticio').sicrediTxid, 'TX-FICTICIO');
+  assert.equal(c.store.get('pedidos/ficticio').efiStatus, 'CONCLUIDA');
+
+  const divergente = central(pedido, async () => null, async () => ({ ...comprovante, valor: 1 }));
+  assert.equal((await divergente.finalizar({ efiTxid: 'TX-EFI' })).status, 'valor_divergente');
+  assert.equal(divergente.store.get('pedidos/ficticio').statusPagamento, 'pendente');
+
+  const fallback = central(pedido, async () => comprovante, async () => { throw new Error('Efí offline'); });
+  assert.equal((await fallback.finalizar()).status, 'pago');
+});
+
+test('webhook Efí valida HMAC antes do corpo, aceita teste de cadastro e deduplica pagamentos', async t => {
+  const anterior = process.env.EFI_WEBHOOK_HMAC;
+  t.after(() => {
+    if (anterior === undefined) delete process.env.EFI_WEBHOOK_HMAC;
+    else process.env.EFI_WEBHOOK_HMAC = anterior;
+  });
+  const chamadas = [];
+  const txid = 'a'.repeat(35);
+  const endToEndId = 'E' + '1'.repeat(31);
+  const webhook = carregar('src/app/api/efi/webhook/pix/route.ts', {
+    'next/server': next,
+    '@/lib/pedidos': { buscarPedidoPorTxid: async (id, campo) => {
+      assert.equal(id, txid);
+      assert.equal(campo, 'efiTxid');
+      return { id: 'ficticio', statusPagamento: 'pendente' };
+    } },
+    '@/lib/finalizar-pagamento': { finalizarPagamento: async params => {
+      chamadas.push(params);
+      throw new Error('timeout');
+    } },
+  });
+  const base = carregar('src/app/api/efi/webhook/route.ts', { './pix/route': webhook });
+  assert.equal(base.POST, webhook.POST);
+  const req = (query, text) => ({ nextUrl: new URL(`https://parque.invalid/api/efi/webhook?${query}`), text });
+  let leituras = 0;
+  const callback = async () => {
+    leituras++;
+    return JSON.stringify({ pix: [{ txid, endToEndId, valor: '1.00' }, { txid, endToEndId }] });
+  };
+  delete process.env.EFI_WEBHOOK_HMAC;
+  assert.equal((await base.POST(req('hmac=teste', callback))).status, 503);
+  process.env.EFI_WEBHOOK_HMAC = 'teste';
+  for (const query of ['', 'hmac=incorreto', 'hmac=teste&hmac=teste']) {
+    assert.equal((await base.POST(req(query, callback))).status, 401);
+  }
+  assert.equal(leituras, 0);
+  assert.equal(chamadas.length, 0);
+  assert.equal((await base.POST(req('hmac=teste&ignorar=', async () => ''))).status, 200);
+  assert.equal((await base.POST(req('hmac=teste&ignorar=', async () => '{}'))).status, 200);
+  assert.equal((await base.POST(req('hmac=teste&ignorar=/pix', callback))).status, 503);
+  assert.equal(chamadas.length, 1);
+  assert.equal(chamadas[0].efiTxid, txid);
+  assert.equal(chamadas[0].efiEndToEndId, endToEndId);
+  assert.equal(chamadas[0].valorPago, undefined);
+});
+
+test('cadastro Efí protegido envia skip-mTLS e URL codificada e mantém o HMAC fora da resposta', async t => {
+  const env = { CRON_SECRET: 'admin-teste', EFI_WEBHOOK_HMAC: 'hmac&ficticio',
+    EFI_CLIENT_ID: 'id', EFI_CLIENT_SECRET: 'secret', EFI_CERTIFICATE_P12_BASE64: 'dGVzdGU=',
+    EFI_PIX_KEY: 'contato@example.invalid' };
+  const anterior = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+  Object.assign(process.env, env);
+  t.after(() => {
+    for (const [key, valor] of Object.entries(anterior)) {
+      if (valor === undefined) delete process.env[key];
+      else process.env[key] = valor;
+    }
+  });
+  const registros = [];
+  let falhar = false;
+  const efi = carregar('src/lib/efi-pix.ts', { qrcode: {}, '@/lib/sicredi-pix': {}, axios: {
+    post: async () => ({ data: { access_token: 'token-teste' } }),
+    put: async (...args) => {
+      registros.push(args);
+      if (falhar) throw new Error(args[1].webhookUrl);
+    },
+  } });
+  const cadastro = carregar('src/app/api/efi/configurar-webhook/route.ts', {
+    'next/server': next, '@/lib/efi-pix': efi,
+  });
+  const req = auth => ({ headers: { get: () => auth } });
+  assert.equal((await cadastro.POST(req(null))).status, 401);
+  assert.equal(registros.length, 0);
+  const res = await cadastro.POST(req('Bearer admin-teste'));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.skipMtlsChecking, true);
+  const [[url, body, config]] = registros;
+  assert.equal(url, 'https://pix.api.efipay.com.br/v2/webhook/contato%40example.invalid');
+  assert.equal(body.webhookUrl, 'https://www.parquemundonovooficial.com.br/api/efi/webhook?hmac=hmac%26ficticio&ignorar=');
+  assert.equal(config.headers['x-skip-mtls-checking'], 'true');
+  assert.equal(config.headers.Authorization, 'Bearer token-teste');
+  falhar = true;
+  const erro = await cadastro.POST(req('Bearer admin-teste'));
+  assert.equal(erro.status, 502);
+  assert.doesNotMatch(JSON.stringify([res, erro]), /hmac|ficticio/i);
 });

@@ -838,6 +838,11 @@ export type Pedido =
 
 
 
+    pixProvider?: "efi" | "sicredi";
+    efiTxid?: string;
+    efiStatus?: string;
+    efiPixCopiaCola?: string;
+    efiLocation?: string;
     sicrediTxid?: string;
 
 
@@ -1715,7 +1720,8 @@ export async function buscarPedidoPorTxid(
 
 
 
-  txid: string
+  txid: string,
+  campo: "sicrediTxid" | "efiTxid" = "sicrediTxid"
 
 
 
@@ -1799,7 +1805,7 @@ export async function buscarPedidoPorTxid(
 
 
 
-        "sicrediTxid",
+        campo,
 
 
 

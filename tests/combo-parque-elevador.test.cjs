@@ -164,6 +164,7 @@ test('Pix e cartão finalizam combo por R$ 120, mantendo os dois códigos e QRs'
       '@/lib/pedidos': { buscarPedidoPorId: async id => ({ ...c.pedidos.get(id), id }),
         atualizarPedido: async (id, update) => Object.assign(c.pedidos.get(id), update) },
       '@/lib/email': { enviarIngressoPorEmail: async data => { envios.push(data); return {}; } },
+      '@/lib/efi-pix': {},
       '@/lib/sicredi-pix': { consultarPixConfirmado: async () => ({ valor: 120,
         endToEndId: 'E-COMBO', horario: '2026-11-13T12:00:00Z' }) },
       '@/lib/pagbank-notificacao': {},
@@ -193,6 +194,8 @@ test('rotas de cobrança recusam combo salvo adulterado antes de acessar o prove
     '@/lib/preco-elevador': preco, '@/lib/combo-parque-elevador-server': servidor };
   const pix = carregar('src/app/api/sicredi/criar-pix/route.ts', {
     ...comum, https: {}, axios: { post: proibido, get: proibido, put: proibido },
+    "firebase/firestore": { runTransaction: proibido }, "@/lib/firebase": { db: {} },
+    "@/lib/efi-pix": { efiDisponivelParaCriacao: proibido }, "@/lib/finalizar-pagamento": {},
   });
   const cartao = carregar('src/app/api/sicredi/cartao/pagar/route.ts', {
     ...comum, '@/lib/sicredi-ipg': { somenteDigitos: value => String(value || '').replace(/\D/g, ''),

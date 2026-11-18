@@ -2,6 +2,7 @@ import { pedidoComboValidoNoServidor } from "@/lib/combo-parque-elevador-server"
 import { comboParqueElevadorAtivo } from "@/lib/preco-elevador";
 import { lerNotificacaoPagbank, pagamentoPagbank } from "@/lib/pagbank-notificacao";
 import { randomUUID } from "crypto";
+import { consultarPixEfiConfirmado } from "@/lib/efi-pix";
 import { consultarPixConfirmado } from "@/lib/sicredi-pix";
 import {
     atualizarPedido,
@@ -23,6 +24,8 @@ import {
     runTransaction,
 } from "firebase/firestore";
 
+type CampoTxidPix = "efiTxid" | "sicrediTxid";
+
 type FormaPagamento =
     | "pix"
     | "cartao";
@@ -41,6 +44,8 @@ type FinalizarPagamentoParams = {
     pixEndToEndId?: string;
     pixHorario?: string;
     sicrediTxid?: string;
+    efiTxid?: string;
+    efiEndToEndId?: string;
 
     // Dados opcionais do cartão
     cartaoTransacaoId?: string;
@@ -597,6 +602,8 @@ export async function finalizarPagamento({
     pixEndToEndId,
     pixHorario,
     sicrediTxid,
+    efiTxid,
+    efiEndToEndId,
 
     cartaoTransacaoId,
     cartaoAutorizacao,
@@ -787,20 +794,36 @@ export async function finalizarPagamento({
         };
     }
 
-    // O webhook é apenas um aviso. A prova vem da API autenticada do banco.
+    // Webhook e checkout só liberam o pedido com prova da API bancária.
+    let campoTxid: CampoTxidPix = "sicrediTxid";
+    let txidConfirmado = "";
     if (formaPagamento === "pix" && !pagbankNotificacao) {
-        const txid = String(pedido.sicrediTxid || "").trim();
-        if (!txid || (sicrediTxid && sicrediTxid !== txid)) {
-            return { ok: false, pedidoId, status: "banco_nao_confirmado", mensagem: "TXID inválido." };
-        }
-        const confirmado = await consultarPixConfirmado(txid);
-        if (!confirmado) {
+        const campos: CampoTxidPix[] = efiTxid ? ["efiTxid"] : sicrediTxid ? ["sicrediTxid"] :
+            pedido.pixProvider === "efi" ? ["efiTxid", "sicrediTxid"] : ["sicrediTxid", "efiTxid"];
+        const consultas = campos.filter(campo => typeof pedido[campo] === "string" && pedido[campo].trim());
+        const provas = await Promise.allSettled(consultas.map(async campo => {
+            const txid = pedido[campo].trim();
+            const txidNotificado = campo === "efiTxid" ? efiTxid : sicrediTxid;
+            if (txidNotificado && txidNotificado !== txid) return null;
+            const confirmado = await (campo === "efiTxid" ? consultarPixEfiConfirmado(txid) : consultarPixConfirmado(txid));
+            if (!confirmado || (efiEndToEndId && confirmado.endToEndId !== efiEndToEndId)) return null;
+            return { campo, txid, confirmado };
+        }));
+        const recebimentos = provas.flatMap(prova => prova.status === "fulfilled" && prova.value ? [prova.value] : []);
+        const recebimento = recebimentos.find(({ confirmado }) =>
+            converterParaCentavos(confirmado.valor) === converterParaCentavos(pedido.valorTotal)) ?? recebimentos[0];
+        if (!recebimento) {
+            const erro = provas.find(prova => prova.status === "rejected");
+            if (erro?.status === "rejected") throw erro.reason;
             return { ok: false, pedidoId, status: "banco_nao_confirmado", mensagem: "Pix ainda não confirmado pelo banco." };
         }
+        const { campo, txid, confirmado } = recebimento;
+        campoTxid = campo;
+        txidConfirmado = txid;
         valorPago = confirmado.valor;
         pixEndToEndId = confirmado.endToEndId;
         pixHorario = confirmado.horario;
-        sicrediTxid = txid;
+        if (campo === "sicrediTxid") sicrediTxid = txid;
     }
 
     if (!Number.isFinite(valorPago) || Number(valorPago) <= 0 ||
@@ -832,7 +855,7 @@ export async function finalizarPagamento({
             valorPagoCentavos !==
             valorPedidoCentavos
         ) {
-            if (pagbankNotificacao) return {
+            if (pagbankNotificacao || campoTxid === "efiTxid") return {
                 ok: false, pedidoId, status: "valor_divergente", mensagem: "O valor pago é diferente do valor do pedido.",
             };
             const divergenciaGravada = await gravarSeNaoPago(
@@ -1135,6 +1158,12 @@ export async function finalizarPagamento({
             dataConfirmacao;
     }
 
+    if (campoTxid === "efiTxid") {
+        delete dadosPagamento.sicrediStatus;
+        delete dadosPagamento.sicrediTxid;
+        dadosPagamento.efiStatus = "CONCLUIDA";
+    }
+
     if (pagbankNotificacao) {
         // PagBank tem identificadores próprios; não sobrescrever dados Sicredi.
         for (const campo of ["sicrediStatus", "sicrediTxid", "pixEndToEndId", "pixHorario"]) delete dadosPagamento[campo];
@@ -1153,7 +1182,7 @@ export async function finalizarPagamento({
         const atual = snap.data();
         if (atual.statusPagamento === "pago") return false;
         if ((valorPago !== undefined && converterParaCentavos(atual.valorTotal) !== converterParaCentavos(valorPago)) ||
-            (formaPagamento === "pix" && !pagbankNotificacao && atual.sicrediTxid !== sicrediTxid)) {
+            (formaPagamento === "pix" && !pagbankNotificacao && atual[campoTxid] !== txidConfirmado)) {
             throw new Error("Pedido alterado durante a confirmação bancária.");
         }
         // Nunca reativar ingresso cancelado, bloqueado ou já utilizado.

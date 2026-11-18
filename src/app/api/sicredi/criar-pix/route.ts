@@ -3,10 +3,11 @@ import { valorPromocionalValido } from "@/lib/preco-elevador";
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import axios from "axios";
-import {
-    atualizarPedido,
-    buscarPedidoPorId,
-} from "@/lib/pedidos";
+import { doc, runTransaction } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { buscarPedidoPorId } from "@/lib/pedidos";
+import { criarPixEfi, efiDisponivelParaCriacao } from "@/lib/efi-pix";
+import { finalizarPagamento } from "@/lib/finalizar-pagamento";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -285,6 +286,21 @@ function cobrancaAindaValida(
     );
 }
 
+async function salvarPixPendente(pedidoId: string, dados: Record<string, unknown>) {
+    return runTransaction(db, async transacao => {
+        const ref = doc(db, "pedidos", pedidoId);
+        const pedido = await transacao.get(ref);
+        if (!pedido.exists()) throw new Error("Pedido não encontrado.");
+        if (pedido.data().statusPagamento === "pago") return false;
+        transacao.update(ref, { ...dados, updatedAt: new Date().toISOString() });
+        return true;
+    });
+}
+
+function responderPix(dados: Record<string, unknown>) {
+    return NextResponse.json({ ok: true, ...dados }, { headers: { "Cache-Control": "no-store" } });
+}
+
 /* =========================================================
    CRIAR PIX
 ========================================================= */
@@ -380,6 +396,7 @@ export async function POST(
                 .statusPagamento ===
             "pago"
         ) {
+            const efi = pedidoSalvo.pixProvider === "efi";
             return NextResponse.json(
                 {
                     ok: true,
@@ -394,17 +411,17 @@ export async function POST(
 
                     txid:
                         pedidoSalvo
-                            .sicrediTxid ||
+                            [efi ? "efiTxid" : "sicrediTxid"] ||
                         "",
 
                     pixCopiaCola:
                         pedidoSalvo
-                            .sicrediPixCopiaCola ||
+                            [efi ? "efiPixCopiaCola" : "sicrediPixCopiaCola"] ||
                         "",
 
                     location:
                         pedidoSalvo
-                            .sicrediLocation ||
+                            [efi ? "efiLocation" : "sicrediLocation"] ||
                         "",
                 },
                 {
@@ -618,6 +635,33 @@ export async function POST(
             }
         }
 
+        const tentarEfi = efiDisponivelParaCriacao();
+        if (tentarEfi) {
+            try {
+                const cobranca = await criarPixEfi(pedidoId, valorFinal,
+                    ehEstrangeiro ? undefined : { cpf: cpfFinal, nome: nomeFinal }, pedidoSalvo.efiTxid);
+                const salvo = await salvarPixPendente(pedidoId, {
+                    pixProvider: "efi",
+                    efiTxid: cobranca.txid,
+                    efiStatus: cobranca.status,
+                    efiPixCopiaCola: cobranca.pixCopiaCola,
+                    efiLocation: cobranca.location,
+                });
+                if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
+                if (cobranca.status === "CONCLUIDA") {
+                    const resultado = await finalizarPagamento({ pedidoId, formaPagamento: "pix", efiTxid: cobranca.txid });
+                    if (!resultado.ok) throw new Error("Falha ao confirmar cobrança Efí.");
+                    return responderPix({ pago: true, status: "CONCLUIDA", txid: cobranca.txid });
+                }
+                // O TXID fica disponível para receber pagamentos mesmo após a janela de emissão.
+                if (efiDisponivelParaCriacao()) return responderPix({ ...cobranca, pixProvider: "efi" });
+            } catch (error) {
+                console.warn("Pix Efí indisponível. Tentando Sicredi.", {
+                    pedidoId, status: axios.isAxiosError(error) ? error.response?.status : undefined,
+                });
+            }
+        }
+
         /* =================================================
            CONFIGURAÇÕES SICREDI
         ================================================= */
@@ -748,6 +792,8 @@ export async function POST(
                         ?.status ===
                     "CONCLUIDA"
                 ) {
+                    const salvo = await salvarPixPendente(pedidoId, { pixProvider: "sicredi" });
+                    if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
                     return NextResponse.json(
                         {
                             ok: true,
@@ -788,7 +834,7 @@ export async function POST(
                     "ATIVA" &&
                     cobrancaAindaValida(
                         cobrancaExistente
-                    )
+                    ) && (!tentarEfi || Boolean(pixCopiaCola))
                 ) {
                     console.log(
                         "REUTILIZANDO PIX EXISTENTE:",
@@ -800,6 +846,8 @@ export async function POST(
                         }
                     );
 
+                    const salvo = await salvarPixPendente(pedidoId, { pixProvider: "sicredi" });
+                    if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
                     return NextResponse.json(
                         {
                             ok: true,
@@ -986,13 +1034,18 @@ export async function POST(
             data?.emv ||
             "";
 
+        if (tentarEfi && (!data?.txid || typeof pixCopiaCola !== "string" || !pixCopiaCola.trim())) {
+            throw new Error("Sicredi não retornou o Pix completo.");
+        }
+
         /* =================================================
            SALVAR DADOS DO PIX NO FIRESTORE
         ================================================= */
 
-        await atualizarPedido(
+        const salvo = await salvarPixPendente(
             pedidoId,
             {
+                pixProvider: "sicredi",
                 statusPagamento:
                     "pendente",
 
@@ -1016,6 +1069,8 @@ export async function POST(
                         .toISOString(),
             }
         );
+
+        if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
 
         /* =================================================
            RESPOSTA PARA CHECKOUT
