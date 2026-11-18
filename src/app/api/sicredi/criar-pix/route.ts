@@ -655,65 +655,8 @@ export async function POST(
                 }
                 // O TXID fica disponível para receber pagamentos mesmo após a janela de emissão.
                 if (efiDisponivelParaCriacao()) return responderPix({ ...cobranca, pixProvider: "efi" });
-            } catch (error) {
-                const efiError = error instanceof Error ? error : undefined;
-                const axiosError = axios.isAxiosError<unknown>(error) ? error : undefined;
-                const { EFI_CLIENT_ID, EFI_CLIENT_SECRET, EFI_CERTIFICATE_P12_BASE64, EFI_PIX_KEY } = process.env;
-                const certificado = EFI_CERTIFICATE_P12_BASE64?.trim();
-                const authorization = axiosError?.config?.headers?.get?.("Authorization");
-                const token = typeof authorization === "string" ? authorization.replace(/^Bearer\s+/i, "") : undefined;
-                const secrets = [EFI_CLIENT_ID, EFI_CLIENT_SECRET, EFI_CERTIFICATE_P12_BASE64, EFI_PIX_KEY, token];
-                const sanitizar = (value: unknown) => {
-                    if (typeof value !== "string") return undefined;
-                    let safe = value
-                        .replace(/\b(?:Basic|Bearer)\s+[^\s,;]+/gi, "[redigido]")
-                        .replace(/\b(?:access_token|refresh_token|id_token)\b["']?\s*[:=]\s*["']?[^\s"',;}]+/gi, "[redigido]");
-                    for (const secret of secrets) {
-                        if (secret?.trim()) {
-                            for (const variant of [secret, secret.trim(), encodeURIComponent(secret.trim())]) {
-                                safe = safe.split(variant).join("[redigido]");
-                            }
-                        }
-                    }
-                    return safe.slice(0, 500);
-                };
-                const data = axiosError?.response?.data;
-                let responseData: unknown;
-                if (data !== undefined) {
-                    // Projeta campos conhecidos. Texto livre e campos desconhecidos podem ecoar credenciais.
-                    responseData = "[redigido]";
-                    if (data !== null && typeof data === "object" && !Array.isArray(data)) {
-                        const body = data as Record<string, unknown>;
-                        const oauthErrors = [
-                            "invalid_request", "invalid_client", "invalid_grant", "unauthorized_client",
-                            "unsupported_grant_type", "invalid_scope", "server_error", "temporarily_unavailable",
-                        ];
-                        responseData = {
-                            error: typeof body.error === "string" && oauthErrors.includes(body.error)
-                                ? sanitizar(body.error) : body.error === undefined ? undefined : "[redigido]",
-                            status: typeof body.status === "number" ? body.status : undefined,
-                            title: body.title === undefined ? undefined : "[redigido]",
-                            detail: body.detail === undefined ? undefined : "[redigido]",
-                            error_description: body.error_description === undefined ? undefined : "[redigido]",
-                            violacoes: Array.isArray(body.violacoes) ? body.violacoes.length : undefined,
-                        };
-                    }
-                }
-                console.warn("Pix Efí indisponível. Tentando Sicredi.", {
-                    pedidoId,
-                    error: {
-                        name: sanitizar(efiError?.name),
-                        message: sanitizar(efiError?.message),
-                        code: sanitizar(efiError && "code" in efiError ? efiError.code : undefined),
-                    },
-                    status: axiosError?.response?.status ?? axiosError?.status,
-                    response: data === undefined ? undefined : { data: responseData },
-                    EFI_CLIENT_ID: Boolean(EFI_CLIENT_ID?.trim()),
-                    EFI_CLIENT_SECRET: Boolean(EFI_CLIENT_SECRET?.trim()),
-                    EFI_CERTIFICATE_P12_BASE64: Boolean(certificado),
-                    EFI_CERTIFICATE_P12_BASE64_LENGTH: certificado?.length ?? 0,
-                    EFI_PIX_KEY: Boolean(EFI_PIX_KEY?.trim()),
-                });
+            } catch {
+                console.warn("Pix Efí indisponível. Tentando Sicredi.");
             }
         }
 
