@@ -47,11 +47,14 @@ export default function DashboardPage() {
     useState<Pedido[]>([]);
 
   const [relatorioDia, setRelatorioDia] = useState<ReturnType<typeof gerarVendasDoDia>>();
-  const [preparandoRelatorio, setPreparandoRelatorio] = useState(false);
+  const [relatorioMes, setRelatorioMes] = useState<ReturnType<typeof gerarVendasDoMes>>();
+  const [preparandoRelatorio, setPreparandoRelatorio] = useState<"dia" | "mês">();
+  const [mostrarMaisDias, setMostrarMaisDias] = useState(false);
 
   useEffect(() => {
     function limparRelatorio() {
       setRelatorioDia(undefined);
+      setRelatorioMes(undefined);
     }
 
     window.addEventListener("afterprint", limparRelatorio);
@@ -358,27 +361,32 @@ export default function DashboardPage() {
     setDataFinal("");
   }
 
-  async function imprimirVendasDoDia() {
+  async function imprimirVendas(periodo: "dia" | "mês") {
     if (preparandoRelatorio) return;
-    setPreparandoRelatorio(true);
+    setPreparandoRelatorio(periodo);
     try {
       const pedidosAtuais = await listarPedidos();
-      const relatorio = gerarVendasDoDia(pedidosAtuais, new Date());
-      flushSync(() => setRelatorioDia(relatorio));
+      const agora = new Date();
+      flushSync(() => {
+        setRelatorioDia(periodo === "dia" ? gerarVendasDoDia(pedidosAtuais, agora) : undefined);
+        setRelatorioMes(periodo === "mês" ? gerarVendasDoMes(pedidosAtuais, agora) : undefined);
+      });
       window.print();
     } catch (error) {
       setRelatorioDia(undefined);
-      console.error("Falha ao gerar o relatório de vendas do dia:", error);
-      window.alert("Não foi possível gerar o relatório de vendas do dia.");
+      setRelatorioMes(undefined);
+      console.error(`Falha ao gerar o relatório de vendas do ${periodo}:`, error);
+      window.alert(`Não foi possível gerar o relatório de vendas do ${periodo}.`);
     } finally {
-      setPreparandoRelatorio(false);
+      setPreparandoRelatorio(undefined);
     }
   }
 
   return (
     <>
     {relatorioDia && <RelatorioVendasDoDia relatorio={relatorioDia} />}
-    <main className={`min-h-screen bg-[#eef3ed] px-4 py-6 ${relatorioDia ? "print:hidden" : ""}`}>
+    {relatorioMes && <RelatorioVendasDoMes relatorio={relatorioMes} />}
+    <main className={`min-h-screen bg-[#eef3ed] px-4 py-6 ${relatorioDia || relatorioMes ? "print:hidden" : ""}`}>
       <div className="mx-auto max-w-7xl">
 
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between print:hidden">
@@ -437,17 +445,15 @@ export default function DashboardPage() {
               />
 
               <Botao
-                texto={preparandoRelatorio ? "Preparando relatório…" : "📄 Vendas do Dia"}
+                texto={preparandoRelatorio === "dia" ? "Preparando relatório…" : "📄 Vendas do Dia"}
                 classe="bg-blue-700 hover:bg-blue-800"
-                onClick={imprimirVendasDoDia}
+                onClick={() => imprimirVendas("dia")}
               />
 
               <Botao
-                texto="📄 Vendas do Mês"
+                texto={preparandoRelatorio === "mês" ? "Preparando relatório…" : "📄 Vendas do Mês"}
                 classe="bg-purple-700 hover:bg-purple-800"
-                onClick={() =>
-                  window.print()
-                }
+                onClick={() => imprimirVendas("mês")}
               />
 
               <Botao
@@ -892,18 +898,23 @@ export default function DashboardPage() {
 
             </section>
 
-            <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
-
-              <h2 className="text-2xl font-bold text-[#166534]">
-                Faturamento por Dia
-              </h2>
+            <details
+              className="group mt-8 rounded-2xl bg-white p-5 shadow-md"
+              onToggle={evento => {
+                if (!evento.currentTarget.open) setMostrarMaisDias(false);
+              }}
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[#166534] [&::-webkit-details-marker]:hidden">
+                <h2 className="text-2xl font-bold">Faturamento por Dia</h2>
+                <span aria-hidden="true" className="group-open:rotate-180">▼</span>
+              </summary>
 
               <p className="mt-2 text-sm text-gray-500">
                 Somente pagamentos
                 confirmados.
               </p>
 
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3">
 
                 {faturamentoPorDia
                   .length === 0 ? (
@@ -913,7 +924,7 @@ export default function DashboardPage() {
                     suficientes.
                   </p>
                 ) : (
-                  faturamentoPorDia.map(
+                  (mostrarMaisDias ? faturamentoPorDia : faturamentoPorDia.slice(0, 7)).map(
                     (item) => (
                       <div
                         key={
@@ -934,7 +945,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <div className="h-5 overflow-hidden rounded-full bg-gray-200">
+                        <div className="h-3 overflow-hidden rounded-full bg-gray-200">
                           <div
                             className="h-full rounded-full bg-[#1f6b38]"
                             style={{
@@ -948,7 +959,16 @@ export default function DashboardPage() {
                 )}
 
               </div>
-            </section>
+              {faturamentoPorDia.length > 7 && (
+                <button
+                  type="button"
+                  className="mt-4 rounded-lg px-3 py-2 text-sm font-semibold text-[#166534] hover:bg-green-50 print:hidden"
+                  onClick={() => setMostrarMaisDias(atual => !atual)}
+                >
+                  {mostrarMaisDias ? "Mostrar menos" : "Ver mais dias"}
+                </button>
+              )}
+            </details>
 
             <section className="mt-8 rounded-2xl bg-white p-5 shadow-md">
 
@@ -1681,11 +1701,34 @@ function obterItensVenda(pedido: Pedido): ItemVenda[] {
   }];
 }
 
+const fusoRelatorio = "America/Sao_Paulo";
+const formatarDataVenda = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: fusoRelatorio });
+const formatarHoraVenda = new Intl.DateTimeFormat("pt-BR", { timeStyle: "medium", timeZone: fusoRelatorio });
+const moedaRelatorio = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const formatarValor = (centavos: number) => moedaRelatorio.format(centavos / 100);
+
 function gerarVendasDoDia(pedidos: Pedido[], agora: Date) {
-  const timeZone = "America/Sao_Paulo";
-  const formatarData = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone });
-  const formatarHora = new Intl.DateTimeFormat("pt-BR", { timeStyle: "medium", timeZone });
-  const data = formatarData.format(agora);
+  const data = formatarDataVenda.format(agora);
+  return {
+    data,
+    ...gerarVendasConfirmadas(pedidos, confirmacao => formatarDataVenda.format(confirmacao) === data),
+  };
+}
+
+function gerarVendasDoMes(pedidos: Pedido[], agora: Date) {
+  const formatarMes = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: fusoRelatorio,
+  });
+  const mes = formatarMes.format(agora);
+  const vendasDoMes = gerarVendasConfirmadas(pedidos, confirmacao =>
+    confirmacao <= agora.getTime() && formatarMes.format(confirmacao) === mes
+  );
+  return { mes, ...vendasDoMes };
+}
+
+function gerarVendasConfirmadas(pedidos: Pedido[], noPeriodo: (confirmacao: number) => boolean) {
   const recebimentos = { pix: 0, cartao: 0 };
   const produtos = {
     parque: { quantidade: 0, receita: 0 },
@@ -1707,7 +1750,7 @@ function gerarVendasDoDia(pedidos: Pedido[], agora: Date) {
       forma === "pix" ? pedido.pixHorario : undefined]
       .map(valor => Date.parse(valor ?? ""))
       .find(Number.isFinite);
-    if (confirmacao === undefined || formatarData.format(confirmacao) !== data) return [];
+    if (confirmacao === undefined || !noPeriodo(confirmacao)) return [];
 
     const valorPago = Math.round(Number(pedido.valorPago ?? pedido.valorTotal) * 100);
     const itens = obterItensVenda(pedido);
@@ -1731,7 +1774,7 @@ function gerarVendasDoDia(pedidos: Pedido[], agora: Date) {
     return [{
       id: pedido.id,
       confirmacao,
-      horario: formatarHora.format(confirmacao),
+      horario: formatarHoraVenda.format(confirmacao),
       forma: forma === "pix" ? "Pix" : "Cartão",
       valorPago,
       itens: itens.map(item => ({
@@ -1741,13 +1784,11 @@ function gerarVendasDoDia(pedidos: Pedido[], agora: Date) {
     }];
   }).sort((a, b) => a.confirmacao - b.confirmacao);
 
-  return { data, recebimentos, produtos, vendas };
+  return { recebimentos, produtos, vendas };
 }
 
 function RelatorioVendasDoDia({ relatorio }: { relatorio: ReturnType<typeof gerarVendasDoDia> }) {
   const { data, recebimentos, produtos, vendas } = relatorio;
-  const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-  const formatarValor = (centavos: number) => moeda.format(centavos / 100);
   const tabela = "w-full table-fixed border-collapse [&_td]:border-b [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_td]:align-top [&_th]:border-b [&_th]:border-gray-500 [&_th]:px-2 [&_th]:py-1 [&_tr]:break-inside-avoid";
   const titulo = "mb-1 text-sm font-bold uppercase break-after-avoid";
 
@@ -1814,6 +1855,101 @@ function RelatorioVendasDoDia({ relatorio }: { relatorio: ReturnType<typeof gera
             </tbody>
           ))}
           {vendas.length === 0 && <tbody><tr><td colSpan={6}>Nenhum pedido pago no dia.</td></tr></tbody>}
+        </table>
+      </section>
+    </article>
+  );
+}
+
+function RelatorioVendasDoMes({ relatorio }: { relatorio: ReturnType<typeof gerarVendasDoMes> }) {
+  const { mes, recebimentos, produtos, vendas } = relatorio;
+  const total = recebimentos.pix + recebimentos.cartao;
+  const totalIngressos = vendas.reduce((soma, venda) =>
+    soma + venda.itens.reduce((quantidade, item) => quantidade + item.quantidade, 0), 0
+  );
+  const pedidosPix = vendas.filter(venda => venda.forma === "Pix").length;
+  const tabela = "w-full border-collapse [&_td]:border-b [&_td]:border-gray-300 [&_td]:px-1 [&_td]:py-1 [&_td]:align-top [&_th]:border-b [&_th]:border-gray-500 [&_th]:px-1 [&_th]:py-1 [&_tr]:break-inside-avoid";
+  const titulo = "mb-1 break-after-avoid text-[11pt] font-bold";
+
+  return (
+    <article className="hidden text-[9pt] leading-snug text-black print:block">
+      <section className="mb-3 break-inside-avoid">
+        <h1 className={titulo}>Resumo do mês · {mes}</h1>
+        <dl className="grid grid-cols-3 gap-x-3 gap-y-1">
+          <div><dt>Total vendido</dt><dd className="font-semibold">{formatarValor(total)}</dd></div>
+          <div><dt>Pedidos pagos</dt><dd className="font-semibold">{vendas.length}</dd></div>
+          <div><dt>Ingressos</dt><dd className="font-semibold">{totalIngressos}</dd></div>
+          <div><dt>Ticket médio</dt><dd className="font-semibold">{formatarValor(vendas.length ? total / vendas.length : 0)}</dd></div>
+          <div><dt>Recebido via Pix</dt><dd className="font-semibold">{formatarValor(recebimentos.pix)}</dd></div>
+          <div><dt>Recebido via cartão</dt><dd className="font-semibold">{formatarValor(recebimentos.cartao)}</dd></div>
+        </dl>
+      </section>
+
+      <section className="mb-3 break-inside-avoid">
+        <h2 className={titulo}>Vendas por produto do mês</h2>
+        <table className={tabela}>
+          <thead>
+            <tr><th className="text-left">Produto</th><th className="text-right">Quantidade</th><th className="text-right">Receita</th></tr>
+          </thead>
+          <tbody>
+            {(Object.keys(produtos) as ProdutoVenda[]).map(produto => (
+              <tr key={produto}>
+                <td>{produto === "elevador" ? "Elevador Panorâmico" : produtosVendasDoDia[produto]}</td>
+                <td className="text-right">{produtos[produto].quantidade}</td>
+                <td className="text-right">{formatarValor(produtos[produto].receita)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="mb-3 break-inside-avoid">
+        <h2 className={titulo}>Formas de pagamento</h2>
+        <table className={tabela}>
+          <thead>
+            <tr><th className="text-left">Forma</th><th className="text-right">Pedidos</th><th className="text-right">Valor recebido</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Pix</td><td className="text-right">{pedidosPix}</td><td className="text-right">{formatarValor(recebimentos.pix)}</td></tr>
+            <tr><td>Cartão</td><td className="text-right">{vendas.length - pedidosPix}</td><td className="text-right">{formatarValor(recebimentos.cartao)}</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2 className={titulo}>Detalhamento das vendas do mês</h2>
+        <table className={`${tabela} table-fixed`}>
+          <thead>
+            <tr>
+              <th className="w-[12%] text-left">Data</th>
+              <th className="w-[10%] text-left">Horário</th>
+              <th className="w-[22%] text-left">Pedido ID</th>
+              <th className="w-[23%] text-left">Produto(s)</th>
+              <th className="w-[8%] text-right">Qtd.</th>
+              <th className="w-[16%] text-right">Valor pago</th>
+              <th className="w-[9%] text-left">Forma</th>
+            </tr>
+          </thead>
+          {vendas.map(venda => (
+            <tbody key={venda.id} className="break-inside-avoid">
+              {venda.itens.map((item, indice) => (
+                <tr key={indice}>
+                  {indice === 0 && <>
+                    <td rowSpan={venda.itens.length} className="whitespace-nowrap">{formatarDataVenda.format(venda.confirmacao)}</td>
+                    <td rowSpan={venda.itens.length} className="whitespace-nowrap">{venda.horario}</td>
+                    <td rowSpan={venda.itens.length} className="[overflow-wrap:anywhere]">{venda.id}</td>
+                  </>}
+                  <td>{item.nome}</td>
+                  <td className="text-right">{item.quantidade}</td>
+                  {indice === 0 && <>
+                    <td rowSpan={venda.itens.length} className="whitespace-nowrap text-right">{formatarValor(venda.valorPago)}</td>
+                    <td rowSpan={venda.itens.length}>{venda.forma}</td>
+                  </>}
+                </tr>
+              ))}
+            </tbody>
+          ))}
+          {vendas.length === 0 && <tbody><tr><td colSpan={7}>Nenhum pedido pago no mês.</td></tr></tbody>}
         </table>
       </section>
     </article>
