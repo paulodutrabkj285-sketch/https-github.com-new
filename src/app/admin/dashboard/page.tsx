@@ -146,6 +146,13 @@ export default function DashboardPage() {
       pedidos
     );
 
+  const maximoSituacaoPedidos = Math.max(
+    resumo.totalPagos,
+    resumo.totalPendentes,
+    resumo.totalExpirados || 0,
+    1
+  );
+
   const desdeLancamento =
     gerarResumoDesdeLancamento(
       pedidos
@@ -388,70 +395,76 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Botao
-              texto="Emitir cortesia"
-              classe="bg-green-800 hover:bg-green-900"
-              onClick={() => router.push("/admin/dashboard/emitir-cortesia")}
-            />
+          <details className="group w-full md:w-auto md:max-w-[65%]">
+            <summary className="ml-auto flex w-full cursor-pointer list-none items-center justify-between gap-3 rounded-xl bg-green-800 px-5 py-3 font-bold text-white shadow-md hover:bg-green-900 md:w-fit [&::-webkit-details-marker]:hidden">
+              Ações do painel
+              <span aria-hidden="true" className="group-open:rotate-180">▼</span>
+            </summary>
 
-            <Botao
-              texto="🏢 Agências e Reservas"
-              classe="bg-amber-600 hover:bg-amber-700"
-              onClick={() =>
-                router.push(
-                  "/admin/reservas-agencias"
-                )
-              }
-            />
+            <div className="mt-3 grid gap-3 sm:flex sm:flex-wrap md:justify-end">
+              <Botao
+                texto="Emitir cortesia"
+                classe="bg-green-800 hover:bg-green-900"
+                onClick={() => router.push("/admin/dashboard/emitir-cortesia")}
+              />
 
-            <Botao
-              texto="📧 Envio de Ingressos"
-              classe="bg-[#166534] hover:bg-green-800"
-              onClick={() =>
-                router.push(
-                  "/admin/envio-ingressos"
-                )
-              }
-            />
+              <Botao
+                texto="🏢 Agências e Reservas"
+                classe="bg-amber-600 hover:bg-amber-700"
+                onClick={() =>
+                  router.push(
+                    "/admin/reservas-agencias"
+                  )
+                }
+              />
 
-            <Botao
-              texto="📄 Relatório Financeiro"
-              classe="bg-green-700 hover:bg-green-800"
-              onClick={() =>
-                window.print()
-              }
-            />
+              <Botao
+                texto="📧 Envio de Ingressos"
+                classe="bg-[#166534] hover:bg-green-800"
+                onClick={() =>
+                  router.push(
+                    "/admin/envio-ingressos"
+                  )
+                }
+              />
 
-            <Botao
-              texto={preparandoRelatorio ? "Preparando relatório…" : "📄 Vendas do Dia"}
-              classe="bg-blue-700 hover:bg-blue-800"
-              onClick={imprimirVendasDoDia}
-            />
+              <Botao
+                texto="📄 Relatório Financeiro"
+                classe="bg-green-700 hover:bg-green-800"
+                onClick={() =>
+                  window.print()
+                }
+              />
 
-            <Botao
-              texto="📄 Vendas do Mês"
-              classe="bg-purple-700 hover:bg-purple-800"
-              onClick={() =>
-                window.print()
-              }
-            />
+              <Botao
+                texto={preparandoRelatorio ? "Preparando relatório…" : "📄 Vendas do Dia"}
+                classe="bg-blue-700 hover:bg-blue-800"
+                onClick={imprimirVendasDoDia}
+              />
 
-            <Botao
-              texto="📋 Exportar Entradas"
-              classe="bg-orange-600 hover:bg-orange-700"
-              onClick={
-                exportarEntradas
-              }
-            />
+              <Botao
+                texto="📄 Vendas do Mês"
+                classe="bg-purple-700 hover:bg-purple-800"
+                onClick={() =>
+                  window.print()
+                }
+              />
 
-            <Botao
-              texto="📊 Exportar Excel"
-              classe="bg-emerald-700 hover:bg-emerald-800"
-              onClick={exportarCSV}
-            />
+              <Botao
+                texto="📋 Exportar Entradas"
+                classe="bg-orange-600 hover:bg-orange-700"
+                onClick={
+                  exportarEntradas
+                }
+              />
 
-          </div>
+              <Botao
+                texto="📊 Exportar Excel"
+                classe="bg-emerald-700 hover:bg-emerald-800"
+                onClick={exportarCSV}
+              />
+            </div>
+          </details>
         </div>
 
         <div className="hidden print:block">
@@ -835,19 +848,20 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-5 shadow-md">
+              <div className="flex h-[300px] flex-col self-start rounded-2xl bg-white p-5 shadow-md">
 
                 <h2 className="text-2xl font-bold text-[#166534]">
                   Situação dos Pedidos
                 </h2>
 
-                <div className="mt-8 flex items-end gap-5">
+                <div className="mt-4 grid min-h-0 flex-1 grid-cols-3 gap-2 sm:gap-5">
 
                   <BarraStatus
                     titulo="Pagos"
                     quantidade={
                       resumo.totalPagos
                     }
+                    maximo={maximoSituacaoPedidos}
                     classe="bg-green-600"
                     texto="text-green-700"
                   />
@@ -858,6 +872,7 @@ export default function DashboardPage() {
                       resumo
                         .totalPendentes
                     }
+                    maximo={maximoSituacaoPedidos}
                     classe="bg-yellow-500"
                     texto="text-yellow-700"
                   />
@@ -865,10 +880,9 @@ export default function DashboardPage() {
                   <BarraStatus
                     titulo="Expirados"
                     quantidade={
-                      (resumo as any)
-                        .totalExpirados ||
-                      0
+                      resumo.totalExpirados || 0
                     }
+                    maximo={maximoSituacaoPedidos}
                     classe="bg-orange-500"
                     texto="text-orange-700"
                   />
@@ -2025,37 +2039,28 @@ function CardEntrada({
 function BarraStatus({
   titulo,
   quantidade,
+  maximo,
   classe,
   texto,
 }: {
   titulo: string;
   quantidade: number;
+  maximo: number;
   classe: string;
   texto: string;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center">
+    <div className="flex min-h-0 flex-col items-center text-center">
+      <div className="flex min-h-0 w-full flex-1 items-end justify-center">
+        <div
+          aria-hidden="true"
+          className={`w-full max-w-20 rounded-t-2xl ${classe}`}
+          style={{ height: `${(quantidade / maximo) * 100}%` }}
+        />
+      </div>
 
-      <div
-        className={`w-full max-w-20 rounded-t-2xl ${classe}`}
-        style={{
-          height: `${Math.max(
-            quantidade * 15,
-            30
-          )}px`,
-        }}
-      />
-
-      <p
-        className={`mt-3 text-sm font-bold ${texto}`}
-      >
-        {titulo}
-      </p>
-
-      <span className="font-semibold">
-        {quantidade}
-      </span>
-
+      <p className={`mt-2 text-sm font-bold ${texto}`}>{titulo}</p>
+      <span className="font-semibold tabular-nums">{quantidade}</span>
     </div>
   );
 }
