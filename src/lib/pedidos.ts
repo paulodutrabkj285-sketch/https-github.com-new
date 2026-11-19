@@ -840,6 +840,9 @@ export type Pedido =
 
     pixProvider?: "efi" | "sicredi";
     efiTxid?: string;
+    testeEfi?: boolean;
+    valorTesteEfi?: number;
+    valorOriginalTesteEfi?: number;
     efiStatus?: string;
     efiPixCopiaCola?: string;
     efiLocation?: string;
