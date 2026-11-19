@@ -6,10 +6,12 @@ import QRCode from "qrcode";
 import { validarCobrancaPix } from "@/lib/sicredi-pix";
 
 export const EFI_TEMPORARY_ENABLED = true;
-export const EFI_TEMPORARY_END_AT = "2026-11-19T10:00:00-03:00";
 
-const inicio = Date.parse("2026-11-18T00:00:00-03:00");
-const fim = Date.parse(EFI_TEMPORARY_END_AT);
+// Horários locais de America/Sao_Paulo nesse período (UTC-03:00).
+const janelasEfi = [
+    { inicio: Date.parse("2026-11-18T00:00:00-03:00"), fim: Date.parse("2026-11-19T13:30:00-03:00") },
+    { inicio: Date.parse("2026-11-19T19:00:00-03:00"), fim: Date.parse("2026-11-20T09:00:00-03:00") },
+];
 const baseUrl = "https://pix.api.efipay.com.br";
 const timeout = 5000;
 
@@ -119,8 +121,13 @@ export function pedidoAutorizadoParaTesteEfi(
         !pedido.agenciaId && !pedido.cortesia;
 }
 
+function janelaEfiAtiva(agora: number) {
+    if (!EFI_TEMPORARY_ENABLED) return undefined;
+    return janelasEfi.find(({ inicio, fim }) => agora >= inicio && agora < fim);
+}
+
 export function efiDisponivelParaCriacao(agora = Date.now()) {
-    return EFI_TEMPORARY_ENABLED && agora >= inicio && agora < fim;
+    return janelaEfiAtiva(agora) !== undefined;
 }
 
 async function autenticar(httpsAgent: https.Agent, signal: AbortSignal, aoAutenticar?: (status: number) => void) {
@@ -193,14 +200,15 @@ export async function criarPixEfi(pedidoId: string, valor: string, devedor?: { c
 
     try {
         if (!chave) throw new ErroPixEfi("Chave Pix Efí ausente.");
-        if (!efiDisponivelParaCriacao(agora)) throw new ErroPixEfi("Janela Efí encerrada.");
+        const janela = janelaEfiAtiva(agora);
+        if (!janela) throw new ErroPixEfi("Janela Efí encerrada.");
 
         etapa = "oauth";
         const txid = efiTxidDoPedido(pedidoId);
-        return await comClienteEfi(Math.min(8000, fim - agora), async config => {
+        return await comClienteEfi(Math.min(8000, janela.fim - agora), async config => {
             etapa = "criar-cobranca";
             const url = `${baseUrl}/v2/cob/${txid}`;
-            if (!efiDisponivelParaCriacao()) throw new ErroPixEfi("Janela Efí encerrada.");
+            if (janelaEfiAtiva(Date.now()) !== janela) throw new ErroPixEfi("Janela Efí encerrada.");
             const reutilizado = txidSalvo === txid;
             const resposta = reutilizado ? await axios.get(url, config) : await axios.put(url, {
                 calendario: { expiracao: 3600 },
