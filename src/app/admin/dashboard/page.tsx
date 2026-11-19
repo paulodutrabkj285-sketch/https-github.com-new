@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   calcularResumoFinanceiro,
@@ -44,6 +45,18 @@ export default function DashboardPage() {
 
   const [pedidos, setPedidos] =
     useState<Pedido[]>([]);
+
+  const [relatorioDia, setRelatorioDia] = useState<ReturnType<typeof gerarVendasDoDia>>();
+  const [preparandoRelatorio, setPreparandoRelatorio] = useState(false);
+
+  useEffect(() => {
+    function limparRelatorio() {
+      setRelatorioDia(undefined);
+    }
+
+    window.addEventListener("afterprint", limparRelatorio);
+    return () => window.removeEventListener("afterprint", limparRelatorio);
+  }, []);
 
   const [
     carregando,
@@ -103,7 +116,7 @@ export default function DashboardPage() {
     async function carregarDados() {
       try {
         setPedidos(
-          await listarPedidos()
+          (await listarPedidos()).filter(pedido => pedido.testeEfi !== true)
         );
       } catch (error) {
         console.error(
@@ -338,8 +351,27 @@ export default function DashboardPage() {
     setDataFinal("");
   }
 
+  async function imprimirVendasDoDia() {
+    if (preparandoRelatorio) return;
+    setPreparandoRelatorio(true);
+    try {
+      const pedidosAtuais = await listarPedidos();
+      const relatorio = gerarVendasDoDia(pedidosAtuais, new Date());
+      flushSync(() => setRelatorioDia(relatorio));
+      window.print();
+    } catch (error) {
+      setRelatorioDia(undefined);
+      console.error("Falha ao gerar o relatório de vendas do dia:", error);
+      window.alert("Não foi possível gerar o relatório de vendas do dia.");
+    } finally {
+      setPreparandoRelatorio(false);
+    }
+  }
+
   return (
-    <main className="min-h-screen bg-[#eef3ed] px-4 py-6">
+    <>
+    {relatorioDia && <RelatorioVendasDoDia relatorio={relatorioDia} />}
+    <main className={`min-h-screen bg-[#eef3ed] px-4 py-6 ${relatorioDia ? "print:hidden" : ""}`}>
       <div className="mx-auto max-w-7xl">
 
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between print:hidden">
@@ -392,11 +424,9 @@ export default function DashboardPage() {
             />
 
             <Botao
-              texto="📄 Vendas do Dia"
+              texto={preparandoRelatorio ? "Preparando relatório…" : "📄 Vendas do Dia"}
               classe="bg-blue-700 hover:bg-blue-800"
-              onClick={() =>
-                window.print()
-              }
+              onClick={imprimirVendasDoDia}
             />
 
             <Botao
@@ -1589,6 +1619,190 @@ export default function DashboardPage() {
 
       </div>
     </main>
+    </>
+  );
+}
+
+const produtosVendasDoDia = {
+  parque: "Parque",
+  elevador: "Elevador",
+  idoso: "Meia Entrada Idoso",
+  camping: "Camping",
+};
+
+type ProdutoVenda = keyof typeof produtosVendasDoDia;
+type ItemVenda = { produto: ProdutoVenda | "outro"; quantidade: number; valor: number };
+
+function obterItensVenda(pedido: Pedido): ItemVenda[] {
+  const categoria = pedido.tipo === "idoso" || pedido.produto === "Meia Entrada Idoso"
+    ? "idoso"
+    : pedido.tipo === "carrinho" ? "parque" : categoriaPrincipalDoPedido(pedido);
+  const itens = pedido.itensCarrinho?.filter(item => item.quantidade > 0);
+  if (itens?.length) {
+    return itens.map(item => ({
+      produto: item.tipo === "parque" && categoria === "idoso" ? "idoso" : item.tipo,
+      quantidade: item.quantidade,
+      valor: item.valorTotal,
+    }));
+  }
+
+  const quantidadeElevador = Number(pedido.quantidadeElevador || pedido.qtdElevador || 0);
+  if ((categoria === "parque" || categoria === "idoso") && quantidadeElevador > 0) {
+    const quantidadeParque = Number(pedido.quantidadeParque || pedido.quantidade);
+    const valorParqueEstimado = Number(pedido.valorParque ?? pedido.valorUnitario * quantidadeParque);
+    const valorElevadorEstimado = pedido.valorUnitarioElevador == null
+      ? Math.max(0, pedido.valorTotal - valorParqueEstimado)
+      : pedido.valorUnitarioElevador * quantidadeElevador;
+    const valorElevador = Number(pedido.valorElevador ?? valorElevadorEstimado);
+    return [
+      { produto: categoria, quantidade: quantidadeParque, valor: Number(pedido.valorParque ?? pedido.valorTotal - valorElevador) },
+      { produto: "elevador", quantidade: quantidadeElevador, valor: valorElevador },
+    ];
+  }
+
+  return [{
+    produto: categoria,
+    quantidade: categoria === "elevador" && quantidadeElevador ? quantidadeElevador : obterQuantidade(pedido),
+    valor: pedido.valorTotal,
+  }];
+}
+
+function gerarVendasDoDia(pedidos: Pedido[], agora: Date) {
+  const timeZone = "America/Sao_Paulo";
+  const formatarData = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone });
+  const formatarHora = new Intl.DateTimeFormat("pt-BR", { timeStyle: "medium", timeZone });
+  const data = formatarData.format(agora);
+  const recebimentos = { pix: 0, cartao: 0 };
+  const produtos = {
+    parque: { quantidade: 0, receita: 0 },
+    elevador: { quantidade: 0, receita: 0 },
+    idoso: { quantidade: 0, receita: 0 },
+    camping: { quantidade: 0, receita: 0 },
+  };
+
+  const vendas = pedidos.flatMap((pedido: Pedido & {
+    pagamentoConfirmadoEm?: string;
+    pagoEm?: string;
+    dataPagamento?: string;
+  }) => {
+    const forma = pedido.formaPagamento;
+    if (pedido.statusPagamento !== "pago" || pedido.cortesia || pedido.testeEfi ||
+      (forma !== "pix" && forma !== "cartao")) return [];
+
+    const confirmacao = [pedido.pagamentoConfirmadoEm, pedido.pagoEm, pedido.dataPagamento,
+      forma === "pix" ? pedido.pixHorario : undefined]
+      .map(valor => Date.parse(valor ?? ""))
+      .find(Number.isFinite);
+    if (confirmacao === undefined || formatarData.format(confirmacao) !== data) return [];
+
+    const valorPago = Math.round(Number(pedido.valorPago ?? pedido.valorTotal) * 100);
+    const itens = obterItensVenda(pedido);
+    const pesos = itens.map(item => Math.max(0, Math.round(item.valor * 100)) || 0);
+    const somaPesos = pesos.reduce((soma, peso) => soma + peso, 0);
+    recebimentos[forma] += valorPago;
+
+    // Rateia o valor pago pelos preços registrados nos itens, mantendo o total em centavos.
+    let pesoAcumulado = 0;
+    let receitaAcumulada = 0;
+    itens.forEach((item, indice) => {
+      pesoAcumulado += somaPesos ? pesos[indice] : 1;
+      const receitaAteItem = Math.round(valorPago * pesoAcumulado / (somaPesos || itens.length));
+      if (item.produto !== "outro") {
+        produtos[item.produto].quantidade += item.quantidade;
+        produtos[item.produto].receita += receitaAteItem - receitaAcumulada;
+      }
+      receitaAcumulada = receitaAteItem;
+    });
+
+    return [{
+      id: pedido.id,
+      confirmacao,
+      horario: formatarHora.format(confirmacao),
+      forma: forma === "pix" ? "Pix" : "Cartão",
+      valorPago,
+      itens: itens.map(item => ({
+        nome: item.produto === "outro" ? pedido.produto : produtosVendasDoDia[item.produto],
+        quantidade: item.quantidade,
+      })),
+    }];
+  }).sort((a, b) => a.confirmacao - b.confirmacao);
+
+  return { data, recebimentos, produtos, vendas };
+}
+
+function RelatorioVendasDoDia({ relatorio }: { relatorio: ReturnType<typeof gerarVendasDoDia> }) {
+  const { data, recebimentos, produtos, vendas } = relatorio;
+  const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const formatarValor = (centavos: number) => moeda.format(centavos / 100);
+  const tabela = "w-full table-fixed border-collapse [&_td]:border-b [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_td]:align-top [&_th]:border-b [&_th]:border-gray-500 [&_th]:px-2 [&_th]:py-1 [&_tr]:break-inside-avoid";
+  const titulo = "mb-1 text-sm font-bold uppercase break-after-avoid";
+
+  return (
+    <article className="hidden text-[10pt] leading-snug text-black print:block">
+      <section className="mb-4 break-inside-avoid">
+        <h1 className={titulo}>Resumo do dia</h1>
+        <dl className="grid grid-cols-5 gap-x-3">
+          <div><dt>Data</dt><dd className="font-semibold">{data}</dd></div>
+          <div><dt>Total vendido</dt><dd className="font-semibold">{formatarValor(recebimentos.pix + recebimentos.cartao)}</dd></div>
+          <div><dt>Pedidos pagos</dt><dd className="font-semibold">{vendas.length}</dd></div>
+          <div><dt>Recebido via Pix</dt><dd className="font-semibold">{formatarValor(recebimentos.pix)}</dd></div>
+          <div><dt>Recebido via cartão</dt><dd className="font-semibold">{formatarValor(recebimentos.cartao)}</dd></div>
+        </dl>
+      </section>
+
+      <section className="mb-4 break-inside-avoid">
+        <h2 className={titulo}>Vendas por produto</h2>
+        <table className={tabela}>
+          <thead>
+            <tr><th className="w-1/2 text-left">Produto</th><th className="text-right">Quantidade vendida</th><th className="text-right">Receita</th></tr>
+          </thead>
+          <tbody>
+            {(Object.keys(produtos) as ProdutoVenda[]).map(produto => (
+              <tr key={produto}>
+                <td>{produtosVendasDoDia[produto]}</td>
+                <td className="text-right">{produtos[produto].quantidade}</td>
+                <td className="text-right">{formatarValor(produtos[produto].receita)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2 className={titulo}>Detalhamento das vendas do dia</h2>
+        <table className={tabela}>
+          <thead>
+            <tr>
+              <th className="w-[13%] text-left">Horário</th>
+              <th className="w-[25%] text-left">Pedido ID</th>
+              <th className="w-[25%] text-left">Produto</th>
+              <th className="w-[10%] text-right">Qtd.</th>
+              <th className="w-[15%] text-right">Valor pago</th>
+              <th className="w-[12%] text-left">Forma</th>
+            </tr>
+          </thead>
+          {vendas.map(venda => (
+            <tbody key={venda.id} className="break-inside-avoid">
+              {venda.itens.map((item, indice) => (
+                <tr key={indice}>
+                  {indice === 0 && <>
+                    <td rowSpan={venda.itens.length}>{venda.horario}</td>
+                    <td rowSpan={venda.itens.length} className="[overflow-wrap:anywhere]">{venda.id}</td>
+                  </>}
+                  <td>{item.nome}</td>
+                  <td className="text-right">{item.quantidade}</td>
+                  {indice === 0 && <>
+                    <td rowSpan={venda.itens.length} className="whitespace-nowrap text-right">{formatarValor(venda.valorPago)}</td>
+                    <td rowSpan={venda.itens.length}>{venda.forma}</td>
+                  </>}
+                </tr>
+              ))}
+            </tbody>
+          ))}
+          {vendas.length === 0 && <tbody><tr><td colSpan={6}>Nenhum pedido pago no dia.</td></tr></tbody>}
+        </table>
+      </section>
+    </article>
   );
 }
 
