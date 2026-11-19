@@ -34,13 +34,13 @@ export async function GET(req: NextRequest) {
         let concluido = false;
         // Cursor por ID, nunca offset: mudar o status de um documento não desloca a próxima página.
         // O checkpoint inclui pedidos sem TXID e falhas, evitando bloquear a fila.
-        while (analisados < 1000 && Date.now() - inicio < 20000) {
+        while (analisados < 50 && Date.now() - inicio < 20000) {
             const pagina = await getDocs(query(collection(db, "pedidos"),
                 where("statusPagamento", "in", ["pendente", "expirado"]),
-                orderBy(documentId()), ...(cursor ? [startAfter(cursor)] : []), limit(50)));
+                orderBy(documentId()), ...(cursor ? [startAfter(cursor)] : []), limit(10)));
             if (pagina.empty) { cursor = ""; concluido = true; break; }
             for (const documento of pagina.docs) {
-                if (analisados >= 1000 || Date.now() - inicio >= 20000) break;
+                if (analisados >= 50 || Date.now() - inicio >= 20000) break;
                 const pedido = documento.data();
                 const txid = String(pedido.sicrediTxid || "").trim();
                 let resultado = "sem_txid";
