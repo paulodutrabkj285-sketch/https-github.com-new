@@ -570,6 +570,9 @@ export default function PortariaPage() {
             let enviados =
                 0;
 
+            let pedidosNuvem: PedidoPortaria[] | undefined;
+            let reservasNuvem: ReservaAgenciaPortaria[] | undefined;
+
             try {
                 enviados =
                     await sincronizarPendentes();
@@ -583,7 +586,7 @@ export default function PortariaPage() {
             }
 
             try {
-                const pedidosNuvem =
+                pedidosNuvem =
                     await listarPedidosAtivosPortaria();
 
                 await salvarPedidosLocalmente(
@@ -599,7 +602,7 @@ export default function PortariaPage() {
             }
 
             try {
-                const reservasNuvem =
+                reservasNuvem =
                     await listarReservasAgenciasNuvem();
 
                 await salvarReservasAgenciasLocalmente(
@@ -647,7 +650,7 @@ export default function PortariaPage() {
                 );
             }
 
-            await atualizarContadores();
+            await atualizarContadores(pedidosNuvem, reservasNuvem);
         } catch (
         error
         ) {
@@ -1302,7 +1305,10 @@ export default function PortariaPage() {
        CONTADORES
     ====================================== */
 
-    async function atualizarContadores() {
+    async function atualizarContadores(
+        pedidosCarregados?: PedidoPortaria[],
+        reservasCarregadas?: ReservaAgenciaPortaria[]
+    ) {
         if (
             !localValidacao
         ) {
@@ -1316,8 +1322,8 @@ export default function PortariaPage() {
             ] =
                 await Promise.all(
                     [
-                        obterListaDePedidosAtiva(),
-                        obterListaDeReservasAtiva(),
+                        pedidosCarregados ?? obterListaDePedidosAtiva(),
+                        reservasCarregadas ?? obterListaDeReservasAtiva(),
                     ]
                 );
 
@@ -3273,32 +3279,26 @@ export default function PortariaPage() {
                 );
             }
 
+            let pedidosNuvem: PedidoPortaria[] | undefined;
+            let reservasNuvem: ReservaAgenciaPortaria[] | undefined;
+
             if (
                 isOnline
             ) {
                 try {
-                    const [
-                        pedidosNuvem,
-                        reservasNuvem,
-                    ] =
-                        await Promise.all(
-                            [
-                                listarPedidosAtivosPortaria(),
-                                listarReservasAgenciasNuvem(),
-                            ]
-                        );
+                    const resultados = await Promise.allSettled([
+                        listarPedidosAtivosPortaria().then(async (pedidos) => {
+                            pedidosNuvem = pedidos;
+                            await salvarPedidosLocalmente(pedidos);
+                        }),
+                        listarReservasAgenciasNuvem().then(async (reservas) => {
+                            reservasNuvem = reservas;
+                            await salvarReservasAgenciasLocalmente(reservas);
+                        }),
+                    ]);
 
-                    await Promise.all(
-                        [
-                            salvarPedidosLocalmente(
-                                pedidosNuvem
-                            ),
-
-                            salvarReservasAgenciasLocalmente(
-                                reservasNuvem
-                            ),
-                        ]
-                    );
+                    const falha = resultados.find((resultado) => resultado.status === "rejected");
+                    if (falha) throw falha.reason;
                 } catch (
                 error
                 ) {
@@ -3309,7 +3309,7 @@ export default function PortariaPage() {
                 }
             }
 
-            await atualizarContadores();
+            await atualizarContadores(pedidosNuvem, reservasNuvem);
         } catch (
         error
         ) {
