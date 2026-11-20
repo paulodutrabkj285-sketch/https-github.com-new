@@ -1,6 +1,8 @@
 import {
 
     Pedido,
+    pedidoReembolsado,
+    MENSAGEM_INGRESSO_REEMBOLSADO,
 
 
 } from "./pedidos";
@@ -1100,6 +1102,12 @@ export async function registrarValidacaoOffline(
         >
 
 ): Promise<void> {
+
+    const pedidos = await listarPedidosLocalmente();
+    const pedido = pedidos.find((item) => item.id === pedidoId);
+    if (pedido && pedidoReembolsado(pedido)) {
+        throw new Error(MENSAGEM_INGRESSO_REEMBOLSADO);
+    }
 
     await salvarPendencia(
 
@@ -2514,7 +2522,7 @@ async function sincronizarValidacaoPedidoSeguro(
         if (!snap.exists()) throw new Error("Pedido não encontrado no servidor.");
         const atual = snap.data();
         const status = String(atual.statusOperacional || "ativo").toLowerCase();
-        if (["cancelado", "bloqueado"].includes(status)) return "cancelado";
+        if (pedidoReembolsado(atual) || ["cancelado", "bloqueado"].includes(status)) return "cancelado";
         if (atual.statusPagamento !== "pago") throw new Error("Pagamento não confirmado no servidor.");
         const camposPermitidos = [
             "validadoPor", "validadoEm", "utilizadoEm", "statusOperacional",
@@ -2708,7 +2716,7 @@ export async function sincronizarPendentes(): Promise<number> {
             };
             const resultado = await sincronizarValidacaoPedidoSeguro(entidadeId, dadosValidacao);
             if (resultado === "cancelado") {
-                console.warn(`Validação offline recusada: ingresso ${entidadeId} cancelado no servidor.`);
+                console.warn(`Validação offline recusada: ingresso ${entidadeId} bloqueado no servidor.`);
                 // Mantém pendência para auditoria manual, sem alterar o ingresso.
                 continue;
             }

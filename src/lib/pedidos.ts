@@ -1487,6 +1487,15 @@ export async function atualizarPedido(
 
 
 
+  if (dados.statusPagamento !== undefined) {
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.exists() && pedidoReembolsado(snap.data())) return;
+      tx.update(ref, { ...dados, updatedAt: new Date().toISOString() });
+    });
+    return;
+  }
+
   await updateDoc(
 
 
@@ -2776,11 +2785,11 @@ export async function listarPedidosAtivosPortaria() {
 
 
 
-        "==",
+        "in",
 
 
 
-        "pago"
+        ["pago", "reembolsado"]
 
 
 
@@ -3448,5 +3457,65 @@ export async function cancelarIngressoAdministrativo(pedidoId: string, motivo: s
       canceladoPor: responsavel,
       updatedAt: agora,
     });
+  });
+}
+
+export const MENSAGEM_INGRESSO_REEMBOLSADO = "INGRESSO REEMBOLSADO — NÃO LIBERAR";
+
+export function pedidoReembolsado(pedido: { statusPagamento?: unknown }) {
+  return pedido.statusPagamento === "reembolsado";
+}
+
+export function pedidoPermiteRegistroReembolso(pedido: {
+  statusPagamento?: unknown;
+  origem?: unknown;
+  reservaAgenciaId?: unknown;
+  agenciaId?: unknown;
+}) {
+  return pedido.origem !== "parceiro" && !pedido.reservaAgenciaId && !pedido.agenciaId &&
+    (pedido.statusPagamento === "pago" || pedidoReembolsado(pedido));
+}
+
+/** Registra um reembolso já concluído fora do painel. */
+export async function registrarReembolsoAdministrativo(
+  pedidoId: string,
+  motivo: string,
+  responsavel: string
+) {
+  const justificativa = motivo.trim();
+  if (justificativa.length < 5) throw new Error("Informe um motivo com pelo menos 5 caracteres.");
+
+  const referencia = doc(db, "pedidos", pedidoId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(referencia);
+    if (!snap.exists()) throw new Error("Pedido não encontrado.");
+    const pedido = snap.data();
+    if (!pedidoPermiteRegistroReembolso(pedido)) {
+      throw new Error("O registro exige um pedido direto com pagamento confirmado.");
+    }
+    if (pedidoReembolsado(pedido) && pedido.statusOperacional === "bloqueado") return;
+
+    const agora = new Date().toISOString();
+    tx.update(referencia, {
+      statusPagamento: "reembolsado",
+      statusOperacional: "bloqueado",
+      motivoCancelamento: justificativa,
+      canceladoEm: agora,
+      canceladoPor: responsavel,
+      updatedAt: agora,
+    });
+  });
+}
+
+export async function registrarValidacaoPedido(
+  pedidoId: string,
+  dados: Record<string, unknown>
+) {
+  const referencia = doc(db, "pedidos", pedidoId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(referencia);
+    if (!snap.exists()) throw new Error("Pedido não encontrado.");
+    if (pedidoReembolsado(snap.data())) throw new Error(MENSAGEM_INGRESSO_REEMBOLSADO);
+    tx.update(referencia, { ...dados, updatedAt: new Date().toISOString() });
   });
 }

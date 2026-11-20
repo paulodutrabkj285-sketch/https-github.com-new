@@ -1,7 +1,9 @@
 "use client";
 
 import {
-    atualizarPedido,
+    registrarValidacaoPedido,
+    pedidoReembolsado,
+    MENSAGEM_INGRESSO_REEMBOLSADO,
     listarPedidosAtivosPortaria,
     Pedido,
 } from "@/lib/pedidos";
@@ -1405,6 +1407,8 @@ export default function PortariaPage() {
                 (
                     item
                 ) => {
+                    if (pedidoReembolsado(item)) return;
+
                     if (
                         localValidacao ===
                         "principal"
@@ -1856,6 +1860,12 @@ export default function PortariaPage() {
                 "erro"
             );
 
+            return;
+        }
+
+        if (pedidoReembolsado(encontrado)) {
+            setMensagem(MENSAGEM_INGRESSO_REEMBOLSADO);
+            vibrar("erro");
             return;
         }
 
@@ -2706,6 +2716,12 @@ export default function PortariaPage() {
             return;
         }
 
+        if (pedidoReembolsado(pedido)) {
+            setMensagem(MENSAGEM_INGRESSO_REEMBOLSADO);
+            vibrar("erro");
+            return;
+        }
+
         if (
             pedido.statusOperacional ===
             "cancelado" ||
@@ -2933,7 +2949,7 @@ export default function PortariaPage() {
         if (
             isOnline
         ) {
-            await atualizarPedido(
+            await registrarValidacaoPedido(
                 pedido.id,
                 dadosUtilizacao
             );
@@ -3319,7 +3335,9 @@ export default function PortariaPage() {
             );
 
             setMensagem(
-                "ERRO AO CONFIRMAR ENTRADA"
+                error instanceof Error && error.message === MENSAGEM_INGRESSO_REEMBOLSADO
+                    ? error.message
+                    : "ERRO AO CONFIRMAR ENTRADA"
             );
 
             vibrar(

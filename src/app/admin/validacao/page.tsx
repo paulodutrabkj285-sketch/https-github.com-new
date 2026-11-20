@@ -1,6 +1,6 @@
 "use client";
 
-import { atualizarPedido, listarPedidos, Pedido } from "@/lib/pedidos";
+import { registrarValidacaoPedido, MENSAGEM_INGRESSO_REEMBOLSADO, listarPedidos, Pedido } from "@/lib/pedidos";
 import { Html5Qrcode } from "html5-qrcode";
 import { useEffect, useRef, useState } from "react";
 
@@ -272,7 +272,7 @@ export default function ValidacaoPage() {
     try {
       setCarregando(true);
 
-      await atualizarPedido(pedido.id, {
+      await registrarValidacaoPedido(pedido.id, {
         statusOperacional: "utilizado",
       });
 
@@ -287,7 +287,8 @@ export default function ValidacaoPage() {
     } catch (error) {
       console.error("Erro ao validar entrada:", error);
 
-      setMensagem("Erro ao validar entrada.");
+      setMensagem(error instanceof Error && error.message === MENSAGEM_INGRESSO_REEMBOLSADO
+        ? error.message : "Erro ao validar entrada.");
     } finally {
       setCarregando(false);
     }

@@ -2,7 +2,7 @@
 
 
 
-import { buscarPedidoPorId, cancelarIngressoAdministrativo, Pedido } from "@/lib/pedidos";
+import { buscarPedidoPorId, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarReembolsoAdministrativo, Pedido } from "@/lib/pedidos";
 import { getAuth } from "firebase/auth";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -210,6 +210,25 @@ export default function PedidoDetalhePage() {
     } finally { setCancelando(false); }
   }
 
+  async function registrarReembolso() {
+    if (!pedido || cancelando) return;
+    const motivo = motivoCancelamento.trim();
+    if (!window.confirm("Confirma que o reembolso já foi concluído? O registro bloqueia todos os acessos deste pedido.")) return;
+
+    setCancelando(true);
+    try {
+      const usuario = getAuth().currentUser;
+      if (!usuario) throw new Error("Faça login no painel administrativo novamente.");
+      await registrarReembolsoAdministrativo(pedido.id, motivo, usuario.email || usuario.uid);
+      setPedido(await buscarPedidoPorId(pedido.id));
+      setMotivoCancelamento("");
+    } catch (erro) {
+      alert(erro instanceof Error ? erro.message : "Erro ao registrar reembolso.");
+    } finally {
+      setCancelando(false);
+    }
+  }
+
   const pedidoAny = pedido as
 
     | (Pedido & {
@@ -294,6 +313,12 @@ export default function PedidoDetalhePage() {
 
 
 
+  const reembolsado = pedidoReembolsado(pedido);
+  const statusOperacional = reembolsado ? "bloqueado" : pedido.statusOperacional || "ativo";
+  const podeRegistrarReembolso = pedidoPermiteRegistroReembolso(pedido) &&
+    (!reembolsado || pedido.statusOperacional !== "bloqueado");
+  const podeCancelar = !["cancelado", "bloqueado"].includes(statusOperacional.toLowerCase());
+
   const statusPagamentoPago = pedido.statusPagamento === "pago";
 
   const statusUtilizado = pedido.statusOperacional === "utilizado";
@@ -364,7 +389,7 @@ export default function PedidoDetalhePage() {
 
                   ? "bg-green-100 text-green-800"
 
-                  : "bg-yellow-100 text-yellow-800"
+                  : reembolsado ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"
 
                   }`}
 
@@ -378,7 +403,7 @@ export default function PedidoDetalhePage() {
 
               <span
 
-                className={`rounded-full px-4 py-2 text-sm font-black ${statusUtilizado
+                className={`rounded-full px-4 py-2 text-sm font-black ${(statusUtilizado || statusOperacional === "bloqueado")
 
                   ? "bg-red-100 text-red-800"
 
@@ -388,7 +413,7 @@ export default function PedidoDetalhePage() {
 
               >
 
-                Operacional: {pedido.statusOperacional || "ativo"}
+                Operacional: {statusOperacional}
 
               </span>
 
@@ -494,7 +519,7 @@ export default function PedidoDetalhePage() {
 
                 label="Status"
 
-                valor={pedido.statusOperacional || "ativo"}
+                valor={statusOperacional}
 
               />
 
@@ -534,7 +559,7 @@ export default function PedidoDetalhePage() {
               <Bloco titulo="PARQUE">
                 <Linha label="Código Parque" valor={codigoParque} />
                 <Linha label="Quantidade Parque" valor={pedido.quantidadeParque ?? pedido.quantidade} />
-                <Linha label="Status do Parque" valor={pedido.statusOperacional || "ativo"} />
+                <Linha label="Status do Parque" valor={statusOperacional} />
                 <Linha label="Validação do Parque" valor={
                   pedido.validadoEm || pedido.utilizadoEm || statusUtilizado
                     ? "Validado" : "Ainda não validado"
@@ -550,6 +575,7 @@ export default function PedidoDetalhePage() {
               <Bloco titulo="ELEVADOR">
                 <Linha label="Código Elevador" valor={pedido.codigoIngressoElevador} />
                 <Linha label="Quantidade Elevador" valor={pedido.quantidadeElevador ?? pedido.qtdElevador} />
+                {reembolsado && <Linha label="Status do Elevador" valor="bloqueado" />}
                 <Linha label="Validado (elevadorValidado)" valor={
                   pedido.elevadorValidado === undefined ? "Não informado" :
                     pedido.elevadorValidado ? "Sim" : "Não"
@@ -654,22 +680,38 @@ export default function PedidoDetalhePage() {
 
 
           <Bloco titulo="Cancelamento / bloqueio" extraClass="mt-6">
-            {(["cancelado", "bloqueado"].includes(String(pedido.statusOperacional).toLowerCase())) ? (
+            {!podeCancelar && (
               <div className="rounded-xl bg-red-50 p-4 text-red-800">
-                <strong>INGRESSO BLOQUEADO</strong>
+                <strong>{reembolsado ? "REEMBOLSADO · INGRESSO BLOQUEADO" : "INGRESSO BLOQUEADO"}</strong>
                 <p>Motivo: {String((pedido as Pedido & { motivoCancelamento?: string }).motivoCancelamento || "Não informado")}</p>
-                <p>Cancelado em: {formatarDataHora((pedido as Pedido & { canceladoEm?: string }).canceladoEm)}</p>
+                <p>{reembolsado ? "Bloqueio registrado em" : "Cancelado em"}: {formatarDataHora((pedido as Pedido & { canceladoEm?: string }).canceladoEm)}</p>
               </div>
-            ) : (
+            )}
+            {(podeCancelar || podeRegistrarReembolso) && (
               <div className="space-y-3">
-                <p className="text-sm text-gray-700">Cancela o acesso pelo QR Code, sem efetuar reembolso ou apagar o pagamento.</p>
+                {podeCancelar && (
+                  <p className="text-sm text-gray-700">Cancela o acesso pelo QR Code, sem efetuar reembolso ou apagar o pagamento.</p>
+                )}
                 <textarea className="w-full rounded-xl border p-3 text-gray-900" rows={3}
-                  placeholder="Motivo obrigatório do cancelamento"
+                  aria-label="Motivo do bloqueio"
+                  placeholder="Motivo obrigatório"
                   value={motivoCancelamento} onChange={(e) => setMotivoCancelamento(e.target.value)} />
-                <button type="button" onClick={cancelarIngresso} disabled={cancelando || motivoCancelamento.trim().length < 5}
-                  className="rounded-xl bg-red-700 px-5 py-3 font-bold text-white disabled:opacity-50">
-                  {cancelando ? "Cancelando..." : "Cancelar / Bloquear ingresso"}
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  {podeCancelar && (
+                    <button type="button" onClick={cancelarIngresso}
+                      disabled={cancelando || motivoCancelamento.trim().length < 5}
+                      className="rounded-xl bg-red-700 px-5 py-3 font-bold text-white disabled:opacity-50">
+                      {cancelando ? "Registrando..." : "Cancelar / Bloquear ingresso"}
+                    </button>
+                  )}
+                  {podeRegistrarReembolso && (
+                    <button type="button" onClick={registrarReembolso}
+                      disabled={cancelando || motivoCancelamento.trim().length < 5}
+                      className="rounded-xl bg-red-700 px-5 py-3 font-bold text-white disabled:opacity-50">
+                      {cancelando ? "Registrando..." : "Registrar reembolso concluído"}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </Bloco>

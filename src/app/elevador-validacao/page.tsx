@@ -1,7 +1,9 @@
 "use client";
 
 import {
-    atualizarPedido,
+    registrarValidacaoPedido,
+    pedidoReembolsado,
+    MENSAGEM_INGRESSO_REEMBOLSADO,
     listarPedidosAtivosPortaria,
     Pedido,
 } from "@/lib/pedidos";
@@ -1224,6 +1226,8 @@ export default function ElevadorValidacaoPage() {
 
         pedidos.forEach(
             (pedido) => {
+                if (pedidoReembolsado(pedido)) return;
+
                 if (
                     campoPedido(
                         pedido,
@@ -1415,6 +1419,12 @@ export default function ElevadorValidacaoPage() {
             pedido.codigoIngresso ||
             ""
         );
+
+        if (pedidoReembolsado(pedido)) {
+            setMensagem(MENSAGEM_INGRESSO_REEMBOLSADO);
+            vibrar("erro");
+            return;
+        }
 
         /* PAGAMENTO */
 
@@ -2110,7 +2120,9 @@ export default function ElevadorValidacaoPage() {
                     });
 
                     setMensagem(
-                        "PAGAMENTO NÃO CONFIRMADO — NÃO LIBERAR"
+                        pedidoReembolsado(pedidoAtual)
+                            ? MENSAGEM_INGRESSO_REEMBOLSADO
+                            : "PAGAMENTO NÃO CONFIRMADO — NÃO LIBERAR"
                     );
 
                     vibrar("erro");
@@ -2208,7 +2220,7 @@ export default function ElevadorValidacaoPage() {
                     navigator.onLine;
 
                 if (online) {
-                    await atualizarPedido(
+                    await registrarValidacaoPedido(
                         pedidoAtual.id,
                         dados
                     );
@@ -2471,7 +2483,9 @@ export default function ElevadorValidacaoPage() {
             );
 
             setMensagem(
-                "ERRO AO REGISTRAR USO DO ELEVADOR"
+                error instanceof Error && error.message === MENSAGEM_INGRESSO_REEMBOLSADO
+                    ? error.message
+                    : "ERRO AO REGISTRAR USO DO ELEVADOR"
             );
 
             vibrar("erro");
@@ -2529,7 +2543,7 @@ export default function ElevadorValidacaoPage() {
                     ) {
                         return {
                             titulo:
-                                "PAGAMENTO PENDENTE",
+                                pedidoReembolsado(pedido) ? "INGRESSO REEMBOLSADO" : "PAGAMENTO PENDENTE",
 
                             classe:
                                 "border-red-500 bg-red-50 text-red-950",

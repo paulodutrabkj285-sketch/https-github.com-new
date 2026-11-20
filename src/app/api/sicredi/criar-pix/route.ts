@@ -6,7 +6,10 @@ import axios from "axios";
 import { doc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { buscarPedidoPorId } from "@/lib/pedidos";
-import { criarPixEfi, efiDisponivelParaCriacao } from "@/lib/efi-pix";
+import {
+    criarPixEfi, efiDisponivelParaCriacao, efiTxidDoPedido,
+    pedidoAutorizadoParaTesteEfi, VALOR_TESTE_EFI,
+} from "@/lib/efi-pix";
 import { finalizarPagamento } from "@/lib/finalizar-pagamento";
 
 export const runtime = "nodejs";
@@ -291,10 +294,18 @@ async function salvarPixPendente(pedidoId: string, dados: Record<string, unknown
         const ref = doc(db, "pedidos", pedidoId);
         const pedido = await transacao.get(ref);
         if (!pedido.exists()) throw new Error("Pedido não encontrado.");
+        if (pedido.data().statusPagamento === "reembolsado") return "reembolsado";
         if (pedido.data().statusPagamento === "pago") return false;
         transacao.update(ref, { ...dados, updatedAt: new Date().toISOString() });
         return true;
     });
+}
+
+function responderPedidoReembolsado() {
+    return NextResponse.json(
+        { ok: false, error: "Pedido reembolsado." },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+    );
 }
 
 function responderPix(dados: Record<string, unknown>) {
@@ -384,6 +395,8 @@ export async function POST(
                 }
             );
         }
+
+        if (pedidoSalvo.statusPagamento === "reembolsado") return responderPedidoReembolsado();
 
         /* =================================================
            IMPEDIR COBRANÇA DUPLA
@@ -636,9 +649,49 @@ export async function POST(
         }
 
         const tentarEfi = efiDisponivelParaCriacao();
+        const testeEfi = body.testeEfi === "1";
+        const pedidoReservadoParaTeste = pedidoId === process.env.EFI_TESTE_PEDIDO_ID?.trim();
+        if (testeEfi || pedidoReservadoParaTeste || pedidoSalvo.testeEfi === true) {
+            if (!testeEfi || !pedidoAutorizadoParaTesteEfi(pedidoId, pedidoSalvo)) {
+                return NextResponse.json({ ok: false, error: "Teste Efí não autorizado para este pedido." }, { status: 403 });
+            }
+            if (!tentarEfi) {
+                return NextResponse.json({ ok: false, error: "A janela de emissão Efí está fechada." }, { status: 503 });
+            }
+
+            const txid = efiTxidDoPedido(pedidoId);
+            const reserva = await runTransaction(db, async transacao => {
+                const ref = doc(db, "pedidos", pedidoId);
+                const controle = doc(db, "integracoes", "efi_pix_teste_unico");
+                const atual = (await transacao.get(ref)).data();
+                const testeReservado = (await transacao.get(controle)).data();
+                if (!atual || !pedidoAutorizadoParaTesteEfi(pedidoId, atual) ||
+                    atual.valorTotal !== pedidoSalvo.valorTotal) return "invalido";
+                if (atual.statusPagamento === "pago") return "pago";
+                if ((testeReservado && testeReservado.pedidoId !== pedidoId) ||
+                    atual.statusPagamento !== "pendente" || atual.sicrediTxid ||
+                    atual.pagbankCheckoutId || atual.pagbankReferenceId ||
+                    (atual.formaPagamento && atual.formaPagamento !== "pix") ||
+                    (atual.efiTxid && (atual.testeEfi !== true || atual.efiTxid !== txid))) return "invalido";
+
+                if (!testeReservado) transacao.set(controle, { pedidoId });
+                transacao.update(ref, {
+                    testeEfi: true,
+                    valorTesteEfi: VALOR_TESTE_EFI,
+                    valorOriginalTesteEfi: atual.valorTotal,
+                    updatedAt: new Date().toISOString(),
+                });
+                return "reservado";
+            });
+            if (reserva === "pago") return responderPix({ pago: true, status: "CONCLUIDA" });
+            if (reserva === "invalido") {
+                return NextResponse.json({ ok: false, error: "Use um pedido pendente de teste sem cobrança anterior." }, { status: 409 });
+            }
+        }
+
         if (tentarEfi) {
             try {
-                const cobranca = await criarPixEfi(pedidoId, valorFinal,
+                const cobranca = await criarPixEfi(pedidoId, testeEfi ? VALOR_TESTE_EFI.toFixed(2) : valorFinal,
                     ehEstrangeiro ? undefined : { cpf: cpfFinal, nome: nomeFinal }, pedidoSalvo.efiTxid);
                 const salvo = await salvarPixPendente(pedidoId, {
                     pixProvider: "efi",
@@ -647,15 +700,20 @@ export async function POST(
                     efiPixCopiaCola: cobranca.pixCopiaCola,
                     efiLocation: cobranca.location,
                 });
+                if (salvo === "reembolsado") return responderPedidoReembolsado();
                 if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
                 if (cobranca.status === "CONCLUIDA") {
                     const resultado = await finalizarPagamento({ pedidoId, formaPagamento: "pix", efiTxid: cobranca.txid });
                     if (!resultado.ok) throw new Error("Falha ao confirmar cobrança Efí.");
                     return responderPix({ pago: true, status: "CONCLUIDA", txid: cobranca.txid });
                 }
+                if (testeEfi) return responderPix({ ...cobranca, pixProvider: "efi", valorTesteEfi: VALOR_TESTE_EFI });
                 // O TXID fica disponível para receber pagamentos mesmo após a janela de emissão.
                 if (efiDisponivelParaCriacao()) return responderPix({ ...cobranca, pixProvider: "efi" });
             } catch {
+                if (testeEfi) {
+                    return NextResponse.json({ ok: false, error: "Pix de teste Efí indisponível. Tente novamente neste mesmo pedido." }, { status: 503 });
+                }
                 console.warn("Pix Efí indisponível. Tentando Sicredi.");
             }
         }
@@ -791,6 +849,7 @@ export async function POST(
                     "CONCLUIDA"
                 ) {
                     const salvo = await salvarPixPendente(pedidoId, { pixProvider: "sicredi" });
+                    if (salvo === "reembolsado") return responderPedidoReembolsado();
                     if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
                     return NextResponse.json(
                         {
@@ -845,6 +904,7 @@ export async function POST(
                     );
 
                     const salvo = await salvarPixPendente(pedidoId, { pixProvider: "sicredi" });
+                    if (salvo === "reembolsado") return responderPedidoReembolsado();
                     if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
                     return NextResponse.json(
                         {
@@ -1068,6 +1128,7 @@ export async function POST(
             }
         );
 
+        if (salvo === "reembolsado") return responderPedidoReembolsado();
         if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
 
         /* =================================================

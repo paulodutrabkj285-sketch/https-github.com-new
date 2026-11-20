@@ -498,7 +498,7 @@ function StatusBadge({
     color = "#854d0e";
   }
 
-  if (valor === "utilizado" || valor === "bloqueado" || valor === "valor_divergente") {
+  if (valor === "utilizado" || valor === "bloqueado" || valor === "valor_divergente" || valor === "reembolsado") {
     backgroundColor = "#fee2e2";
     color = "#991b1b";
   }

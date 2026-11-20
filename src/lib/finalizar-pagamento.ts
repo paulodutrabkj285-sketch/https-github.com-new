@@ -2,7 +2,9 @@ import { pedidoComboValidoNoServidor } from "@/lib/combo-parque-elevador-server"
 import { comboParqueElevadorAtivo } from "@/lib/preco-elevador";
 import { lerNotificacaoPagbank, pagamentoPagbank } from "@/lib/pagbank-notificacao";
 import { randomUUID } from "crypto";
-import { consultarPixEfiConfirmado } from "@/lib/efi-pix";
+import {
+    consultarPixEfiConfirmado, efiTxidDoPedido, pedidoAutorizadoParaTesteEfi, VALOR_TESTE_EFI,
+} from "@/lib/efi-pix";
 import { consultarPixConfirmado } from "@/lib/sicredi-pix";
 import {
     atualizarPedido,
@@ -64,6 +66,7 @@ type FinalizarPagamentoResultado = {
     status:
     | "pago"
     | "ja_pago"
+    | "reembolsado"
     | "valor_divergente"
     | "pedido_nao_encontrado"
     | "banco_nao_confirmado";
@@ -651,6 +654,11 @@ export async function finalizarPagamento({
         };
     }
 
+    const resultadoReembolsado: FinalizarPagamentoResultado = {
+        ok: false, pedidoId, status: "reembolsado", mensagem: "Pedido reembolsado.",
+    };
+    if (pedido.statusPagamento === "reembolsado") return resultadoReembolsado;
+
     if (!pedidoComboValidoNoServidor(pedidoId, pedido)) {
         return { ok: false, pedidoId, status: "valor_divergente", mensagem: "Combo sem autorização válida ou com valores divergentes." };
     }
@@ -794,6 +802,16 @@ export async function finalizarPagamento({
         };
     }
 
+    function valorEsperado(dados: typeof pedido, campo: CampoTxidPix) {
+        if (formaPagamento === "pix" && !pagbankNotificacao && campo === "efiTxid" &&
+            dados.testeEfi === true && dados.valorTesteEfi === VALOR_TESTE_EFI &&
+            dados.valorOriginalTesteEfi === dados.valorTotal &&
+            dados.efiTxid === efiTxidDoPedido(pedidoId) && pedidoAutorizadoParaTesteEfi(pedidoId, dados)) {
+            return VALOR_TESTE_EFI;
+        }
+        return dados.valorTotal;
+    }
+
     // Webhook e checkout só liberam o pedido com prova da API bancária.
     let campoTxid: CampoTxidPix = "sicrediTxid";
     let txidConfirmado = "";
@@ -810,8 +828,8 @@ export async function finalizarPagamento({
             return { campo, txid, confirmado };
         }));
         const recebimentos = provas.flatMap(prova => prova.status === "fulfilled" && prova.value ? [prova.value] : []);
-        const recebimento = recebimentos.find(({ confirmado }) =>
-            converterParaCentavos(confirmado.valor) === converterParaCentavos(pedido.valorTotal)) ?? recebimentos[0];
+        const recebimento = recebimentos.find(({ campo, confirmado }) =>
+            converterParaCentavos(confirmado.valor) === converterParaCentavos(valorEsperado(pedido, campo))) ?? recebimentos[0];
         if (!recebimento) {
             const erro = provas.find(prova => prova.status === "rejected");
             if (erro?.status === "rejected") throw erro.reason;
@@ -841,10 +859,7 @@ export async function finalizarPagamento({
         valorPago !==
         undefined
     ) {
-        const valorPedidoCentavos =
-            converterParaCentavos(
-                pedido.valorTotal
-            );
+        const valorPedidoCentavos = converterParaCentavos(valorEsperado(pedido, campoTxid));
 
         const valorPagoCentavos =
             converterParaCentavos(
@@ -935,6 +950,7 @@ export async function finalizarPagamento({
 
             if (!divergenciaGravada) {
                 const atual = await buscarPedidoPorId(pedidoId);
+                if (atual?.statusPagamento === "reembolsado") return resultadoReembolsado;
                 if (atual?.statusPagamento === "pago") return {
                     ok: true, pedidoId, status: "ja_pago", codigoIngresso: atual.codigoIngresso,
                     emailEnviado: Boolean(atual.emailIngressoEnviado), mensagem: "Pedido já confirmado.",
@@ -1180,8 +1196,9 @@ export async function finalizarPagamento({
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error("Pedido não encontrado.");
         const atual = snap.data();
+        if (atual.statusPagamento === "reembolsado") return "reembolsado";
         if (atual.statusPagamento === "pago") return false;
-        if ((valorPago !== undefined && converterParaCentavos(atual.valorTotal) !== converterParaCentavos(valorPago)) ||
+        if ((valorPago !== undefined && converterParaCentavos(valorEsperado(atual, campoTxid)) !== converterParaCentavos(valorPago)) ||
             (formaPagamento === "pix" && !pagbankNotificacao && atual[campoTxid] !== txidConfirmado)) {
             throw new Error("Pedido alterado durante a confirmação bancária.");
         }
@@ -1197,6 +1214,7 @@ export async function finalizarPagamento({
         tx.update(ref, { ...dadosPagamento, updatedAt: dataConfirmacao });
         return true;
     });
+    if (gravado === "reembolsado") return resultadoReembolsado;
     if (!gravado) {
         return {
             ok: true, pedidoId, status: "ja_pago", codigoIngresso,
@@ -2037,7 +2055,7 @@ async function gravarSeNaoPago(pedidoId: string, dados: Record<string, unknown>)
     return runTransaction(db, async (tx) => {
         const ref = doc(db, "pedidos", pedidoId);
         const snap = await tx.get(ref);
-        if (!snap.exists() || snap.data().statusPagamento === "pago") return false;
+        if (!snap.exists() || ["pago", "reembolsado"].includes(snap.data().statusPagamento)) return false;
         tx.update(ref, dados);
         return true;
     });
