@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { criarPedido } from "@/lib/pedidos";
@@ -2548,6 +2549,18 @@ export default function ParquePage() {
 
               </label>
 
+            </div>
+
+            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm leading-snug text-emerald-950">
+              <p>
+                <strong>Agências e guias:</strong> para comprar ingressos com condições especiais ou desconto, utilize a Área de Parceiros.
+              </p>
+              <Link
+                href="/parceiros/acesso"
+                className="mt-1.5 inline-block rounded-sm font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              >
+                Acessar Área de Parceiros
+              </Link>
             </div>
 
             <button
