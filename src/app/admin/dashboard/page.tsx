@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import {
   calcularResumoFinanceiro,
   listarPedidos,
+  observarPedidos,
+  pedidoContaComoVenda,
+  pedidoReembolsado,
   Pedido,
 } from "@/lib/pedidos";
 
@@ -20,6 +23,7 @@ type CategoriaEntrada =
 type FiltroStatus =
   | "todos"
   | "pago"
+  | "reembolsado"
   | "pendente"
   | "expirado"
   | "bloqueado"
@@ -116,22 +120,16 @@ export default function DashboardPage() {
   ] = useState(25);
 
   useEffect(() => {
-    async function carregarDados() {
-      try {
-        setPedidos(
-          (await listarPedidos()).filter(pedido => pedido.testeEfi !== true)
-        );
-      } catch (error) {
-        console.error(
-          "DASHBOARD: erro ao carregar pedidos:",
-          error
-        );
-      } finally {
+    return observarPedidos(
+      (pedidosAtuais) => {
+        setPedidos(pedidosAtuais.filter(pedido => pedido.testeEfi !== true));
+        setCarregando(false);
+      },
+      (error) => {
+        console.error("DASHBOARD: erro ao acompanhar pedidos:", error);
         setCarregando(false);
       }
-    }
-
-    carregarDados();
+    );
   }, []);
 
   useEffect(() => {
@@ -278,8 +276,7 @@ export default function DashboardPage() {
           "",
           pedido.statusPagamento ||
           "",
-          pedido.statusOperacional ||
-          "",
+          pedidoReembolsado(pedido) ? "bloqueado" : pedido.statusOperacional || "",
           pedido.formaPagamento ||
           "",
           pedido.createdAt
@@ -365,7 +362,7 @@ export default function DashboardPage() {
     if (preparandoRelatorio) return;
     setPreparandoRelatorio(periodo);
     try {
-      const pedidosAtuais = await listarPedidos();
+      const pedidosAtuais = await listarPedidos({ consultarServidor: true });
       const agora = new Date();
       flushSync(() => {
         setRelatorioDia(periodo === "dia" ? gerarVendasDoDia(pedidosAtuais, agora) : undefined);
@@ -1353,6 +1350,10 @@ export default function DashboardPage() {
                       Pago
                     </option>
 
+                    <option value="reembolsado">
+                      Reembolsado
+                    </option>
+
                     <option value="pendente">
                       Pendente
                     </option>
@@ -1509,8 +1510,7 @@ export default function DashboardPage() {
                             key={
                               pedido.id
                             }
-                            className={`border-b text-sm ${pedido.statusOperacional ===
-                              "bloqueado"
+                            className={`border-b text-sm ${(pedidoReembolsado(pedido) || pedido.statusOperacional === "bloqueado")
                               ? "bg-red-50"
                               : ""
                               }`}
@@ -1743,7 +1743,7 @@ function gerarVendasConfirmadas(pedidos: Pedido[], noPeriodo: (confirmacao: numb
     dataPagamento?: string;
   }) => {
     const forma = pedido.formaPagamento;
-    if (pedido.statusPagamento !== "pago" || pedido.cortesia || pedido.testeEfi ||
+    if (!pedidoContaComoVenda(pedido) || pedido.cortesia || pedido.testeEfi ||
       (forma !== "pix" && forma !== "cartao")) return [];
 
     const confirmacao = [pedido.pagamentoConfirmadoEm, pedido.pagoEm, pedido.dataPagamento,
@@ -2225,6 +2225,7 @@ function StatusPagamento({
   if (
     status ===
     "cancelado" ||
+    status === "reembolsado" ||
     status ===
     "valor_divergente"
   ) {
@@ -2236,7 +2237,7 @@ function StatusPagamento({
     <span
       className={`rounded-full px-3 py-1 text-xs font-bold ${classes}`}
     >
-      {status}
+      {status === "reembolsado" ? "Reembolsado" : status}
     </span>
   );
 }
@@ -2247,12 +2248,11 @@ function StatusOperacionalPedido({
   pedido: any;
 }) {
   if (
-    pedido.statusOperacional ===
-    "bloqueado"
+    pedidoReembolsado(pedido) || pedido.statusOperacional === "bloqueado"
   ) {
     return (
       <StatusChip
-        texto="bloqueado"
+        texto="Bloqueado"
         classe="bg-red-100 text-red-800"
       />
     );
@@ -2942,6 +2942,7 @@ function filtrarPedidosHistorico(
       if (
         filtros.status ===
         "bloqueado" &&
+        !pedidoReembolsado(pedido) &&
         pedido.statusOperacional !==
         "bloqueado"
       ) {
@@ -3025,12 +3026,7 @@ function filtrarPedidosHistorico(
 function gerarResumoDesdeLancamento(
   pedidos: Pedido[]
 ) {
-  const pagos =
-    pedidos.filter(
-      (pedido) =>
-        pedido.statusPagamento ===
-        "pago"
-    );
+  const pagos = pedidos.filter(pedidoContaComoVenda);
 
   const totalVendido =
     pagos.reduce(
@@ -3186,12 +3182,7 @@ function gerarDashboardOperacional(
         0
       );
 
-  const pagos =
-    pedidos.filter(
-      (pedido) =>
-        pedido.statusPagamento ===
-        "pago"
-    );
+  const pagos = pedidos.filter(pedidoContaComoVenda);
 
   const receitaHoje =
     pagos
@@ -3253,11 +3244,7 @@ function gerarEstatisticasProdutos(
     > = {};
 
   pedidos
-    .filter(
-      (pedido) =>
-        pedido.statusPagamento ===
-        "pago"
-    )
+    .filter(pedidoContaComoVenda)
     .forEach(
       (pedido) => {
         const nome =
@@ -3356,11 +3343,7 @@ function gerarFaturamentoPorDia(
     > = {};
 
   pedidos
-    .filter(
-      (pedido) =>
-        pedido.statusPagamento ===
-        "pago"
-    )
+    .filter(pedidoContaComoVenda)
     .forEach(
       (pedido) => {
         if (

@@ -20,6 +20,9 @@ import {
 
 
   getDocs,
+  getDocsFromServer,
+  onSnapshot,
+  type QuerySnapshot,
 
 
 
@@ -2537,197 +2540,32 @@ export async function buscarPedidoPorCodigo(
 
 
 
-export async function listarPedidos() {
-
-
-
-  const q =
-
-
-
-    query(
-
-
-
-      collection(
-
-
-
-        db,
-
-
-
-        "pedidos"
-
-
-
-      ),
-
-
-
-
-
-
-
-      orderBy(
-
-
-
-        "createdAt",
-
-
-
-        "desc"
-
-
-
-      )
-
-
-
-    );
-
-
-
-
-
-
-
-  const snap =
-
-
-
-    await getDocs(
-
-
-
-      q
-
-
-
-    );
-
-
-
-
-
-
-
-  const pedidos =
-
-
-
-    snap.docs.map(
-
-
-
-      (
-
-
-
-        docItem
-
-
-
-      ) => ({
-
-
-
-        id:
-
-
-
-          docItem.id,
-
-
-
-
-
-
-
-        ...docItem.data(),
-
-
-
-      })
-
-
-
-    ) as Pedido[];
-
-
-
-
-
-
-
-  /*
-
-
-
-   * IMPORTANTE:
-
-
-
-   *
-
-
-
-   * O painel pode mostrar
-
-
-
-   * "expirado", mas NÃO grava
-
-
-
-   * isso no Firestore.
-
-
-
-   *
-
-
-
-   * Uma simples abertura do
-
-
-
-   * dashboard não pode alterar
-
-
-
-   * o estado bancário do pedido.
-
-
-
-   */
-
-
-
-
-
-
-
-  return aplicarExpiracaoVisual(
-
-
-
-    pedidos
-
-
-
-  );
-
-
-
+function consultaPedidos() {
+  return query(collection(db, "pedidos"), orderBy("createdAt", "desc"));
 }
 
+function pedidosDoSnapshot(snapshot: QuerySnapshot): Pedido[] {
+  const pedidos = snapshot.docs.map((item) => ({
+    ...item.data(),
+    id: item.id,
+  })) as Pedido[];
 
+  // A expiração visual do Pix não altera o estado no Firestore.
+  return aplicarExpiracaoVisual(pedidos);
+}
 
+export async function listarPedidos({ consultarServidor = false } = {}) {
+  const consulta = consultaPedidos();
+  const snapshot = await (consultarServidor ? getDocsFromServer(consulta) : getDocs(consulta));
+  return pedidosDoSnapshot(snapshot);
+}
 
-
-
+export function observarPedidos(
+  aoAtualizar: (pedidos: Pedido[]) => void,
+  aoFalhar: (erro: Error) => void
+) {
+  return onSnapshot(consultaPedidos(), (snapshot) => aoAtualizar(pedidosDoSnapshot(snapshot)), aoFalhar);
+}
 
 /* ==========================================
 
@@ -3029,41 +2867,7 @@ export function calcularResumoFinanceiro(
 
 
 
-  const pedidosPagos =
-
-
-
-    pedidos.filter(
-
-
-
-      (
-
-
-
-        pedido
-
-
-
-      ) =>
-
-
-
-        pedido.statusPagamento ===
-
-
-
-        "pago"
-
-
-
-    );
-
-
-
-
-
-
+  const pedidosPagos = pedidos.filter(pedidoContaComoVenda);
 
   const pedidosPendentes =
 
@@ -3462,6 +3266,10 @@ export async function cancelarIngressoAdministrativo(pedidoId: string, motivo: s
 
 export const MENSAGEM_INGRESSO_REEMBOLSADO = "INGRESSO REEMBOLSADO — NÃO LIBERAR";
 
+export function pedidoContaComoVenda(pedido: { statusPagamento?: unknown }) {
+  return pedido.statusPagamento === "pago";
+}
+
 export function pedidoReembolsado(pedido: { statusPagamento?: unknown }) {
   return pedido.statusPagamento === "reembolsado";
 }
@@ -3486,24 +3294,32 @@ export async function registrarReembolsoAdministrativo(
   if (justificativa.length < 5) throw new Error("Informe um motivo com pelo menos 5 caracteres.");
 
   const referencia = doc(db, "pedidos", pedidoId);
-  await runTransaction(db, async (tx) => {
+  const status = {
+    statusPagamento: "reembolsado",
+    statusOperacional: "bloqueado",
+  };
+
+  return runTransaction(db, async (tx) => {
     const snap = await tx.get(referencia);
     if (!snap.exists()) throw new Error("Pedido não encontrado.");
     const pedido = snap.data();
     if (!pedidoPermiteRegistroReembolso(pedido)) {
       throw new Error("O registro exige um pedido direto com pagamento confirmado.");
     }
-    if (pedidoReembolsado(pedido) && pedido.statusOperacional === "bloqueado") return;
+    if (pedidoReembolsado(pedido) && pedido.statusOperacional === "bloqueado") {
+      return status;
+    }
 
     const agora = new Date().toISOString();
-    tx.update(referencia, {
-      statusPagamento: "reembolsado",
-      statusOperacional: "bloqueado",
+    const atualizacao = {
+      ...status,
       motivoCancelamento: justificativa,
       canceladoEm: agora,
       canceladoPor: responsavel,
       updatedAt: agora,
-    });
+    };
+    tx.update(referencia, atualizacao);
+    return atualizacao;
   });
 }
 

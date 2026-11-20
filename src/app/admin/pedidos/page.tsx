@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { pedidoReembolsado } from "@/lib/pedidos";
 import { useRouter } from "next/navigation";
 
 type Pedido = {
@@ -39,26 +40,19 @@ export default function AdminPedidosPage() {
   const [filtroData, setFiltroData] = useState("");
 
   useEffect(() => {
-    async function carregarPedidos() {
-      try {
-        const q = query(collection(db, "pedidos"), orderBy("createdAt", "desc"));
-        const snapshot = await getDocs(q);
-
-        const lista: Pedido[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        setPedidos(lista);
-      } catch (error) {
-        console.error("Erro ao carregar pedidos:", error);
-        alert("Não foi possível carregar os pedidos.");
-      } finally {
-        setCarregando(false);
-      }
-    }
-
-    carregarPedidos();
+    const consulta = query(collection(db, "pedidos"), orderBy("createdAt", "desc"));
+    return onSnapshot(consulta, (snapshot) => {
+      const lista = snapshot.docs.map((doc) => {
+        const pedido: Pedido = { ...doc.data(), id: doc.id };
+        return pedidoReembolsado(pedido) ? { ...pedido, statusOperacional: "bloqueado" } : pedido;
+      });
+      setPedidos(lista);
+      setCarregando(false);
+    }, (error) => {
+      console.error("Erro ao carregar pedidos:", error);
+      alert("Não foi possível carregar os pedidos.");
+      setCarregando(false);
+    });
   }, []);
 
   const produtosUnicos = useMemo(() => {

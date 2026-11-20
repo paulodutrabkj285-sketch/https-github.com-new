@@ -219,8 +219,8 @@ export default function PedidoDetalhePage() {
     try {
       const usuario = getAuth().currentUser;
       if (!usuario) throw new Error("Faça login no painel administrativo novamente.");
-      await registrarReembolsoAdministrativo(pedido.id, motivo, usuario.email || usuario.uid);
-      setPedido(await buscarPedidoPorId(pedido.id));
+      const bloqueio = await registrarReembolsoAdministrativo(pedido.id, motivo, usuario.email || usuario.uid);
+      setPedido((atual) => atual?.id === pedido.id ? { ...atual, ...bloqueio } : atual);
       setMotivoCancelamento("");
     } catch (erro) {
       alert(erro instanceof Error ? erro.message : "Erro ao registrar reembolso.");
@@ -319,6 +319,8 @@ export default function PedidoDetalhePage() {
     (!reembolsado || pedido.statusOperacional !== "bloqueado");
   const podeCancelar = !["cancelado", "bloqueado"].includes(statusOperacional.toLowerCase());
 
+  const statusPagamentoExibido = reembolsado ? "Reembolsado" : pedido.statusPagamento;
+  const statusOperacionalExibido = statusOperacional === "bloqueado" ? "Bloqueado" : statusOperacional;
   const statusPagamentoPago = pedido.statusPagamento === "pago";
 
   const statusUtilizado = pedido.statusOperacional === "utilizado";
@@ -395,7 +397,7 @@ export default function PedidoDetalhePage() {
 
               >
 
-                Pagamento: {pedido.statusPagamento || "pendente"}
+                Pagamento: {statusPagamentoExibido || "pendente"}
 
               </span>
 
@@ -413,7 +415,7 @@ export default function PedidoDetalhePage() {
 
               >
 
-                Operacional: {statusOperacional}
+                Operacional: {statusOperacionalExibido}
 
               </span>
 
@@ -477,7 +479,7 @@ export default function PedidoDetalhePage() {
 
             <Bloco titulo="Pagamento">
 
-              <Linha label="Status" valor={pedido.statusPagamento || "-"} />
+              <Linha label="Status" valor={statusPagamentoExibido || "-"} />
 
               <Linha
 
@@ -519,7 +521,7 @@ export default function PedidoDetalhePage() {
 
                 label="Status"
 
-                valor={statusOperacional}
+                valor={statusOperacionalExibido}
 
               />
 
@@ -559,7 +561,7 @@ export default function PedidoDetalhePage() {
               <Bloco titulo="PARQUE">
                 <Linha label="Código Parque" valor={codigoParque} />
                 <Linha label="Quantidade Parque" valor={pedido.quantidadeParque ?? pedido.quantidade} />
-                <Linha label="Status do Parque" valor={statusOperacional} />
+                <Linha label="Status do Parque" valor={statusOperacionalExibido} />
                 <Linha label="Validação do Parque" valor={
                   pedido.validadoEm || pedido.utilizadoEm || statusUtilizado
                     ? "Validado" : "Ainda não validado"
@@ -575,7 +577,7 @@ export default function PedidoDetalhePage() {
               <Bloco titulo="ELEVADOR">
                 <Linha label="Código Elevador" valor={pedido.codigoIngressoElevador} />
                 <Linha label="Quantidade Elevador" valor={pedido.quantidadeElevador ?? pedido.qtdElevador} />
-                {reembolsado && <Linha label="Status do Elevador" valor="bloqueado" />}
+                {reembolsado && <Linha label="Status do Elevador" valor="Bloqueado" />}
                 <Linha label="Validado (elevadorValidado)" valor={
                   pedido.elevadorValidado === undefined ? "Não informado" :
                     pedido.elevadorValidado ? "Sim" : "Não"
