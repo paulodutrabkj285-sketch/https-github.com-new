@@ -46,6 +46,7 @@ type EntradaRegistro = {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [mostrarValores, setMostrarValores] = useState(false);
 
   const [pedidos, setPedidos] =
     useState<Pedido[]>([]);
@@ -224,22 +225,23 @@ export default function DashboardPage() {
       limiteHistorico
     );
 
-  const dicasFinanceiras =
-    gerarDicasFinanceiras(
-      resumo,
-      desdeLancamento
-    );
+  function formatarMoeda(valor: number) {
+    const moeda = valor.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
 
-  const formatarMoeda = (
-    valor: number
-  ) =>
-    valor.toLocaleString(
-      "pt-BR",
-      {
-        style: "currency",
-        currency: "BRL",
-      }
+    if (mostrarValores) return moeda;
+
+    return (
+      <>
+        <span className="print:hidden">R$ ••••••</span>
+        <span className="hidden print:inline">{moeda}</span>
+      </>
     );
+  }
+
+  const dicasFinanceiras = gerarDicasFinanceiras(resumo, desdeLancamento, formatarMoeda);
 
   function exportarCSV() {
     const cabecalho = [
@@ -494,9 +496,32 @@ export default function DashboardPage() {
 
             <section className="mt-7 rounded-3xl border border-green-200 bg-gradient-to-br from-green-950 to-green-800 p-5 shadow-xl">
 
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-green-200">
-                Visão Geral
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-black uppercase tracking-[0.2em] text-green-200">
+                  Visão Geral
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setMostrarValores((atual) => !atual)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-green-200/40 px-3 py-2 text-sm font-semibold text-green-50 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-200 print:hidden"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="size-5 shrink-0">
+                    {mostrarValores ? (
+                      <>
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                        <circle cx="12" cy="12" r="2.5" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6a17 17 0 0 1-3.3 3.5M15.2 17.6a11 11 0 0 1-3.2.4c-6.5 0-10-6-10-6" />
+                        <path d="m3 3 18 18" />
+                      </>
+                    )}
+                  </svg>
+                  {mostrarValores ? "Ocultar valores" : "Mostrar valores"}
+                </button>
+              </div>
 
               <h2 className="mt-1 text-2xl font-black text-white">
                 Desde o lançamento
@@ -942,7 +967,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                        <div className={`h-3 overflow-hidden rounded-full bg-gray-200 ${mostrarValores ? "" : "hidden print:block"}`}>
                           <div
                             className="h-full rounded-full bg-[#1f6b38]"
                             style={{
@@ -2022,7 +2047,7 @@ function Card({
   valor,
 }: {
   titulo: string;
-  valor: string | number;
+  valor: ReactNode;
 }) {
   return (
     <div className="rounded-2xl bg-white p-5 shadow-md">
@@ -2045,7 +2070,7 @@ function CardDestaque({
   icone,
 }: {
   titulo: string;
-  valor: string | number;
+  valor: ReactNode;
   icone: string;
 }) {
   return (
@@ -2076,7 +2101,7 @@ function CardProduto({
 }: {
   titulo: string;
   quantidade: number;
-  receita: string;
+  receita: ReactNode;
   icone: string;
   destaque?: boolean;
 }) {
@@ -3454,12 +3479,10 @@ function gerarFaturamentoPorDia(
 
 function gerarDicasFinanceiras(
   resumo: any,
-  lancamento: ReturnType<
-    typeof gerarResumoDesdeLancamento
-  >
+  lancamento: ReturnType<typeof gerarResumoDesdeLancamento>,
+  formatarMoeda: (valor: number) => ReactNode
 ) {
-  const dicas:
-    string[] = [];
+  const dicas: ReactNode[] = [];
 
   if (
     resumo.totalPendentes >
@@ -3495,17 +3518,9 @@ function gerarDicasFinanceiras(
       .quantidade > 0
   ) {
     dicas.push(
-      `O Elevador Panorâmico já vendeu ${lancamento.elevador
-        .quantidade
-      } ingresso(s), gerando ${lancamento.elevador.receita.toLocaleString(
-        "pt-BR",
-        {
-          style:
-            "currency",
-          currency:
-            "BRL",
-        }
-      )}.`
+      <>
+        O Elevador Panorâmico já vendeu {lancamento.elevador.quantidade} ingresso(s), gerando {formatarMoeda(lancamento.elevador.receita)}.
+      </>
     );
   } else {
     dicas.push(
@@ -3514,15 +3529,7 @@ function gerarDicasFinanceiras(
   }
 
   dicas.push(
-    `Ticket médio atual das compras pagas: ${lancamento.ticketMedio.toLocaleString(
-      "pt-BR",
-      {
-        style:
-          "currency",
-        currency:
-          "BRL",
-      }
-    )}.`
+    <>Ticket médio atual das compras pagas: {formatarMoeda(lancamento.ticketMedio)}.</>
   );
 
   dicas.push(
