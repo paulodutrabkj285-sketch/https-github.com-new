@@ -11,6 +11,7 @@ export const EFI_TEMPORARY_ENABLED = true;
 const janelasEfi = [
     { inicio: Date.parse("2026-11-18T00:00:00-03:00"), fim: Date.parse("2026-11-19T13:30:00-03:00") },
     { inicio: Date.parse("2026-11-19T19:00:00-03:00"), fim: Date.parse("2026-11-20T09:00:00-03:00") },
+    { inicio: Date.parse("2026-11-21T12:00:00-03:00"), fim: Date.parse("2026-11-21T13:00:00-03:00") },
 ];
 const baseUrl = "https://pix.api.efipay.com.br";
 const timeout = 5000;
