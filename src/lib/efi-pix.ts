@@ -11,7 +11,7 @@ export const EFI_TEMPORARY_ENABLED = true;
 const janelasEfi = [
     { inicio: Date.parse("2026-11-18T00:00:00-03:00"), fim: Date.parse("2026-11-19T13:30:00-03:00") },
     { inicio: Date.parse("2026-11-19T19:00:00-03:00"), fim: Date.parse("2026-11-20T09:00:00-03:00") },
-    { inicio: Date.parse("2026-11-21T12:00:00-03:00"), fim: Date.parse("2026-11-21T13:00:00-03:00") },
+    { inicio: Date.parse("2026-11-21T12:00:00-03:00"), fim: Date.parse("2026-11-21T13:30:00-03:00") },
 ];
 const baseUrl = "https://pix.api.efipay.com.br";
 const timeout = 5000;
@@ -210,8 +210,15 @@ export async function criarPixEfi(pedidoId: string, valor: string, devedor?: { c
             etapa = "criar-cobranca";
             const url = `${baseUrl}/v2/cob/${txid}`;
             if (janelaEfiAtiva(Date.now()) !== janela) throw new ErroPixEfi("Janela Efí encerrada.");
-            const reutilizado = txidSalvo === txid;
-            const resposta = reutilizado ? await axios.get(url, config) : await axios.put(url, {
+            // Um TXID reservado pode estar no Firestore antes de existir no banco.
+            const existente = txidSalvo === txid
+                ? await axios.get(url, { ...config, validateStatus: status => status === 200 || status === 404 })
+                : undefined;
+            const reutilizado = existente?.status === 200;
+            if (!reutilizado && janelaEfiAtiva(Date.now()) !== janela) {
+                throw new ErroPixEfi("Janela Efí encerrada.");
+            }
+            const resposta = existente?.status === 200 ? existente : await axios.put(url, {
                 calendario: { expiracao: 3600 },
                 valor: { original: valor },
                 chave,
@@ -255,8 +262,10 @@ export async function criarPixEfi(pedidoId: string, valor: string, devedor?: { c
 
 export async function consultarPixEfiConfirmado(txid: string) {
     return comClienteEfi(8000, async config => {
-        const { data } = await axios.get(`${baseUrl}/v2/cob/${encodeURIComponent(txid)}`, config);
-        return validarCobrancaPix(data, txid);
+        const { data, status } = await axios.get(`${baseUrl}/v2/cob/${encodeURIComponent(txid)}`, {
+            ...config, validateStatus: status => status === 200 || status === 404,
+        });
+        return status === 404 ? null : validarCobrancaPix(data, txid);
     });
 }
 

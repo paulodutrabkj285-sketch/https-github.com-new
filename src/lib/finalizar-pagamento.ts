@@ -48,6 +48,7 @@ type FinalizarPagamentoParams = {
     sicrediTxid?: string;
     efiTxid?: string;
     efiEndToEndId?: string;
+    recuperacaoPix?: boolean;
 
     // Dados opcionais do cartão
     cartaoTransacaoId?: string;
@@ -69,7 +70,8 @@ type FinalizarPagamentoResultado = {
     | "reembolsado"
     | "valor_divergente"
     | "pedido_nao_encontrado"
-    | "banco_nao_confirmado";
+    | "banco_nao_confirmado"
+    | "recuperacao_encerrada";
 
     codigoIngresso?: string;
 
@@ -597,6 +599,11 @@ async function marcarValorDivergenteReservaAgencia({
    FINALIZAR PAGAMENTO
 ========================================================= */
 
+export function pedidoEncerraRecuperacaoPix(pedido: { statusPagamento?: unknown; statusOperacional?: unknown }) {
+    return pedido.statusPagamento === "pago" || pedido.statusPagamento === "reembolsado" ||
+        pedido.statusPagamento === "valor_divergente" || pedido.statusOperacional === "bloqueado";
+}
+
 export async function finalizarPagamento({
     pedidoId,
     formaPagamento,
@@ -607,6 +614,7 @@ export async function finalizarPagamento({
     sicrediTxid,
     efiTxid,
     efiEndToEndId,
+    recuperacaoPix = false,
 
     cartaoTransacaoId,
     cartaoAutorizacao,
@@ -653,6 +661,14 @@ export async function finalizarPagamento({
                 "Pedido não encontrado.",
         };
     }
+
+    const recuperacaoEncerrada: FinalizarPagamentoResultado = {
+        ok: false, pedidoId, status: "recuperacao_encerrada", mensagem: "Recuperação Pix encerrada.",
+    };
+    const txidRecuperado = efiTxid || sicrediTxid;
+    const campoRecuperado = efiTxid ? "efiTxid" : "sicrediTxid";
+    if (recuperacaoPix && (!txidRecuperado || pedido[campoRecuperado] !== txidRecuperado ||
+        pedidoEncerraRecuperacaoPix(pedido))) return recuperacaoEncerrada;
 
     const resultadoReembolsado: FinalizarPagamentoResultado = {
         ok: false, pedidoId, status: "reembolsado", mensagem: "Pedido reembolsado.",
@@ -945,10 +961,12 @@ export async function finalizarPagamento({
                     valorDivergenteRegistradoEm:
                         new Date()
                             .toISOString(),
-                }
+                },
+                recuperacaoPix ? txidRecuperado : undefined
             );
 
             if (!divergenciaGravada) {
+                if (recuperacaoPix) return recuperacaoEncerrada;
                 const atual = await buscarPedidoPorId(pedidoId);
                 if (atual?.statusPagamento === "reembolsado") return resultadoReembolsado;
                 if (atual?.statusPagamento === "pago") return {
@@ -1178,6 +1196,7 @@ export async function finalizarPagamento({
         delete dadosPagamento.sicrediStatus;
         delete dadosPagamento.sicrediTxid;
         dadosPagamento.efiStatus = "CONCLUIDA";
+        dadosPagamento.pixProvider = "efi";
     }
 
     if (pagbankNotificacao) {
@@ -1196,6 +1215,8 @@ export async function finalizarPagamento({
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error("Pedido não encontrado.");
         const atual = snap.data();
+        if (recuperacaoPix && (pedidoEncerraRecuperacaoPix(atual) ||
+            atual[campoRecuperado] !== txidRecuperado)) return "recuperacao_encerrada";
         if (atual.statusPagamento === "reembolsado") return "reembolsado";
         if (atual.statusPagamento === "pago") return false;
         if ((valorPago !== undefined && converterParaCentavos(valorEsperado(atual, campoTxid)) !== converterParaCentavos(valorPago)) ||
@@ -1214,6 +1235,7 @@ export async function finalizarPagamento({
         tx.update(ref, { ...dadosPagamento, updatedAt: dataConfirmacao });
         return true;
     });
+    if (gravado === "recuperacao_encerrada") return recuperacaoEncerrada;
     if (gravado === "reembolsado") return resultadoReembolsado;
     if (!gravado) {
         return {
@@ -1223,35 +1245,26 @@ export async function finalizarPagamento({
         };
     }
 
-    console.log(
-        "FINALIZAÇÃO: PAGAMENTO CONFIRMADO",
-        {
+    console.log("FINALIZAÇÃO: PAGAMENTO GRAVADO", {
+        pedidoId,
+        provider: pagbankNotificacao ? "pagbank" : campoTxid === "efiTxid" ? "efi" : "sicredi",
+        statusFinal: "pago",
+    });
+
+    if (txidConfirmado) {
+        const provider = campoTxid === "efiTxid" ? "efi" : "sicredi";
+        const chaveEsperada = (provider === "efi" ? process.env.EFI_PIX_KEY : process.env.SICREDI_PIX_KEY)?.trim();
+        console.log("PIX: CONFIRMAÇÃO GRAVADA", {
             pedidoId,
-
-            formaPagamento,
-
-            valorPago,
-
-            codigoIngresso:
-                ehCarrinho
-                    ? codigoParque
-                    : codigoIngresso,
-
-            codigoIngressoElevador:
-                ehCarrinho
-                    ? codigoElevador
-                    : null,
-
-            origem:
-                pedido.origem ||
-                "site",
-
-            reservaAgenciaId:
-                pedido
-                    .reservaAgenciaId ||
-                null,
-        }
-    );
+            provider,
+            txidFinal: txidConfirmado.length > 6 ? txidConfirmado.slice(-6) : undefined,
+            statusBanco: "CONCLUIDA",
+            valorConfirmado: valorPago,
+            endToEndIdFinal: pixEndToEndId && pixEndToEndId.length > 6 ? pixEndToEndId.slice(-6) : undefined,
+            horarioConfirmacao: pixHorario,
+            chaveEsperadaFinal: chaveEsperada && chaveEsperada.length > 4 ? chaveEsperada.slice(-4) : undefined,
+        });
+    }
 
     /* =====================================================
        SINCRONIZA RESERVA DA AGÊNCIA
@@ -1352,7 +1365,7 @@ export async function finalizarPagamento({
    ENVIO DO E-MAIL + WHATSAPP
 ========================================================= */
 
-export async function tentarEnviarEmailSemLease({
+async function tentarEnviarEmailSemLease({
     pedido,
     pedidoId,
     codigoIngresso,
@@ -2051,11 +2064,15 @@ export async function reenviarCorrecaoIngressoElevador(
 }
 
 
-async function gravarSeNaoPago(pedidoId: string, dados: Record<string, unknown>) {
+async function gravarSeNaoPago(pedidoId: string, dados: Record<string, unknown>, sicrediTxidRecuperado?: string) {
     return runTransaction(db, async (tx) => {
         const ref = doc(db, "pedidos", pedidoId);
         const snap = await tx.get(ref);
-        if (!snap.exists() || ["pago", "reembolsado"].includes(snap.data().statusPagamento)) return false;
+        if (!snap.exists()) return false;
+        const atual = snap.data();
+        if (["pago", "reembolsado"].includes(atual.statusPagamento) ||
+            (sicrediTxidRecuperado && (atual.sicrediTxid !== sicrediTxidRecuperado ||
+                pedidoEncerraRecuperacaoPix(atual)))) return false;
         tx.update(ref, dados);
         return true;
     });
@@ -2070,6 +2087,14 @@ async function tentarEnviarEmail(params: { pedido: any; pedidoId: string; codigo
         const snap = await tx.get(ref);
         if (!snap.exists()) throw new Error("Pedido não encontrado.");
         const atual = snap.data();
+        if (atual.statusPagamento !== "pago") {
+            console.warn("FINALIZAÇÃO: ENVIO BLOQUEADO", {
+                pedidoId: params.pedidoId,
+                etapa: "antes-do-email",
+                statusAnterior: atual.statusPagamento,
+            });
+            return { status: "pagamento_pendente" as const, pedido: atual };
+        }
         if (atual.emailIngressoEnviado) return { status: "enviado" as const, pedido: atual };
         if (Number(atual.emailIngressoLeaseAte || 0) > Date.now()) return { status: "ocupado" as const, pedido: atual };
         tx.update(ref, { emailIngressoLeaseOwner: owner, emailIngressoLeaseAte: Date.now() + 120000 });

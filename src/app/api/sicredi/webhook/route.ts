@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buscarPedidoPorTxid } from "@/lib/pedidos";
 import { finalizarPagamento } from "@/lib/finalizar-pagamento";
+import { recuperarPix } from "@/lib/pix-recuperacao";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Compatível com a URL cadastrada e com o sufixo /pix do protocolo Pix.
 export async function POST(req: NextRequest) {
+    const prazo = Date.now() + maxDuration * 1000;
     let body;
     try { body = await req.json(); }
     catch { return NextResponse.json({ ok: false, error: "JSON inválido." }, { status: 400 }); }
@@ -17,6 +19,7 @@ export async function POST(req: NextRequest) {
     for (const txid of new Set<string>(pixLista.map((pix: { txid?: unknown }) =>
         typeof pix?.txid === "string" ? pix.txid.trim() : ""))) {
         if (!txid) { falha = true; resultados.push({ ok: false, motivo: "pix_sem_txid" }); continue; }
+        let pedidoId: string | undefined;
         try {
             const pedido = await buscarPedidoPorTxid(txid);
             if (!pedido) {
@@ -24,11 +27,16 @@ export async function POST(req: NextRequest) {
                 resultados.push({ ok: false, txid, motivo: "pedido_nao_encontrado" });
                 continue;
             }
+            pedidoId = pedido.id;
             const resultado = await finalizarPagamento({ pedidoId: pedido.id, formaPagamento: "pix", sicrediTxid: txid });
-            if (resultado.status === "banco_nao_confirmado") falha = true;
+            if (resultado.status === "banco_nao_confirmado") {
+                falha = true;
+                await recuperarPix({ pedidoId, provider: "sicredi", txid }, prazo);
+            }
             resultados.push({ txid, ...resultado });
         } catch {
             falha = true;
+            if (pedidoId) await recuperarPix({ pedidoId, provider: "sicredi", txid }, prazo);
             resultados.push({ ok: false, txid, motivo: "erro_confirmacao_bancaria" });
         }
     }

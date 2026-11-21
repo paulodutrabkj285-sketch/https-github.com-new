@@ -7,13 +7,14 @@ const crypto = require('node:crypto');
 
 // Compila os módulos reais, substituindo todas as fronteiras externas.
 // Nenhum teste inicializa Firebase, acessa banco ou envia mensagens.
-function carregar(file, mocks = {}) {
+function carregar(file, mocks = {}, globals = {}) {
   const module = { exports: {} };
   const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true },
   }).outputText;
   vm.runInNewContext(`(function(require,module,exports){${code}\n})`, {
     AbortSignal, Buffer, URL, URLSearchParams, Date, Set, process, console: { log() {}, error() {}, warn() {} },
+    ...globals,
   })((id) => {
     if (Object.hasOwn(mocks, id)) return mocks[id];
     if (['https', 'crypto'].includes(id)) return require(id);
@@ -70,7 +71,11 @@ function central(pedido, banco, efi) {
       buscarPedidoPorId: async id => structuredClone(mem.store.get(`pedidos/${id}`)),
       atualizarPedido: async (id, data) => mem.firestore.updateDoc(`pedidos/${id}`, data),
     },
-    '@/lib/email': { enviarIngressoPorEmail: async () => { emails++; return {}; } },
+    '@/lib/email': { enviarIngressoPorEmail: async () => {
+      assert.equal(mem.store.get('pedidos/ficticio').statusPagamento, 'pago');
+      emails++;
+      return {};
+    } },
     '@/lib/efi-pix': { consultarPixEfiConfirmado: efi },
     '@/lib/sicredi-pix': { consultarPixConfirmado: banco || (async () => ({ valor: 60, endToEndId: 'E-FICTICIO', horario: '2026-01-01T12:00:00Z' })) },
     '@/lib/pagbank-notificacao': carregar('src/lib/pagbank-notificacao.ts'),
@@ -174,9 +179,62 @@ test('paginação ultrapassa 50 sem TXID, retoma limite e reinicia ao chegar ao 
   assert.equal(visitados.filter(id => id === '0101').length, 2);
 });
 
+test('recuperação é limitada por TXID e encerra ao encontrar estado terminal', async () => {
+  for (const provider of ['efi', 'sicredi']) {
+    for (const terminal of [null, 'pago', 'reembolsado', 'bloqueado', 'valor_divergente']) {
+      const pedidoId = 'ficticio';
+      const txid = 'TX-TESTE';
+      const campoTxid = provider === 'efi' ? 'efiTxid' : 'sicrediTxid';
+      const campoRecuperacao = provider === 'efi' ? 'pixRecuperacaoEfiTxid' : 'pixRecuperacaoSicrediTxid';
+      const caminho = `pedidos/${pedidoId}`;
+      const mem = memoria({ [caminho]: { [campoTxid]: txid, statusPagamento: 'pendente' } });
+      const atrasos = [], chamadas = [], consultas = [];
+      const consultar = provedor => async txidConsultado => {
+        consultas.push([provedor, txidConsultado]);
+        return null;
+      };
+      const finalizar = carregar('src/lib/finalizar-pagamento.ts', {
+        '@/lib/preco-elevador': {}, '@/lib/combo-parque-elevador-server': { pedidoComboValidoNoServidor: () => true },
+        crypto, '@/lib/firebase': { db: {} }, 'firebase/firestore': mem.firestore,
+        '@/lib/pedidos': { buscarPedidoPorId: async () => structuredClone(mem.store.get(caminho)) },
+        '@/lib/email': {}, '@/lib/pagbank-notificacao': {},
+        '@/lib/efi-pix': { consultarPixEfiConfirmado: consultar("efi") },
+        '@/lib/sicredi-pix': { consultarPixConfirmado: consultar("sicredi") },
+      });
+      const recuperar = carregar('src/lib/pix-recuperacao.ts', {
+        'firebase/firestore': mem.firestore, '@/lib/firebase': { db: {} },
+        '@/lib/finalizar-pagamento': {
+          ...finalizar,
+          finalizarPagamento: async params => {
+            const resultado = await finalizar.finalizarPagamento(params);
+            chamadas.push({ params, status: resultado.status });
+            if (chamadas.length === 1 && terminal) {
+              await mem.firestore.updateDoc(caminho, terminal === 'bloqueado'
+                ? { statusOperacional: terminal } : { statusPagamento: terminal });
+            }
+            return resultado;
+          },
+        },
+      }, { setTimeout: (callback, espera) => { atrasos.push(espera); callback(); } });
+      const prazo = Date.now() + 60000;
+      await Promise.all([
+        recuperar.recuperarPix({ pedidoId, provider, txid }, prazo),
+        recuperar.recuperarPix({ pedidoId, provider, txid }, prazo),
+      ]);
+      assert.equal(mem.store.get(caminho)[campoRecuperacao], txid);
+      assert.deepEqual(atrasos, [2000, 8000]);
+      assert.equal(chamadas.length, 2);
+      assert.deepEqual(consultas, terminal ? [[provider, txid]] : [[provider, txid], [provider, txid]]);
+      assert.equal(chamadas[1].status, terminal ? 'recuperacao_encerrada' : 'banco_nao_confirmado');
+      assert.ok(chamadas.every(item => item.params[campoTxid] === txid && item.params.recuperacaoPix));
+    }
+  }
+});
+
 test('webhook processa lote após falha parcial e pede reentrega; alias mantém handler', async () => {
   const chamadas = [];
   const webhook = carregar('src/app/api/sicredi/webhook/route.ts', {
+    '@/lib/pix-recuperacao': { recuperarPix() {} },
     'next/server': next,
     '@/lib/pedidos': { buscarPedidoPorTxid: async txid => ({ id: txid }) },
     '@/lib/finalizar-pagamento': { finalizarPagamento: async ({ pedidoId }) => {
@@ -210,6 +268,50 @@ test('PagBank exige assinatura íntegra e usa finalização central', async () =
   const c = central({}, async () => { throw new Error('Pix PagBank não usa Sicredi'); });
   assert.equal((await c.finalizar({ pagbankNotificacao: { raw, assinatura } })).status, 'pago');
   assert.equal(c.store.get('pedidos/ficticio').pagbankStatus, 'PAID');
+});
+
+test('webhook PagBank só encaminha pagamento autenticado à finalização', async () => {
+  const tokenAnterior = process.env.PAGBANK_TOKEN;
+  process.env.PAGBANK_TOKEN = 'TOKEN-APENAS-TESTE';
+  try {
+    const confirmacoes = [];
+    const route = carregar('src/app/api/pagbank/webhook/route.ts', {
+      'next/server': next,
+      '@/lib/pagbank-notificacao': carregar('src/lib/pagbank-notificacao.ts'),
+      '@/lib/pedidos': { atualizarPedido: async () => assert.fail('Pagamento deve usar finalização') },
+      '@/lib/finalizar-pagamento': { finalizarPagamento: async params => {
+        confirmacoes.push(params);
+        return { ok: true, status: 'pago' };
+      } },
+    });
+    const raw = JSON.stringify({ reference_id: 'ficticio', charges: [{
+      id: 'FICTICIO', status: 'PAID', amount: { currency: 'BRL', summary: { paid: 6000 } },
+      payment_method: { type: 'PIX' },
+    }] });
+    const assinatura = crypto.createHash('sha256').update(`${process.env.PAGBANK_TOKEN}-${raw}`).digest('hex');
+    const enviar = token => route.POST({ text: async () => raw, headers: { get: () => token } });
+    assert.equal((await enviar('')).status, 401);
+    assert.equal(confirmacoes.length, 0);
+    assert.equal((await enviar(assinatura)).status, 200);
+    assert.equal(confirmacoes[0].pedidoId, 'ficticio');
+    assert.equal(confirmacoes[0].pagbankNotificacao.raw, raw);
+  } finally {
+    if (tokenAnterior === undefined) delete process.env.PAGBANK_TOKEN;
+    else process.env.PAGBANK_TOKEN = tokenAnterior;
+  }
+});
+
+test('atualização atrasada não devolve pedido pago a pendente', async () => {
+  const mem = memoria({ 'pedidos/ficticio': { statusPagamento: 'pago', statusOperacional: 'ativo',
+    emailIngressoEnviado: true } });
+  const pedidos = carregar('src/lib/pedidos.ts', {
+    './preparar-pedido': {}, './firebase': { db: {} }, 'firebase/firestore': mem.firestore,
+  });
+  await pedidos.atualizarPedido('ficticio', { statusPagamento: 'pendente', pagbankStatus: 'WAITING' });
+  const salvo = mem.store.get('pedidos/ficticio');
+  assert.equal(salvo.statusPagamento, 'pago');
+  assert.equal(salvo.statusOperacional, 'ativo');
+  assert.equal(salvo.emailIngressoEnviado, true);
 });
 
 test('pedido já pago é reconhecido mesmo com API bancária indisponível', async () => {
@@ -294,11 +396,13 @@ test('checkout usa Efí primeiro, cai para Sicredi a cada erro e só usa Sicredi
   Object.assign(process.env, { SICREDI_PIX_KEY: 'fake', SICREDI_BASE_URL: 'https://banco.invalid',
     ...Object.fromEntries(Object.keys(config).map(k => [k, 'fake'])) });
   try {
-    for (const modo of ['efi', 'oauth', 'certificado', 'timeout', 'HTTP', 'QR inválido', 'ambos', 'depois']) {
+    for (const modo of ['efi', 'webhook concorrente', 'oauth', 'certificado', 'timeout', 'HTTP', 'QR inválido', 'ambos', 'depois']) {
+      const efiOk = ['efi', 'webhook concorrente'].includes(modo);
       const pedido = { valorTotal: 60, cpf: '52998224725', statusPagamento: 'pendente' };
       const mem = memoria({ 'pedidos/ficticio': pedido });
       const chamadas = [];
       const route = carregar('src/app/api/sicredi/criar-pix/route.ts', {
+        '@/lib/pix-recuperacao': { recuperarPix() {} },
         'next/server': next, 'firebase/firestore': mem.firestore, '@/lib/firebase': { db: {} },
         '@/lib/pedidos': { buscarPedidoPorId: async () => pedido },
         '@/lib/preco-elevador': { valorPromocionalValido: () => true },
@@ -306,9 +410,16 @@ test('checkout usa Efí primeiro, cai para Sicredi a cada erro e só usa Sicredi
         '@/lib/finalizar-pagamento': {},
         '@/lib/efi-pix': {
           efiDisponivelParaCriacao: () => modo !== 'depois',
+          efiTxidDoPedido: () => 'EFI',
           criarPixEfi: async () => {
             chamadas.push('efi');
-            if (modo !== 'efi') throw new Error(modo);
+            assert.equal(mem.store.get('pedidos/ficticio').efiTxid, 'EFI');
+            assert.equal(mem.store.get('pedidos/ficticio').pixProvider, 'efi');
+            assert.equal(mem.store.get('pedidos/ficticio').statusPagamento, 'pendente');
+            if (modo === 'webhook concorrente') {
+              await mem.firestore.updateDoc('pedidos/ficticio', { statusPagamento: 'pago', pixProvider: 'efi' });
+            }
+            if (!efiOk) throw new Error(modo);
             return { txid: 'EFI', status: 'ATIVA', pixCopiaCola: 'QR-EFI', location: '' };
           },
         },
@@ -322,9 +433,13 @@ test('checkout usa Efí primeiro, cai para Sicredi a cada erro e só usa Sicredi
         } },
       });
       const res = await route.POST({ json: async () => ({ pedidoId: 'ficticio' }) });
-      assert.deepEqual(chamadas, modo === 'efi' ? ['efi'] : modo === 'depois' ? ['sicredi'] : ['efi', 'sicredi']);
+      assert.deepEqual(chamadas, efiOk ? ['efi'] : modo === 'depois' ? ['sicredi'] : ['efi', 'sicredi']);
       assert.equal(res.status, modo === 'ambos' ? 500 : 200);
-      if (modo !== 'ambos') assert.equal(mem.store.get('pedidos/ficticio').pixProvider, modo === 'efi' ? 'efi' : 'sicredi');
+      if (modo !== 'ambos') assert.equal(mem.store.get('pedidos/ficticio').pixProvider, efiOk ? 'efi' : 'sicredi');
+      if (modo === 'webhook concorrente') {
+        assert.equal(res.body.pago, true);
+        assert.equal(mem.store.get('pedidos/ficticio').statusPagamento, 'pago');
+      }
     }
   } finally {
     for (const [k, v] of Object.entries({ SICREDI_PIX_KEY: chave, SICREDI_BASE_URL: base, ...config })) {
@@ -354,6 +469,23 @@ test('confirmação Efí exige prova e valor exato mesmo após troca para Sicred
   assert.equal((await fallback.finalizar()).status, 'pago');
 });
 
+test('verificação do checkout recupera Pix Efí sem webhook', async () => {
+  const comprovante = { valor: 60, endToEndId: 'E-FICTICIO', horario: '2026-11-21T15:30:00Z' };
+  const c = central({ efiTxid: 'EFI', pixProvider: 'sicredi', email: 'ficticio@example.invalid' },
+    async () => null, async () => comprovante);
+  const route = carregar('src/app/api/sicredi/verificar-pagamento/route.ts', {
+    'next/server': next,
+    '@/lib/finalizar-pagamento': { finalizarPagamento: c.finalizar },
+  });
+  const resposta = await route.POST({ json: async () => ({ pedidoId: 'ficticio' }) });
+  assert.equal(resposta.body.pago, true);
+  const pedido = c.store.get('pedidos/ficticio');
+  assert.equal(pedido.statusPagamento, 'pago');
+  assert.equal(pedido.statusOperacional, 'ativo');
+  assert.equal(pedido.pixProvider, 'efi');
+  assert.equal(c.emails(), 1);
+});
+
 test('webhook Efí valida HMAC antes do corpo, aceita teste de cadastro e deduplica pagamentos', async t => {
   const anterior = process.env.EFI_WEBHOOK_HMAC;
   t.after(() => {
@@ -364,6 +496,7 @@ test('webhook Efí valida HMAC antes do corpo, aceita teste de cadastro e dedupl
   const txid = 'a'.repeat(35);
   const endToEndId = 'E' + '1'.repeat(31);
   const webhook = carregar('src/app/api/efi/webhook/pix/route.ts', {
+    '@/lib/pix-recuperacao': { recuperarPix() {} },
     'next/server': next,
     '@/lib/pedidos': { buscarPedidoPorTxid: async (id, campo) => {
       assert.equal(id, txid);

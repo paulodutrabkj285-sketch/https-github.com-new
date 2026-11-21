@@ -2,11 +2,13 @@ import { createHash, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { buscarPedidoPorTxid } from "@/lib/pedidos";
 import { finalizarPagamento } from "@/lib/finalizar-pagamento";
+import { recuperarPix } from "@/lib/pix-recuperacao";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+    const prazo = Date.now() + maxDuration * 1000;
     const segredo = process.env.EFI_WEBHOOK_HMAC?.trim();
     if (!segredo) return NextResponse.json({ ok: false }, { status: 503 });
 
@@ -41,18 +43,28 @@ export async function POST(req: NextRequest) {
         const id = `${txid}:${endToEndId}`;
         if (processados.has(id)) continue;
         processados.add(id);
+        let pedidoId: string | undefined;
         try {
             const pedido = await buscarPedidoPorTxid(txid, "efiTxid");
             if (!pedido) {
-                falha = true; // A notificação pode chegar antes da gravação do TXID.
+                // Entregas de cobranças anteriores à reserva do TXID podem precisar de reentrega.
+                falha = true;
+                console.warn("Webhook Efí sem pedido correspondente.", {
+                    provider: "efi", etapa: "localizar-pedido", txidParcial: txid.slice(-6),
+                });
                 continue;
             }
-            if (pedido.statusPagamento === "pago") continue;
+            if (pedido.statusPagamento === "pago" && pedido.emailIngressoEnviado) continue;
+            pedidoId = pedido.id;
             const resultado = await finalizarPagamento({ pedidoId: pedido.id, formaPagamento: "pix",
                 efiTxid: txid, efiEndToEndId: endToEndId });
-            if (resultado.status === "banco_nao_confirmado") falha = true;
+            if (resultado.status === "banco_nao_confirmado") {
+                falha = true;
+                await recuperarPix({ pedidoId, provider: "efi", txid, efiEndToEndId: endToEndId }, prazo);
+            }
         } catch {
             falha = true;
+            if (pedidoId) await recuperarPix({ pedidoId, provider: "efi", txid, efiEndToEndId: endToEndId }, prazo);
         }
     }
     return NextResponse.json({ ok: !falha }, { status: falha ? 503 : 200 });

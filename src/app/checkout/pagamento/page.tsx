@@ -99,6 +99,8 @@ export default function PagamentoPage() {
   ] =
     useState(false);
 
+  const [valorTesteEfi, setValorTesteEfi] = useState<number>();
+
   const [erro, setErro] =
     useState("");
 
@@ -575,6 +577,7 @@ export default function PagamentoPage() {
 
               body:
                 JSON.stringify({
+                  testeEfi: params.get("testeEfi"),
                   pedidoId:
                     id,
 
@@ -649,6 +652,12 @@ export default function PagamentoPage() {
           return;
         }
 
+        if (data.pago === true) {
+          window.location.href = `/checkout/sucesso?pedidoId=${encodeURIComponent(id)}&status=Pagamento confirmado`;
+          return;
+        }
+
+        setValorTesteEfi(data.valorTesteEfi);
         setPixCopiaCola(
           data.pixCopiaCola ||
           ""
@@ -821,7 +830,7 @@ export default function PagamentoPage() {
       setErro("");
 
       setMensagem(
-        "Consultando pagamento no Sicredi..."
+        "Consultando pagamento Pix..."
       );
 
       const resposta =
@@ -871,7 +880,7 @@ export default function PagamentoPage() {
 
       setMensagem(
         data?.mensagem ||
-        "Pagamento ainda não confirmado pelo Sicredi."
+        "Pagamento Pix ainda não confirmado."
       );
     } catch (error) {
       console.error(
@@ -1530,6 +1539,12 @@ export default function PagamentoPage() {
                       copie o código
                       PIX.
                     </p>
+
+                    {valorTesteEfi !== undefined && (
+                      <p className="mb-4 font-semibold">
+                        Valor deste Pix de teste {valorTesteEfi.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </p>
+                    )}
 
                     <div className="mb-6 flex justify-center">
 

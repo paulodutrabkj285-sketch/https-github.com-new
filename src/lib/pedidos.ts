@@ -1493,7 +1493,9 @@ export async function atualizarPedido(
   if (dados.statusPagamento !== undefined) {
     await runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
-      if (snap.exists() && pedidoReembolsado(snap.data())) return;
+      const atual = snap.data();
+      if (atual && (pedidoReembolsado(atual) ||
+        (atual.statusPagamento === "pago" && dados.statusPagamento !== "pago"))) return;
       tx.update(ref, { ...dados, updatedAt: new Date().toISOString() });
     });
     return;
@@ -1684,25 +1686,8 @@ export async function buscarPedidoPorId(
 
 
   return {
-
-
-
-    id:
-
-
-
-      snap.id,
-
-
-
-
-
-
-
     ...snap.data(),
-
-
-
+    id: snap.id,
   } as Pedido;
 
 
@@ -1933,25 +1918,8 @@ export async function buscarPedidoPorTxid(
 
 
   return {
-
-
-
-    id:
-
-
-
-      docItem.id,
-
-
-
-
-
-
-
     ...docItem.data(),
-
-
-
+    id: docItem.id,
   } as Pedido;
 
 

@@ -11,6 +11,7 @@ import {
     pedidoAutorizadoParaTesteEfi, VALOR_TESTE_EFI,
 } from "@/lib/efi-pix";
 import { finalizarPagamento } from "@/lib/finalizar-pagamento";
+import { recuperarPix } from "@/lib/pix-recuperacao";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -301,6 +302,25 @@ async function salvarPixPendente(pedidoId: string, dados: Record<string, unknown
     });
 }
 
+async function reservarTxidEfi(pedidoId: string) {
+    const txid = efiTxidDoPedido(pedidoId);
+    const ref = doc(db, "pedidos", pedidoId);
+
+    return runTransaction(db, async transacao => {
+        const atual = (await transacao.get(ref)).data();
+        if (!atual) throw new Error("Pedido não encontrado.");
+        if (atual.statusPagamento === "reembolsado") return { status: "reembolsado" } as const;
+        if (atual.statusPagamento === "pago") return { status: "pago" } as const;
+        if (atual.efiTxid && atual.efiTxid !== txid) throw new Error("Pedido com outro TXID Efí.");
+        if (!atual.efiTxid) {
+            transacao.update(ref, {
+                efiTxid: txid, pixProvider: "efi", updatedAt: new Date().toISOString(),
+            });
+        }
+        return { status: "reservado", txidAnterior: atual.efiTxid as string | undefined } as const;
+    });
+}
+
 function responderPedidoReembolsado() {
     return NextResponse.json(
         { ok: false, error: "Pedido reembolsado." },
@@ -312,13 +332,36 @@ function responderPix(dados: Record<string, unknown>) {
     return NextResponse.json({ ok: true, ...dados }, { headers: { "Cache-Control": "no-store" } });
 }
 
+async function confirmarCobrancaConcluida(pedidoId: string, provider: "efi" | "sicredi", txid: string, prazo: number) {
+    try {
+        const resultado = await finalizarPagamento({
+            pedidoId,
+            formaPagamento: "pix",
+            ...(provider === "efi" ? { efiTxid: txid } : { sicrediTxid: txid }),
+        });
+        if (resultado.status === "reembolsado") return responderPedidoReembolsado();
+        if (resultado.ok) return responderPix({ pago: true, status: "CONCLUIDA", txid });
+        if (resultado.status === "banco_nao_confirmado") await recuperarPix({ pedidoId, provider, txid }, prazo);
+    } catch {
+        await recuperarPix({ pedidoId, provider, txid }, prazo);
+    }
+
+    return NextResponse.json(
+        { ok: false, error: "Não foi possível concluir a confirmação do Pix. Verifique o pagamento deste pedido." },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
+}
+
 /* =========================================================
    CRIAR PIX
 ========================================================= */
 
+export const maxDuration = 60;
+
 export async function POST(
     req: NextRequest
 ) {
+    const prazo = Date.now() + maxDuration * 1000;
     try {
         console.log(
             "CRIAR PIX: início"
@@ -691,8 +734,15 @@ export async function POST(
 
         if (tentarEfi) {
             try {
+                const reserva = await reservarTxidEfi(pedidoId);
+                if (reserva.status === "reembolsado") return responderPedidoReembolsado();
+                if (reserva.status === "pago") return responderPix({ pago: true, status: "CONCLUIDA" });
+
                 const cobranca = await criarPixEfi(pedidoId, testeEfi ? VALOR_TESTE_EFI.toFixed(2) : valorFinal,
-                    ehEstrangeiro ? undefined : { cpf: cpfFinal, nome: nomeFinal }, pedidoSalvo.efiTxid);
+                    ehEstrangeiro ? undefined : { cpf: cpfFinal, nome: nomeFinal }, reserva.txidAnterior);
+                if (cobranca.status === "CONCLUIDA") {
+                    return confirmarCobrancaConcluida(pedidoId, "efi", cobranca.txid, prazo);
+                }
                 const salvo = await salvarPixPendente(pedidoId, {
                     pixProvider: "efi",
                     efiTxid: cobranca.txid,
@@ -702,11 +752,6 @@ export async function POST(
                 });
                 if (salvo === "reembolsado") return responderPedidoReembolsado();
                 if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
-                if (cobranca.status === "CONCLUIDA") {
-                    const resultado = await finalizarPagamento({ pedidoId, formaPagamento: "pix", efiTxid: cobranca.txid });
-                    if (!resultado.ok) throw new Error("Falha ao confirmar cobrança Efí.");
-                    return responderPix({ pago: true, status: "CONCLUIDA", txid: cobranca.txid });
-                }
                 if (testeEfi) return responderPix({ ...cobranca, pixProvider: "efi", valorTesteEfi: VALOR_TESTE_EFI });
                 // O TXID fica disponível para receber pagamentos mesmo após a janela de emissão.
                 if (efiDisponivelParaCriacao()) return responderPix({ ...cobranca, pixProvider: "efi" });
@@ -714,7 +759,7 @@ export async function POST(
                 if (testeEfi) {
                     return NextResponse.json({ ok: false, error: "Pix de teste Efí indisponível. Tente novamente neste mesmo pedido." }, { status: 503 });
                 }
-                console.warn("Pix Efí indisponível. Tentando Sicredi.");
+                console.warn("Pix Efí indisponível. Tentando Sicredi.", { pedidoId, provider: "efi", etapa: "criacao" });
             }
         }
 
@@ -848,35 +893,7 @@ export async function POST(
                         ?.status ===
                     "CONCLUIDA"
                 ) {
-                    const salvo = await salvarPixPendente(pedidoId, { pixProvider: "sicredi" });
-                    if (salvo === "reembolsado") return responderPedidoReembolsado();
-                    if (!salvo) return responderPix({ pago: true, status: "CONCLUIDA" });
-                    return NextResponse.json(
-                        {
-                            ok: true,
-
-                            pago: true,
-
-                            txid:
-                                txidExistente,
-
-                            status:
-                                "CONCLUIDA",
-
-                            pixCopiaCola,
-
-                            location,
-
-                            mensagem:
-                                "Pagamento já confirmado pelo Sicredi.",
-                        },
-                        {
-                            headers: {
-                                "Cache-Control":
-                                    "no-store",
-                            },
-                        }
-                    );
+                    return confirmarCobrancaConcluida(pedidoId, "sicredi", txidExistente, prazo);
                 }
 
                 /* =========================================
