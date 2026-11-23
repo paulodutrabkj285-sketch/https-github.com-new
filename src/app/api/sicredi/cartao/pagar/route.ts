@@ -446,6 +446,73 @@ export async function POST(
     }
 
     /* =====================================================
+       RECUPERAR CARTÃO JÁ APROVADO PELO SICREDI
+
+       Se o IPG aprovou a cobrança e a execução caiu antes
+       de concluir o ingresso, nunca cobrar o cartão de novo.
+    ===================================================== */
+
+    const cartaoAprovadoPendente =
+      pedido.cartaoGateway === "sicredi-ipg" &&
+      pedido.cartaoAprovadoPeloIpg === true &&
+      pedido.cartaoAprovacaoPendenteFinalizacao === true &&
+      pedido.cartaoStatus === "aprovado_pendente_finalizacao" &&
+      typeof pedido.cartaoTransacaoId === "string" &&
+      pedido.cartaoTransacaoId.trim() &&
+      Number(pedido.cartaoValorAprovado) === Number(pedido.valorTotal);
+
+    if (cartaoAprovadoPendente) {
+      const recuperado = await finalizarPagamento({
+        pedidoId,
+        formaPagamento: "cartao",
+        valorPago: Number(pedido.cartaoValorAprovado),
+        cartaoTransacaoId: String(pedido.cartaoTransacaoId),
+        cartaoAutorizacao: String(
+          pedido.cartaoAutorizacao ||
+          pedido.sicrediCartaoApprovalCode ||
+          ""
+        ),
+        cartaoStatus: "aprovado",
+        cartaoUltimosDigitos: String(pedido.cartaoUltimosDigitos || ""),
+        cartaoParcelas: Number(pedido.cartaoParcelas || 1),
+      });
+
+      if (recuperado.ok) {
+        await atualizarPedido(pedidoId, {
+          cartaoStatus: "aprovado",
+          cartaoAprovacaoPendenteFinalizacao: false,
+          cartaoRecuperadoEm: new Date().toISOString(),
+        });
+
+        return NextResponse.json(
+          {
+            ok: true,
+            aprovado: true,
+            recuperado: true,
+            mensagem: "Pagamento já aprovado pelo Sicredi e ingresso liberado.",
+            pedidoId,
+            codigoIngresso: recuperado.codigoIngresso || null,
+            emailEnviado: recuperado.emailEnviado || false,
+            statusFinalizacao: recuperado.status,
+            tempoMs: Date.now() - inicio,
+          },
+          { headers: { "Cache-Control": "no-store" } }
+        );
+      }
+
+      return respostaErro(
+        "O cartão já foi aprovado pelo Sicredi e o ingresso está em processamento. Não tente pagar novamente.",
+        409,
+        {
+          codigo: "CARTAO_APROVADO_FINALIZACAO_PENDENTE",
+          pagamentoConfirmado: true,
+          statusFinalizacao: recuperado.status,
+          tempoMs: Date.now() - inicio,
+        }
+      );
+    }
+
+    /* =====================================================
        IMPEDIR COBRANÇA DUPLA
     ===================================================== */
 
@@ -903,6 +970,39 @@ export async function POST(
       const valorPagoConfirmado =
         valorPedido;
 
+      const aprovadoEm =
+        new Date().toISOString();
+
+      /*
+       * Persistimos a prova recebida diretamente do IPG ANTES
+       * da finalização. Se a execução cair depois da cobrança,
+       * o mesmo pedido pode ser recuperado sem cobrar novamente.
+       */
+      await atualizarPedido(
+        pedidoId,
+        {
+          formaPagamento: "cartao",
+          parcelas: 1,
+          cartaoGateway: "sicredi-ipg",
+          cartaoStatus: "aprovado_pendente_finalizacao",
+          cartaoAprovadoPeloIpg: true,
+          cartaoAprovacaoPendenteFinalizacao: true,
+          cartaoValorAprovado: valorPagoConfirmado,
+          cartaoAprovadoEm: aprovadoEm,
+          cartaoTransacaoId: identificadorTransacao,
+          cartaoAutorizacao: respostaIpg.approvalCode || "",
+          cartaoUltimosDigitos: ultimosDigitos,
+          sicrediCartaoApprovalCode: respostaIpg.approvalCode || "",
+          sicrediCartaoProcessorCode: respostaIpg.processorResponseCode || "",
+          sicrediCartaoProcessorMessage: respostaIpg.processorResponseMessage || "",
+          sicrediCartaoReceiptNumber: respostaIpg.processorReceiptNumber || "",
+          sicrediCartaoTraceNumber: respostaIpg.processorTraceNumber || "",
+          sicrediCartaoReferenceNumber: respostaIpg.processorReferenceNumber || "",
+          sicrediCartaoTransactionTime: respostaIpg.transactionTime || "",
+          pagamentoSimulado: false,
+        }
+      );
+
       const resultadoFinalizacao =
         await finalizarPagamento(
           {
@@ -933,6 +1033,32 @@ export async function POST(
           }
         );
 
+      if (!resultadoFinalizacao.ok) {
+        console.error("CARTÃO SICREDI APROVADO, FINALIZAÇÃO PENDENTE:", {
+          pedidoId,
+          statusFinalizacao: resultadoFinalizacao.status,
+        });
+
+        return NextResponse.json(
+          {
+            ok: false,
+            aprovado: false,
+            pagamentoConfirmado: true,
+            finalizacaoPendente: true,
+            codigo: "CARTAO_APROVADO_FINALIZACAO_PENDENTE",
+            mensagem:
+              "Pagamento aprovado pelo Sicredi. O ingresso está sendo finalizado automaticamente. Não tente pagar novamente.",
+            pedidoId,
+            statusFinalizacao: resultadoFinalizacao.status,
+            tempoMs: Date.now() - inicio,
+          },
+          {
+            status: 202,
+            headers: { "Cache-Control": "no-store" },
+          }
+        );
+      }
+
       await atualizarPedido(
         pedidoId,
         {
@@ -947,6 +1073,18 @@ export async function POST(
 
           cartaoStatus:
             "aprovado",
+
+          cartaoAprovadoPeloIpg:
+            true,
+
+          cartaoAprovacaoPendenteFinalizacao:
+            false,
+
+          cartaoValorAprovado:
+            valorPagoConfirmado,
+
+          cartaoFinalizadoEm:
+            new Date().toISOString(),
 
           cartaoTransacaoId:
             identificadorTransacao,
