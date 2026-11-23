@@ -2,7 +2,7 @@
 
 
 
-import { buscarPedidoPorId, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarReembolsoAdministrativo, Pedido } from "@/lib/pedidos";
+import { buscarPedidoPorIdAdmin, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarReembolsoAdministrativo, Pedido } from "@/lib/pedidos";
 import { getAuth } from "firebase/auth";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -44,7 +44,7 @@ export default function PedidoDetalhePage() {
 
 
 
-        const dados = await buscarPedidoPorId(pedidoId);
+        const dados = await buscarPedidoPorIdAdmin(pedidoId);
 
         setPedido(dados);
 
@@ -202,7 +202,7 @@ export default function PedidoDetalhePage() {
       const usuario = getAuth().currentUser;
       if (!usuario) throw new Error("Faça login no painel administrativo novamente.");
       await cancelarIngressoAdministrativo(pedido.id, motivo, usuario.email || usuario.uid);
-      const atualizado = await buscarPedidoPorId(pedido.id);
+      const atualizado = await buscarPedidoPorIdAdmin(pedido.id);
       setPedido(atualizado);
       alert("Ingresso cancelado e bloqueado no Firebase. Confira a sincronização dos aparelhos da portaria.");
     } catch (erro) {

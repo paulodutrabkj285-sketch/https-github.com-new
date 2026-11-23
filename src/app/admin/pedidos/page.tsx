@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { pedidoReembolsado } from "@/lib/pedidos";
+import { documentosPedidosVisiveisNoAdmin, pedidoReembolsado } from "@/lib/pedidos";
 import { useRouter } from "next/navigation";
 
 type Pedido = {
@@ -42,7 +42,7 @@ export default function AdminPedidosPage() {
   useEffect(() => {
     const consulta = query(collection(db, "pedidos"), orderBy("createdAt", "desc"));
     return onSnapshot(consulta, (snapshot) => {
-      const lista = snapshot.docs.map((doc) => {
+      const lista = documentosPedidosVisiveisNoAdmin(snapshot).map((doc) => {
         const pedido: Pedido = { ...doc.data(), id: doc.id };
         return pedidoReembolsado(pedido) ? { ...pedido, statusOperacional: "bloqueado" } : pedido;
       });

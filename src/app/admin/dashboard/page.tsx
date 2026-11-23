@@ -5,8 +5,8 @@ import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   calcularResumoFinanceiro,
-  listarPedidos,
-  observarPedidos,
+  listarPedidosAdmin,
+  observarPedidosAdmin,
   pedidoContaComoVenda,
   pedidoReembolsado,
   Pedido,
@@ -121,7 +121,7 @@ export default function DashboardPage() {
   ] = useState(25);
 
   useEffect(() => {
-    return observarPedidos(
+    return observarPedidosAdmin(
       (pedidosAtuais) => {
         setPedidos(pedidosAtuais.filter(pedido => pedido.testeEfi !== true));
         setCarregando(false);
@@ -364,7 +364,7 @@ export default function DashboardPage() {
     if (preparandoRelatorio) return;
     setPreparandoRelatorio(periodo);
     try {
-      const pedidosAtuais = await listarPedidos({ consultarServidor: true });
+      const pedidosAtuais = await listarPedidosAdmin({ consultarServidor: true });
       const agora = new Date();
       flushSync(() => {
         setRelatorioDia(periodo === "dia" ? gerarVendasDoDia(pedidosAtuais, agora) : undefined);

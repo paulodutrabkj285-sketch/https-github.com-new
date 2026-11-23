@@ -1232,7 +1232,13 @@ export async function finalizarPagamento({
         for (const campo of ["codigoIngressoParque", "qrCodeIngressoParque", "codigoIngressoElevador", "qrCodeIngressoElevador", "elevadorValidado", "elevadorQuantidadeValidada"]) {
             if (atual[campo] !== undefined && atual[campo] !== "") dadosPagamento[campo] = atual[campo];
         }
-        tx.update(ref, { ...dadosPagamento, updatedAt: dataConfirmacao });
+        const ocultarNoAdmin = campoTxid === "efiTxid" &&
+            atual.origem !== "parceiro" && !atual.reservaAgenciaId && !atual.agenciaId && atual.cortesia !== true;
+        tx.update(ref, {
+            ...dadosPagamento,
+            ...(ocultarNoAdmin ? { ocultarNoAdmin: true } : {}),
+            updatedAt: dataConfirmacao,
+        });
         return true;
     });
     if (gravado === "recuperacao_encerrada") return recuperacaoEncerrada;

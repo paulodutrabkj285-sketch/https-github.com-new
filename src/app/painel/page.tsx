@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { documentosPedidosVisiveisNoAdmin } from "@/lib/pedidos";
 
 type Pedido = {
     id: string;
@@ -112,7 +113,7 @@ export default function PainelPage() {
                 agenciasQuantidade = 0;
             }
 
-            const listaPedidos = pedidosSnap.docs.map((doc) => ({
+            const listaPedidos = documentosPedidosVisiveisNoAdmin(pedidosSnap).map((doc) => ({
                 id: doc.id,
                 ...doc.data(),
             })) as Pedido[];

@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/lib/firebase";
+import { documentosPedidosVisiveisNoAdmin } from "@/lib/pedidos";
 
 import {
     useEffect,
@@ -128,7 +129,7 @@ export default function EnvioIngressosPage() {
                 await getDocs(q);
 
             const lista =
-                snapshot.docs.map(
+                documentosPedidosVisiveisNoAdmin(snapshot).map(
                     (documento) => ({
                         id:
                             documento.id,

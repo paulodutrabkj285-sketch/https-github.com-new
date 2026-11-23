@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listarPedidos } from "@/lib/pedidos";
+import { listarPedidosAdmin } from "@/lib/pedidos";
 
 export const runtime = "nodejs";
 
@@ -25,7 +25,7 @@ function linhaCSV(campos: any[]) {
 }
 
 export async function GET() {
-    const pedidos: any[] = await listarPedidos();
+    const pedidos: any[] = (await listarPedidosAdmin()).filter(pedido => pedido.testeEfi !== true);
 
     const cabecalho = [
         "ID",

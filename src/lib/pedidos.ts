@@ -841,6 +841,7 @@ export type Pedido =
 
 
 
+    ocultarNoAdmin?: boolean;
     pixProvider?: "efi" | "sicredi";
     efiTxid?: string;
     testeEfi?: boolean;
@@ -2512,8 +2513,18 @@ function consultaPedidos() {
   return query(collection(db, "pedidos"), orderBy("createdAt", "desc"));
 }
 
-function pedidosDoSnapshot(snapshot: QuerySnapshot): Pedido[] {
-  const pedidos = snapshot.docs.map((item) => ({
+function pedidoVisivelNoAdmin(pedido: { ocultarNoAdmin?: unknown }) {
+  return pedido.ocultarNoAdmin !== true;
+}
+
+export function documentosPedidosVisiveisNoAdmin(snapshot: QuerySnapshot) {
+  // Filtros por desigualdade do Firestore descartam documentos sem esse campo.
+  return snapshot.docs.filter((documento) => pedidoVisivelNoAdmin(documento.data()));
+}
+
+function pedidosDoSnapshot(snapshot: QuerySnapshot, somenteAdmin = false): Pedido[] {
+  const documentos = somenteAdmin ? documentosPedidosVisiveisNoAdmin(snapshot) : snapshot.docs;
+  const pedidos = documentos.map((item) => ({
     ...item.data(),
     id: item.id,
   })) as Pedido[];
@@ -2528,11 +2539,22 @@ export async function listarPedidos({ consultarServidor = false } = {}) {
   return pedidosDoSnapshot(snapshot);
 }
 
-export function observarPedidos(
+export async function listarPedidosAdmin({ consultarServidor = false } = {}) {
+  const consulta = consultaPedidos();
+  const snapshot = await (consultarServidor ? getDocsFromServer(consulta) : getDocs(consulta));
+  return pedidosDoSnapshot(snapshot, true);
+}
+
+export async function buscarPedidoPorIdAdmin(pedidoId: string) {
+  const pedido = await buscarPedidoPorId(pedidoId);
+  return pedido && pedidoVisivelNoAdmin(pedido) ? pedido : null;
+}
+
+export function observarPedidosAdmin(
   aoAtualizar: (pedidos: Pedido[]) => void,
   aoFalhar: (erro: Error) => void
 ) {
-  return onSnapshot(consultaPedidos(), (snapshot) => aoAtualizar(pedidosDoSnapshot(snapshot)), aoFalhar);
+  return onSnapshot(consultaPedidos(), (snapshot) => aoAtualizar(pedidosDoSnapshot(snapshot, true)), aoFalhar);
 }
 
 /* ==========================================
@@ -2823,11 +2845,13 @@ export function calcularResumoFinanceiro(
 
 
 
+  const pedidosVisiveis = pedidos.filter(pedidoVisivelNoAdmin);
+
   const totalPedidos =
 
 
 
-    pedidos.length;
+    pedidosVisiveis.length;
 
 
 
@@ -2841,7 +2865,7 @@ export function calcularResumoFinanceiro(
 
 
 
-    pedidos.filter(
+    pedidosVisiveis.filter(
 
 
 
@@ -2877,7 +2901,7 @@ export function calcularResumoFinanceiro(
 
 
 
-    pedidos.filter(
+    pedidosVisiveis.filter(
 
 
 
@@ -3234,8 +3258,8 @@ export async function cancelarIngressoAdministrativo(pedidoId: string, motivo: s
 
 export const MENSAGEM_INGRESSO_REEMBOLSADO = "INGRESSO REEMBOLSADO — NÃO LIBERAR";
 
-export function pedidoContaComoVenda(pedido: { statusPagamento?: unknown }) {
-  return pedido.statusPagamento === "pago";
+export function pedidoContaComoVenda(pedido: { statusPagamento?: unknown; ocultarNoAdmin?: unknown }) {
+  return pedidoVisivelNoAdmin(pedido) && pedido.statusPagamento === "pago";
 }
 
 export function pedidoReembolsado(pedido: { statusPagamento?: unknown }) {
