@@ -10,7 +10,7 @@ export const maxDuration = 60;
 const LIMITE_LEITURA_RECENTE = 30;
 const LIMITE_CONSULTAS_BANCARIAS = 10;
 
-function pedidoElegivel(pedido: Record<string, any>) {
+function pedidoPixElegivel(pedido: Record<string, any>) {
     const statusPagamento = String(pedido.statusPagamento || "");
     const statusOperacional = String(pedido.statusOperacional || "");
     const temTxid = Boolean(String(pedido.efiTxid || "").trim() || String(pedido.sicrediTxid || "").trim());
@@ -18,6 +18,27 @@ function pedidoElegivel(pedido: Record<string, any>) {
         statusOperacional !== "bloqueado" &&
         pedido.formaPagamento !== "cartao" &&
         temTxid;
+}
+
+function pedidoCartaoRecuperavel(pedido: Record<string, any>) {
+    const statusPagamento = String(pedido.statusPagamento || "");
+    const statusOperacional = String(pedido.statusOperacional || "");
+    const valor = Number(pedido.cartaoValorAprovado);
+    return ["pendente", "expirado"].includes(statusPagamento) &&
+        statusOperacional !== "bloqueado" &&
+        pedido.formaPagamento === "cartao" &&
+        pedido.cartaoGateway === "sicredi-ipg" &&
+        pedido.cartaoAprovadoPeloIpg === true &&
+        pedido.cartaoAprovacaoPendenteFinalizacao === true &&
+        pedido.cartaoStatus === "aprovado_pendente_finalizacao" &&
+        typeof pedido.cartaoTransacaoId === "string" &&
+        Boolean(pedido.cartaoTransacaoId.trim()) &&
+        Number.isFinite(valor) && valor > 0 &&
+        Math.round(valor * 100) === Math.round(Number(pedido.valorTotal || 0) * 100);
+}
+
+function pedidoElegivel(pedido: Record<string, any>) {
+    return pedidoPixElegivel(pedido) || pedidoCartaoRecuperavel(pedido);
 }
 
 export async function GET(req: NextRequest) {
@@ -29,7 +50,7 @@ export async function GET(req: NextRequest) {
 
     const inicio = Date.now();
     const owner = randomUUID();
-    const ref = doc(db, "integracoes", "sicredi_pix_reconciliacao");
+    const ref = doc(db, "integracoes", "sicredi_pagamentos_reconciliacao");
     let adquirido = false;
     let offsetAnterior = 0;
     let proximoOffset = 0;
@@ -54,7 +75,7 @@ export async function GET(req: NextRequest) {
         adquirido = true;
         offsetAnterior = estado.offset;
 
-        // Prioriza pedidos recentes para recuperar rapidamente Pix pagos cujo webhook não chegou.
+        // Prioriza pedidos recentes para recuperar Pix sem webhook e cartão Sicredi aprovado cuja finalização caiu.
         // A consulta lê no máximo 30 documentos e consulta o banco para no máximo 10 por rodada.
         const pagina = await getDocs(query(
             collection(db, "pedidos"),
@@ -78,19 +99,65 @@ export async function GET(req: NextRequest) {
                 const pedido = documento.data();
                 if (!pedidoElegivel(pedido)) continue;
                 try {
-                    const finalizacao = await finalizarPagamento({
-                        pedidoId: documento.id,
-                        formaPagamento: "pix",
-                    });
+                    const cartao = pedidoCartaoRecuperavel(pedido);
+                    const finalizacao = cartao
+                        ? await finalizarPagamento({
+                            pedidoId: documento.id,
+                            formaPagamento: "cartao",
+                            valorPago: Number(pedido.cartaoValorAprovado),
+                            cartaoTransacaoId: String(pedido.cartaoTransacaoId),
+                            cartaoAutorizacao: String(
+                                pedido.cartaoAutorizacao ||
+                                pedido.sicrediCartaoApprovalCode ||
+                                ""
+                            ),
+                            cartaoStatus: "aprovado",
+                            cartaoUltimosDigitos: String(pedido.cartaoUltimosDigitos || ""),
+                            cartaoParcelas: Number(pedido.cartaoParcelas || 1),
+                        })
+                        : await finalizarPagamento({
+                            pedidoId: documento.id,
+                            formaPagamento: "pix",
+                        });
+
                     analisados++;
-                    resultados.push({ pedidoId: documento.id, resultado: finalizacao.status });
-                    if (finalizacao.ok) pagosRecuperados++;
-                    else if (finalizacao.status === "banco_nao_confirmado") pendentes++;
-                    else erros++;
+                    resultados.push({
+                        pedidoId: documento.id,
+                        resultado: finalizacao.status,
+                    });
+
+                    if (finalizacao.ok) {
+                        pagosRecuperados++;
+                        if (cartao) {
+                            await runTransaction(db, async (tx) => {
+                                const refPedido = doc(db, "pedidos", documento.id);
+                                const snap = await tx.get(refPedido);
+                                if (!snap.exists()) return;
+                                const atual = snap.data();
+                                if (atual.cartaoAprovadoPeloIpg === true &&
+                                    atual.cartaoTransacaoId === pedido.cartaoTransacaoId) {
+                                    tx.update(refPedido, {
+                                        cartaoStatus: "aprovado",
+                                        cartaoAprovacaoPendenteFinalizacao: false,
+                                        cartaoRecuperadoEm: new Date().toISOString(),
+                                    });
+                                }
+                            });
+                        }
+                    } else if (finalizacao.status === "banco_nao_confirmado") {
+                        pendentes++;
+                    } else {
+                        erros++;
+                    }
                 } catch {
                     analisados++;
                     erros++;
-                    resultados.push({ pedidoId: documento.id, resultado: "erro_consulta_pix" });
+                    resultados.push({
+                        pedidoId: documento.id,
+                        resultado: pedidoCartaoRecuperavel(pedido)
+                            ? "erro_recuperacao_cartao"
+                            : "erro_consulta_pix",
+                    });
                 }
             }
         }
@@ -109,7 +176,7 @@ export async function GET(req: NextRequest) {
             resultados,
         });
     } catch (error) {
-        console.error("ERRO RECONCILIAÇÃO PIX:", error instanceof Error ? error.message : "Erro desconhecido");
+        console.error("ERRO RECONCILIAÇÃO PAGAMENTOS:", error instanceof Error ? error.message : "Erro desconhecido");
         return NextResponse.json({ ok: false, error: "Erro ao reconciliar Pix. A próxima execução tentará novamente." }, { status: 500 });
     } finally {
         if (adquirido) {
