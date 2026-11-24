@@ -899,6 +899,10 @@ export type Pedido =
     pagamentoConfirmadoManualmenteMotivo?: string;
     cartaoReferenciaBancaria?: string;
     cartaoUltimosDigitos?: string;
+    validacaoAdministrativa?: boolean;
+    validacaoAdministrativaEm?: string;
+    validacaoAdministrativaPor?: string;
+    validacaoAdministrativaMotivo?: string;
 
 
 
@@ -3348,6 +3352,63 @@ export async function registrarPagamentoComprovadoAdministrativo({
     };
 
     tx.update(referenciaPedido, atualizacao);
+    return atualizacao;
+  });
+}
+
+export async function registrarUtilizacaoAdministrativa({
+  pedidoId,
+  responsavel,
+  utilizadoEm,
+  motivo,
+}: {
+  pedidoId: string;
+  responsavel: string;
+  utilizadoEm: string;
+  motivo: string;
+}) {
+  const justificativa = motivo.trim();
+  const dataUtilizacao = new Date(utilizadoEm);
+
+  if (justificativa.length < 5) throw new Error("Informe uma observação com pelo menos 5 caracteres.");
+  if (!Number.isFinite(dataUtilizacao.getTime())) throw new Error("Informe uma data e hora válidas.");
+  if (dataUtilizacao.getTime() > Date.now() + 5 * 60 * 1000) {
+    throw new Error("A utilização não pode ser registrada no futuro.");
+  }
+
+  const referencia = doc(db, "pedidos", pedidoId);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(referencia);
+    if (!snap.exists()) throw new Error("Pedido não encontrado.");
+
+    const pedido = snap.data();
+    const statusPagamento = String(pedido.statusPagamento || "").toLowerCase();
+    const statusOperacional = String(pedido.statusOperacional || "ativo").toLowerCase();
+
+    if (statusPagamento !== "pago") throw new Error("Somente pedidos pagos podem ser registrados como utilizados.");
+    if (pedidoReembolsado(pedido)) throw new Error(MENSAGEM_INGRESSO_REEMBOLSADO);
+    if (["cancelado", "bloqueado"].includes(statusOperacional)) {
+      throw new Error("Ingresso cancelado ou bloqueado não pode ser registrado como utilizado.");
+    }
+    if (statusOperacional === "utilizado" || pedido.utilizadoEm || pedido.validadoEm) {
+      throw new Error("Este ingresso já consta como utilizado.");
+    }
+
+    const agora = new Date().toISOString();
+    const data = dataUtilizacao.toISOString();
+    const atualizacao = {
+      statusOperacional: "utilizado",
+      validadoPor: responsavel,
+      validadoEm: data,
+      utilizadoEm: data,
+      validacaoAdministrativa: true,
+      validacaoAdministrativaEm: agora,
+      validacaoAdministrativaPor: responsavel,
+      validacaoAdministrativaMotivo: justificativa,
+      updatedAt: agora,
+    };
+
+    tx.update(referencia, atualizacao);
     return atualizacao;
   });
 }
