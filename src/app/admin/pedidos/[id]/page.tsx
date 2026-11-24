@@ -2,7 +2,7 @@
 
 
 
-import { buscarPedidoPorIdAdmin, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarReembolsoAdministrativo, Pedido } from "@/lib/pedidos";
+import { buscarPedidoPorIdAdmin, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarPagamentoComprovadoAdministrativo, registrarReembolsoAdministrativo, Pedido } from "@/lib/pedidos";
 import { getAuth } from "firebase/auth";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -31,6 +31,11 @@ export default function PedidoDetalhePage() {
   const [reenviando, setReenviando] = useState(false);
   const [cancelando, setCancelando] = useState(false);
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
+  const [confirmandoPagamento, setConfirmandoPagamento] = useState(false);
+  const [referenciaPagamento, setReferenciaPagamento] = useState("");
+  const [ultimosDigitosPagamento, setUltimosDigitosPagamento] = useState("");
+  const [dataHoraPagamento, setDataHoraPagamento] = useState("");
+  const [observacaoPagamento, setObservacaoPagamento] = useState("");
 
 
 
@@ -229,6 +234,65 @@ export default function PedidoDetalhePage() {
     }
   }
 
+  async function confirmarPagamentoComprovado() {
+    if (!pedido || confirmandoPagamento) return;
+
+    const referencia = referenciaPagamento.trim();
+    const finalCartao = ultimosDigitosPagamento.replace(/\D/g, "");
+    const observacao = observacaoPagamento.trim();
+
+    if (referencia.length < 6) { alert("Informe a referência bancária da venda."); return; }
+    if (!/^\d{4}$/.test(finalCartao)) { alert("Informe os 4 últimos dígitos do cartão."); return; }
+    if (!dataHoraPagamento) { alert("Informe a data e hora exibidas no comprovante."); return; }
+    if (observacao.length < 5) { alert("Informe uma observação com pelo menos 5 caracteres."); return; }
+
+    const dataLocal = new Date(dataHoraPagamento);
+    if (!Number.isFinite(dataLocal.getTime())) { alert("Data/hora do comprovante inválida."); return; }
+
+    if (!window.confirm(
+      `Confirmar manualmente o pagamento de ${formatarMoeda(pedido.valorTotal)} do pedido ${pedido.id}?\n\n` +
+      `Cartão final ${finalCartao}\nReferência: ${referencia}\nData: ${dataLocal.toLocaleString("pt-BR")}\n\n` +
+      "Use somente quando o pagamento estiver comprovado no banco do parque."
+    )) return;
+
+    setConfirmandoPagamento(true);
+    try {
+      const usuario = getAuth().currentUser;
+      if (!usuario) throw new Error("Faça login no painel administrativo novamente.");
+
+      await registrarPagamentoComprovadoAdministrativo({
+        pedidoId: pedido.id,
+        responsavel: usuario.email || usuario.uid,
+        referenciaBancaria: referencia,
+        comprovadoEm: dataLocal.toISOString(),
+        ultimosDigitosCartao: finalCartao,
+        observacao,
+      });
+
+      const atualizado = await buscarPedidoPorIdAdmin(pedido.id);
+      setPedido(atualizado);
+
+      const resposta = await fetch("/api/reenviar-ingresso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pedidoId: pedido.id }),
+      });
+      const dados = await resposta.json().catch(() => ({}));
+
+      if (resposta.ok && dados.ok) {
+        alert("Pagamento confirmado. Pedido ativado e ingresso enviado por e-mail.");
+      } else {
+        alert(
+          "Pagamento confirmado e pedido ativado, mas o e-mail não foi enviado. Use o botão Reenviar Ingresso."
+        );
+      }
+    } catch (erro) {
+      alert(erro instanceof Error ? erro.message : "Erro ao confirmar o pagamento.");
+    } finally {
+      setConfirmandoPagamento(false);
+    }
+  }
+
   const pedidoAny = pedido as
 
     | (Pedido & {
@@ -244,6 +308,13 @@ export default function PedidoDetalhePage() {
       dataPagamento?: string;
 
       pdfIngressoUrl?: string;
+      pagamentoConfirmadoManualmente?: boolean;
+      pagamentoConfirmadoManualmenteEm?: string;
+      pagamentoConfirmadoManualmentePor?: string;
+      pagamentoConfirmadoManualmenteMotivo?: string;
+      cartaoReferenciaBancaria?: string;
+      cartaoUltimosDigitos?: string;
+      pagamentoConfirmadoEm?: string;
 
     })
 
@@ -322,6 +393,12 @@ export default function PedidoDetalhePage() {
   const statusPagamentoExibido = reembolsado ? "Reembolsado" : pedido.statusPagamento;
   const statusOperacionalExibido = statusOperacional === "bloqueado" ? "Bloqueado" : statusOperacional;
   const statusPagamentoPago = pedido.statusPagamento === "pago";
+  const statusPagamentoAtual = String(pedido.statusPagamento || "pendente").toLowerCase();
+  const podeConfirmarPagamentoComprovado =
+    ["pendente", "expirado"].includes(statusPagamentoAtual) &&
+    !reembolsado &&
+    !["cancelado", "bloqueado", "utilizado"].includes(String(statusOperacional).toLowerCase()) &&
+    pedido.origem !== "parceiro" && !pedido.reservaAgenciaId && !pedido.agenciaId && pedido.cortesia !== true;
 
   const statusUtilizado = pedido.statusOperacional === "utilizado";
 
@@ -505,11 +582,22 @@ export default function PedidoDetalhePage() {
 
                 valor={formatarDataHora(
 
-                  pedidoAny?.pagoEm || pedidoAny?.dataPagamento
+                  pedidoAny?.pagamentoConfirmadoEm || pedidoAny?.pagoEm || pedidoAny?.dataPagamento
 
                 )}
 
               />
+
+              {pedidoAny?.pagamentoConfirmadoManualmente && (
+                <>
+                  <Linha label="Confirmação" valor="Manual — comprovada no banco" />
+                  <Linha label="Referência bancária" valor={pedidoAny?.cartaoReferenciaBancaria || "-"} />
+                  <Linha label="Cartão final" valor={pedidoAny?.cartaoUltimosDigitos || "-"} />
+                  <Linha label="Confirmado por" valor={pedidoAny?.pagamentoConfirmadoManualmentePor || "-"} />
+                  <Linha label="Registro administrativo" valor={formatarDataHora(pedidoAny?.pagamentoConfirmadoManualmenteEm)} />
+                  <Linha label="Observação" valor={pedidoAny?.pagamentoConfirmadoManualmenteMotivo || "-"} />
+                </>
+              )}
 
             </Bloco>
 
@@ -681,6 +769,71 @@ export default function PedidoDetalhePage() {
 
 
 
+          {podeConfirmarPagamentoComprovado && (
+            <Bloco titulo="Confirmar pagamento comprovado" extraClass="mt-6">
+              <div className="space-y-4">
+                <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+                  Use somente quando a venda estiver comprovada no banco do parque. O valor será o valor original do pedido:
+                  <strong> {formatarMoeda(pedido.valorTotal)}</strong>.
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    Referência bancária
+                    <input
+                      className="mt-1 w-full rounded-xl border p-3 font-normal text-gray-900"
+                      value={referenciaPagamento}
+                      onChange={(e) => setReferenciaPagamento(e.target.value)}
+                      placeholder="Código/referência exibido no Sicredi"
+                    />
+                  </label>
+
+                  <label className="text-sm font-bold text-gray-700">
+                    4 últimos dígitos do cartão
+                    <input
+                      inputMode="numeric"
+                      maxLength={4}
+                      className="mt-1 w-full rounded-xl border p-3 font-normal text-gray-900"
+                      value={ultimosDigitosPagamento}
+                      onChange={(e) => setUltimosDigitosPagamento(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder="0000"
+                    />
+                  </label>
+
+                  <label className="text-sm font-bold text-gray-700">
+                    Data e hora do comprovante
+                    <input
+                      type="datetime-local"
+                      className="mt-1 w-full rounded-xl border p-3 font-normal text-gray-900"
+                      value={dataHoraPagamento}
+                      onChange={(e) => setDataHoraPagamento(e.target.value)}
+                    />
+                  </label>
+
+                  <label className="text-sm font-bold text-gray-700 md:col-span-2">
+                    Observação
+                    <textarea
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border p-3 font-normal text-gray-900"
+                      value={observacaoPagamento}
+                      onChange={(e) => setObservacaoPagamento(e.target.value)}
+                      placeholder="Ex.: pagamento confirmado no extrato Sicredi do parque"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={confirmarPagamentoComprovado}
+                  disabled={confirmandoPagamento}
+                  className="rounded-xl bg-green-700 px-5 py-3 font-bold text-white disabled:opacity-50"
+                >
+                  {confirmandoPagamento ? "Confirmando..." : "✓ Confirmar pagamento e enviar ingresso"}
+                </button>
+              </div>
+            </Bloco>
+          )}
+
           <Bloco titulo="Cancelamento / bloqueio" extraClass="mt-6">
             {!podeCancelar && (
               <div className="rounded-xl bg-red-50 p-4 text-red-800">
@@ -748,7 +901,7 @@ export default function PedidoDetalhePage() {
 
                     ? `Confirmado ${formatarDataHora(
 
-                      pedidoAny?.pagoEm || pedidoAny?.dataPagamento
+                      pedidoAny?.pagamentoConfirmadoEm || pedidoAny?.pagoEm || pedidoAny?.dataPagamento
 
                     )}`
 

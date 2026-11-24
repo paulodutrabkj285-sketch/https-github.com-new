@@ -890,6 +890,22 @@ export type Pedido =
 
 
 
+    pagamentoConfirmadoEm?: string;
+    pagoEm?: string;
+    dataPagamento?: string;
+    pagamentoConfirmadoManualmente?: boolean;
+    pagamentoConfirmadoManualmenteEm?: string;
+    pagamentoConfirmadoManualmentePor?: string;
+    pagamentoConfirmadoManualmenteMotivo?: string;
+    cartaoReferenciaBancaria?: string;
+    cartaoUltimosDigitos?: string;
+
+
+
+
+
+
+
     emailIngressoEnviado?: boolean;
 
 
@@ -3253,6 +3269,86 @@ export async function cancelarIngressoAdministrativo(pedidoId: string, motivo: s
       canceladoPor: responsavel,
       updatedAt: agora,
     });
+  });
+}
+
+export async function registrarPagamentoComprovadoAdministrativo({
+  pedidoId,
+  responsavel,
+  referenciaBancaria,
+  comprovadoEm,
+  ultimosDigitosCartao,
+  observacao,
+}: {
+  pedidoId: string;
+  responsavel: string;
+  referenciaBancaria: string;
+  comprovadoEm: string;
+  ultimosDigitosCartao: string;
+  observacao: string;
+}) {
+  const referencia = referenciaBancaria.trim();
+  const finalCartao = ultimosDigitosCartao.replace(/\D/g, "");
+  const justificativa = observacao.trim();
+  const dataComprovada = new Date(comprovadoEm);
+
+  if (referencia.length < 6) throw new Error("Informe a referência bancária da venda.");
+  if (!/^\d{4}$/.test(finalCartao)) throw new Error("Informe os 4 últimos dígitos do cartão.");
+  if (!Number.isFinite(dataComprovada.getTime())) throw new Error("Informe a data e hora do comprovante.");
+  if (dataComprovada.getTime() > Date.now() + 5 * 60 * 1000) {
+    throw new Error("A data do comprovante não pode estar no futuro.");
+  }
+  if (justificativa.length < 5) throw new Error("Informe uma observação com pelo menos 5 caracteres.");
+
+  const referenciaPedido = doc(db, "pedidos", pedidoId);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(referenciaPedido);
+    if (!snap.exists()) throw new Error("Pedido não encontrado.");
+
+    const pedido = snap.data();
+    const statusPagamento = String(pedido.statusPagamento || "pendente").toLowerCase();
+    const statusOperacional = String(pedido.statusOperacional || "").toLowerCase();
+
+    if (pedido.origem === "parceiro" || pedido.reservaAgenciaId || pedido.agenciaId || pedido.cortesia === true) {
+      throw new Error("Esta confirmação manual é somente para vendas diretas do parque.");
+    }
+    if (statusPagamento === "reembolsado") throw new Error("Pedido reembolsado não pode ser reativado.");
+    if (statusPagamento === "pago") throw new Error("Este pedido já está pago.");
+    if (!["pendente", "expirado"].includes(statusPagamento)) {
+      throw new Error(`Status de pagamento não permite confirmação manual: ${statusPagamento}.`);
+    }
+    if (["cancelado", "bloqueado", "utilizado"].includes(statusOperacional) ||
+        pedido.utilizadoEm || pedido.validadoEm) {
+      throw new Error("Pedido bloqueado, cancelado ou utilizado não pode ser confirmado manualmente.");
+    }
+
+    const valor = Number(pedido.valorTotal || 0);
+    if (!Number.isFinite(valor) || valor <= 0) throw new Error("Pedido com valor inválido.");
+
+    const agora = new Date().toISOString();
+    const dataPagamento = dataComprovada.toISOString();
+    const atualizacao = {
+      statusPagamento: "pago",
+      statusOperacional: "ativo",
+      formaPagamento: "cartao",
+      valorPago: valor,
+      pagamentoConfirmadoEm: dataPagamento,
+      pagoEm: dataPagamento,
+      dataPagamento,
+      cartaoGateway: "sicredi-ipg",
+      cartaoStatus: "aprovado_confirmado_manualmente",
+      cartaoReferenciaBancaria: referencia,
+      cartaoUltimosDigitos: finalCartao,
+      pagamentoConfirmadoManualmente: true,
+      pagamentoConfirmadoManualmenteEm: agora,
+      pagamentoConfirmadoManualmentePor: responsavel,
+      pagamentoConfirmadoManualmenteMotivo: justificativa,
+      updatedAt: agora,
+      atualizadoEm: agora,
+    };
+
+    tx.update(referenciaPedido, atualizacao);
+    return atualizacao;
   });
 }
 
