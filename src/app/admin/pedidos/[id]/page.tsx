@@ -2,7 +2,7 @@
 
 
 
-import { buscarPedidoPorIdAdmin, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarPagamentoComprovadoAdministrativo, registrarReembolsoAdministrativo, Pedido } from "@/lib/pedidos";
+import { buscarPedidoPorIdAdmin, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarPagamentoComprovadoAdministrativo, registrarReembolsoAdministrativo, registrarUtilizacaoAdministrativa, Pedido } from "@/lib/pedidos";
 import { getAuth } from "firebase/auth";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -36,6 +36,9 @@ export default function PedidoDetalhePage() {
   const [ultimosDigitosPagamento, setUltimosDigitosPagamento] = useState("");
   const [dataHoraPagamento, setDataHoraPagamento] = useState("");
   const [observacaoPagamento, setObservacaoPagamento] = useState("");
+  const [registrandoVisita, setRegistrandoVisita] = useState(false);
+  const [dataHoraVisita, setDataHoraVisita] = useState("");
+  const [observacaoVisita, setObservacaoVisita] = useState("");
 
 
 
@@ -293,6 +296,43 @@ export default function PedidoDetalhePage() {
     }
   }
 
+  async function registrarVisitaJaRealizada() {
+    if (!pedido || registrandoVisita) return;
+    const observacao = observacaoVisita.trim();
+    if (!dataHoraVisita) { alert("Informe a data e hora em que o cliente esteve no parque."); return; }
+    if (observacao.length < 5) { alert("Informe uma observação com pelo menos 5 caracteres."); return; }
+
+    const dataLocal = new Date(dataHoraVisita);
+    if (!Number.isFinite(dataLocal.getTime())) { alert("Data/hora inválida."); return; }
+
+    if (!window.confirm(
+      `Registrar o pedido ${pedido.codigoIngresso || pedido.id} como UTILIZADO em ${dataLocal.toLocaleString("pt-BR")}?\n\n` +
+      "Use esta opção somente quando o cliente realmente já esteve no parque."
+    )) return;
+
+    setRegistrandoVisita(true);
+    try {
+      const usuario = getAuth().currentUser;
+      if (!usuario) throw new Error("Faça login no painel administrativo novamente.");
+
+      const atualizacao = await registrarUtilizacaoAdministrativa({
+        pedidoId: pedido.id,
+        responsavel: usuario.email || usuario.uid,
+        utilizadoEm: dataLocal.toISOString(),
+        motivo: observacao,
+      });
+
+      setPedido((atual) => atual?.id === pedido.id ? { ...atual, ...atualizacao } as Pedido : atual);
+      setDataHoraVisita("");
+      setObservacaoVisita("");
+      alert("Visita registrada. O ingresso agora consta como utilizado.");
+    } catch (erro) {
+      alert(erro instanceof Error ? erro.message : "Erro ao registrar a visita.");
+    } finally {
+      setRegistrandoVisita(false);
+    }
+  }
+
   const pedidoAny = pedido as
 
     | (Pedido & {
@@ -315,6 +355,10 @@ export default function PedidoDetalhePage() {
       cartaoReferenciaBancaria?: string;
       cartaoUltimosDigitos?: string;
       pagamentoConfirmadoEm?: string;
+      validacaoAdministrativa?: boolean;
+      validacaoAdministrativaEm?: string;
+      validacaoAdministrativaPor?: string;
+      validacaoAdministrativaMotivo?: string;
 
     })
 
@@ -401,6 +445,13 @@ export default function PedidoDetalhePage() {
     pedido.origem !== "parceiro" && !pedido.reservaAgenciaId && !pedido.agenciaId && pedido.cortesia !== true;
 
   const statusUtilizado = pedido.statusOperacional === "utilizado";
+  const podeRegistrarVisitaJaRealizada =
+    pedido.statusPagamento === "pago" &&
+    !reembolsado &&
+    !statusUtilizado &&
+    !pedido.utilizadoEm &&
+    !pedido.validadoEm &&
+    !["cancelado", "bloqueado"].includes(String(statusOperacional).toLowerCase());
 
   const temElevador = Boolean(
     pedido.codigoIngressoElevador || pedido.qrCodeIngressoElevador ||
@@ -834,6 +885,49 @@ export default function PedidoDetalhePage() {
             </Bloco>
           )}
 
+          {podeRegistrarVisitaJaRealizada && (
+            <Bloco titulo="Registrar visita já realizada" extraClass="mt-6">
+              <div className="space-y-4">
+                <div className="rounded-xl bg-blue-50 p-4 text-sm text-blue-900">
+                  Use somente quando o cliente realmente já esteve no parque e a entrada não foi registrada no sistema.
+                  Esta ação não altera o pagamento e não libera uma nova entrada.
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="text-sm font-bold text-gray-700">
+                    Data e hora da visita
+                    <input
+                      type="datetime-local"
+                      className="mt-1 w-full rounded-xl border p-3 font-normal text-gray-900"
+                      value={dataHoraVisita}
+                      onChange={(e) => setDataHoraVisita(e.target.value)}
+                    />
+                  </label>
+
+                  <label className="text-sm font-bold text-gray-700 md:col-span-2">
+                    Observação
+                    <textarea
+                      rows={2}
+                      className="mt-1 w-full rounded-xl border p-3 font-normal text-gray-900"
+                      value={observacaoVisita}
+                      onChange={(e) => setObservacaoVisita(e.target.value)}
+                      placeholder="Ex.: cliente já esteve no parque e a entrada não foi registrada na portaria"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={registrarVisitaJaRealizada}
+                  disabled={registrandoVisita}
+                  className="rounded-xl bg-blue-700 px-5 py-3 font-bold text-white disabled:opacity-50"
+                >
+                  {registrandoVisita ? "Registrando..." : "✓ Registrar como utilizado"}
+                </button>
+              </div>
+            </Bloco>
+          )}
+
           <Bloco titulo="Cancelamento / bloqueio" extraClass="mt-6">
             {!podeCancelar && (
               <div className="rounded-xl bg-red-50 p-4 text-red-800">
@@ -930,6 +1024,13 @@ export default function PedidoDetalhePage() {
                 }
 
               />
+
+              {pedidoAny?.validacaoAdministrativa && (
+                <HistoricoItem
+                  titulo="Registro administrativo"
+                  valor={`${pedidoAny.validacaoAdministrativaPor || "Administrador"} · ${pedidoAny.validacaoAdministrativaMotivo || "Visita registrada manualmente"}`}
+                />
+              )}
 
             </div>
 

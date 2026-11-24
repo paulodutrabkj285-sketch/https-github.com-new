@@ -1158,9 +1158,12 @@ export default function PortariaPage() {
                 6
             );
         } else {
-            fimPermitido.setDate(
-                fimPermitido.getDate() +
-                30
+            // Pedidos legados podem não ter createdAt. Nesses casos,
+            // preservamos a política de validade de 6 meses usando
+            // a data de visita como referência conservadora.
+            fimPermitido.setMonth(
+                fimPermitido.getMonth() +
+                6
             );
         }
 
