@@ -2,8 +2,8 @@
 
 
 
-import { buscarPedidoPorIdAdmin, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarPagamentoComprovadoAdministrativo, registrarReembolsoAdministrativo, registrarUtilizacaoAdministrativa, Pedido } from "@/lib/pedidos";
-import { getAuth } from "firebase/auth";
+import { corrigirEmailPedidoAdmin, buscarPedidoPorIdAdmin, cancelarIngressoAdministrativo, pedidoReembolsado, pedidoPermiteRegistroReembolso, registrarPagamentoComprovadoAdministrativo, registrarReembolsoAdministrativo, registrarUtilizacaoAdministrativa, Pedido } from "@/lib/pedidos";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { QRCodeSVG } from "qrcode.react";
 
 import { useParams, useRouter } from "next/navigation";
@@ -29,6 +29,17 @@ export default function PedidoDetalhePage() {
   const [carregando, setCarregando] = useState(true);
 
   const [reenviando, setReenviando] = useState(false);
+  const [sessaoAtiva, setSessaoAtiva] = useState(false);
+  const [editandoEmail, setEditandoEmail] = useState(false);
+  const [novoEmail, setNovoEmail] = useState("");
+  const [salvandoEmail, setSalvandoEmail] = useState(false);
+  const [mensagemEmail, setMensagemEmail] = useState("");
+  const [erroEmail, setErroEmail] = useState("");
+
+  useEffect(() => onAuthStateChanged(getAuth(), (usuario) => {
+    setSessaoAtiva(Boolean(usuario));
+    if (!usuario) setEditandoEmail(false);
+  }), []);
   const [cancelando, setCancelando] = useState(false);
   const [motivoCancelamento, setMotivoCancelamento] = useState("");
   const [confirmandoPagamento, setConfirmandoPagamento] = useState(false);
@@ -136,9 +147,34 @@ export default function PedidoDetalhePage() {
 
 
 
+  async function salvarEmail() {
+    if (!pedido || salvandoEmail || reenviando || !sessaoAtiva) return;
+    setErroEmail("");
+    setMensagemEmail("");
+    const email = novoEmail.trim();
+    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || /[<>;,]/.test(email)) {
+      setErroEmail("Informe um endereço de e-mail válido.");
+      return;
+    }
+    if (!window.confirm(`Salvar o novo e-mail do cliente?\n\n${email}\n\nConfira o endereço com o cliente antes de confirmar.`)) return;
+    setSalvandoEmail(true);
+    try {
+      const dados = await corrigirEmailPedidoAdmin(pedido.id, pedido.email || "", email);
+      setPedido((atual) => atual?.id === pedido.id ? { ...atual, ...dados } : atual);
+      setEditandoEmail(false);
+      setMensagemEmail("E-mail atualizado. Use Reenviar Ingresso para enviar ao novo endereço.");
+    } catch (erro) {
+      setErroEmail(erro instanceof Error ? erro.message : "Não foi possível salvar o e-mail.");
+    } finally {
+      setSalvandoEmail(false);
+    }
+  }
+
   async function reenviarIngresso() {
 
-    if (!pedido) return;
+    if (!pedido || editandoEmail || salvandoEmail || reenviando) return;
+    if (!pedido.email?.trim()) { alert("Cadastre um e-mail antes de reenviar."); return; }
+    if (!window.confirm(`Reenviar o ingresso para:\n\n${pedido.email}?`)) return;
 
 
 
@@ -161,6 +197,7 @@ export default function PedidoDetalhePage() {
         body: JSON.stringify({
 
           pedidoId: pedido.id,
+          emailEsperado: pedido.email,
 
         }),
 
@@ -182,7 +219,7 @@ export default function PedidoDetalhePage() {
 
 
 
-      alert("Ingresso reenviado com sucesso.");
+      alert(`Ingresso reenviado com sucesso para ${pedido.email}.`);
 
     } catch (error) {
 
@@ -564,6 +601,35 @@ export default function PedidoDetalhePage() {
               <Linha label="Telefone" valor={pedido.telefone} />
 
               <Linha label="E-mail" valor={pedido.email} />
+              {sessaoAtiva && !editandoEmail && (
+                <button type="button" disabled={reenviando || salvandoEmail}
+                  className="mt-3 rounded-lg border border-green-700 px-4 py-2 text-sm font-bold text-green-700 disabled:opacity-50"
+                  onClick={() => { setNovoEmail(pedido.email || ""); setErroEmail(""); setMensagemEmail(""); setEditandoEmail(true); }}>
+                  ✎ Editar e-mail
+                </button>
+              )}
+              {sessaoAtiva && editandoEmail && (
+                <div className="mt-3 space-y-3">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Novo e-mail do cliente
+                    <input type="email" inputMode="email" autoComplete="off" autoCapitalize="none" spellCheck={false}
+                      maxLength={254} disabled={salvandoEmail}
+                      className="mt-1 w-full min-w-0 rounded-xl border border-gray-300 p-3 text-gray-900"
+                      value={novoEmail} onChange={(e) => setNovoEmail(e.target.value)} />
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" disabled={salvandoEmail} onClick={salvarEmail}
+                      className="rounded-lg bg-green-700 px-4 py-2 font-bold text-white disabled:opacity-50">
+                      {salvandoEmail ? "Salvando..." : "Salvar e-mail"}
+                    </button>
+                    <button type="button" disabled={salvandoEmail}
+                      onClick={() => { setEditandoEmail(false); setErroEmail(""); }}
+                      className="rounded-lg border px-4 py-2 text-gray-700">Cancelar</button>
+                  </div>
+                </div>
+              )}
+              {erroEmail && <p role="alert" className="mt-2 text-sm text-red-700">{erroEmail}</p>}
+              {mensagemEmail && <p role="status" className="mt-2 text-sm text-green-700">{mensagemEmail}</p>}
 
             </Bloco>
 
@@ -752,7 +818,7 @@ export default function PedidoDetalhePage() {
 
                     onClick={reenviarIngresso}
 
-                    disabled={reenviando}
+                    disabled={reenviando || editandoEmail || salvandoEmail}
 
                     className="rounded-xl bg-blue-600 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
 
