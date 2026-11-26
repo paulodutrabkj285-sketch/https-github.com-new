@@ -16,6 +16,7 @@ import {
 
 
   getDoc,
+  getDocFromServer,
 
 
 
@@ -55,7 +56,7 @@ import {
 
 
 
-import { db } from "./firebase";
+import { auth, db } from "./firebase";
 
 
 
@@ -1590,7 +1591,8 @@ export async function buscarPedidoPorId(
 
 
 
-  pedidoId: string
+  pedidoId: string,
+  { consultarServidor = false } = {}
 
 
 
@@ -1630,7 +1632,7 @@ export async function buscarPedidoPorId(
 
 
 
-    await getDoc(
+    await (consultarServidor ? getDocFromServer : getDoc)(
 
 
 
@@ -2563,6 +2565,44 @@ export async function listarPedidosAdmin({ consultarServidor = false } = {}) {
   const consulta = consultaPedidos();
   const snapshot = await (consultarServidor ? getDocsFromServer(consulta) : getDocs(consulta));
   return pedidosDoSnapshot(snapshot, true);
+}
+
+/** Corrige somente o destinatário do pedido, usando a sessão e as regras existentes do Firestore. */
+export async function corrigirEmailPedidoAdmin(
+  pedidoId: string,
+  emailAnteriorEsperado: string,
+  novoEmail: string
+) {
+  const usuario = auth.currentUser;
+  if (!usuario) throw new Error("Entre novamente no painel administrativo.");
+  const email = novoEmail.trim();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || /[<>;,]/.test(email)) {
+    throw new Error("Informe um endereço de e-mail válido.");
+  }
+
+  const referencia = doc(db, "pedidos", pedidoId);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(referencia);
+    if (!snap.exists() || !pedidoVisivelNoAdmin(snap.data())) {
+      throw new Error("Pedido não encontrado no painel.");
+    }
+    const atual = String(snap.data().email || "");
+    if (atual !== emailAnteriorEsperado) {
+      throw new Error("O e-mail foi alterado em outra sessão. Atualize a página antes de tentar novamente.");
+    }
+    if (atual === email) return { email };
+
+    const agora = new Date().toISOString();
+    const dados = {
+      email,
+      emailAnteriorCorrecao: atual,
+      emailCorrigidoEm: agora,
+      emailCorrigidoPor: usuario.uid,
+      updatedAt: agora,
+    };
+    tx.update(referencia, dados);
+    return dados;
+  });
 }
 
 export async function buscarPedidoPorIdAdmin(pedidoId: string) {
