@@ -17,6 +17,7 @@ const janelasEfi = [
     { inicio: Date.parse("2026-11-23T22:12:00-03:00"), fim: Date.parse("2026-11-24T08:00:00-03:00") },
     { inicio: Date.parse("2026-11-24T22:25:00-03:00"), fim: Date.parse("2026-11-25T08:00:00-03:00") },
     { inicio: Date.parse("2026-11-25T20:57:00-03:00"), fim: Date.parse("2026-11-26T07:30:00-03:00") },
+    { inicio: Date.parse("2026-11-26T21:00:00-03:00"), fim: Date.parse("2026-11-27T07:00:00-03:00") },
 ];
 const baseUrl = "https://pix.api.efipay.com.br";
 const timeout = 5000;
