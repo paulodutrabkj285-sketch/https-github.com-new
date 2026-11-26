@@ -219,7 +219,8 @@ export async function POST(
 
         const pedido: any =
             await buscarPedidoPorId(
-                pedidoId
+                pedidoId,
+                { consultarServidor: true }
             );
 
         if (
@@ -253,6 +254,14 @@ export async function POST(
             limpar(
                 pedido.email
             );
+
+        // O endereço informado pela tela é apenas uma conferência, nunca um destinatário alternativo.
+        if (typeof body?.emailEsperado === "string" && limpar(body.emailEsperado) !== email) {
+            return NextResponse.json({
+                ok: false,
+                error: "O e-mail cadastrado mudou. Atualize o pedido antes de reenviar.",
+            }, { status: 409 });
+        }
 
         if (
             !email
