@@ -416,9 +416,7 @@ export async function POST(
 
         const pedidoSalvo:
             any =
-            await buscarPedidoPorId(
-                pedidoId
-            );
+            await buscarPedidoPorId(pedidoId, { consultarServidor: true });
 
         if (!pedidoSalvo) {
             return NextResponse.json(
