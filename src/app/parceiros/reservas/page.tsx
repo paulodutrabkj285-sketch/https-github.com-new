@@ -1,4 +1,5 @@
 "use client";
+import { DATA_LIMITE_ELEVADOR, INICIO_BLOQUEIO_ELEVADOR, AVISO_MANUTENCAO_ELEVADOR, dataElevadorBloqueada } from "@/lib/preco-elevador";
 
 import {
   Agencia,
@@ -933,6 +934,7 @@ export default function ReservaParceiroPage() {
   ====================================== */
 
   function validarDadosReserva() {
+    if (temElevador && (dataElevadorBloqueada(dataVisita) || dataHoje >= INICIO_BLOQUEIO_ELEVADOR)) return AVISO_MANUTENCAO_ELEVADOR;
     if (!agencia) {
       return "Cadastro da agência não identificado.";
     }
@@ -1687,6 +1689,8 @@ ${observacoes ||
             "",
 
           dataVisita,
+          elevador: temElevador,
+          qtdElevador: temElevador ? qtdElevador : 0,
 
           quantidadePessoas:
             calculo.totalVisitantes,
@@ -2740,6 +2744,7 @@ ${observacoes ||
                   <span className="font-medium">
                     Elevador Panorâmico
                   </span>
+                  <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-950">{AVISO_MANUTENCAO_ELEVADOR} O Parque permanece aberto.</p>
 
                   <div className="mt-2 flex gap-3">
 
@@ -2764,6 +2769,7 @@ ${observacoes ||
 
                     <button
                       type="button"
+                      disabled={dataElevadorBloqueada(dataVisita) || dataHoje >= INICIO_BLOQUEIO_ELEVADOR}
                       onClick={() => {
                         setTemElevador(
                           true
