@@ -1,11 +1,11 @@
 import { pedidoComboValidoNoServidor } from "@/lib/combo-parque-elevador-server";
-import { valorPromocionalValido } from "@/lib/preco-elevador";
+import { AVISO_MANUTENCAO_ELEVADOR, valorPromocionalValido } from "@/lib/preco-elevador";
 import { NextRequest, NextResponse } from "next/server";
 import https from "https";
 import axios from "axios";
 import { doc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { buscarPedidoPorId } from "@/lib/pedidos";
+import { buscarPedidoPorId, pagamentoElevadorBloqueado } from "@/lib/pedidos";
 import {
     criarPixEfi, efiDisponivelParaCriacao, efiTxidDoPedido,
     pedidoAutorizadoParaTesteEfi, VALOR_TESTE_EFI,
@@ -416,9 +416,7 @@ export async function POST(
 
         const pedidoSalvo:
             any =
-            await buscarPedidoPorId(
-                pedidoId
-            );
+            await buscarPedidoPorId(pedidoId, { consultarServidor: true });
 
         if (!pedidoSalvo) {
             return NextResponse.json(
@@ -488,6 +486,8 @@ export async function POST(
                 }
             );
         }
+
+        if (await pagamentoElevadorBloqueado(pedidoSalvo)) return NextResponse.json({ ok: false, error: AVISO_MANUTENCAO_ELEVADOR }, { status: 409 });
 
         /* =================================================
            TIPO DE DOCUMENTO

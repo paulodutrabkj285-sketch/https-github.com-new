@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { atualizarPedido } from "@/lib/pedidos";
+import { atualizarPedido, buscarPedidoPorId, pagamentoElevadorBloqueado } from "@/lib/pedidos";
+import { AVISO_MANUTENCAO_ELEVADOR } from "@/lib/preco-elevador";
 
 function somenteDigitos(valor: string) {
   return (valor || "").replace(/\D/g, "");
@@ -44,6 +45,12 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const pedido = await buscarPedidoPorId(pedidoId, { consultarServidor: true });
+    if (!pedido || pedido.statusPagamento === "pago" || pedido.statusPagamento === "reembolsado") {
+      return NextResponse.json({ ok: false, error: "Pedido indisponível para nova cobrança." }, { status: 400 });
+    }
+    if (await pagamentoElevadorBloqueado(pedido)) return NextResponse.json({ ok: false, error: AVISO_MANUTENCAO_ELEVADOR }, { status: 409 });
 
     const token = process.env.PAGBANK_TOKEN;
     const baseUrl = process.env.PAGBANK_BASE_URL;

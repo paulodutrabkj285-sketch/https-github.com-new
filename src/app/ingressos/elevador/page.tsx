@@ -1,4 +1,5 @@
 "use client";
+import { DATA_LIMITE_ELEVADOR, INICIO_BLOQUEIO_ELEVADOR, AVISO_MANUTENCAO_ELEVADOR, dataElevadorBloqueada } from "@/lib/preco-elevador";
 import PromocaoElevador from "@/components/PromocaoElevador";
 
 import {
@@ -231,6 +232,7 @@ export default function ElevadorPage() {
   }
 
   async function continuarParaResumo() {
+    if (dataElevadorBloqueada(dataVisita) || dataMinimaVisita >= INICIO_BLOQUEIO_ELEVADOR) { alert(AVISO_MANUTENCAO_ELEVADOR); return; }
     const nomeFinal =
       nome.trim();
 
@@ -602,7 +604,12 @@ export default function ElevadorPage() {
 
         </section>
 
-        <PromocaoElevador />
+<div role="status" className="mt-5 rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 text-amber-950 shadow-sm sm:p-5">
+            <p className="text-base font-black">⚠️ Aviso importante — Elevador Panorâmico</p>
+            <p className="mt-2 text-sm leading-relaxed">{AVISO_MANUTENCAO_ELEVADOR}</p>
+            <p className="mt-2 text-sm font-bold">O Parque Mundo Novo permanece aberto normalmente.</p>
+          </div>
+        {dataMinimaVisita < INICIO_BLOQUEIO_ELEVADOR && <PromocaoElevador />}
 
         <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
 
@@ -918,6 +925,8 @@ export default function ElevadorPage() {
                   type="date"
                   value={dataVisita}
                   min={dataMinimaVisita}
+                  max={DATA_LIMITE_ELEVADOR}
+                  disabled={dataMinimaVisita >= INICIO_BLOQUEIO_ELEVADOR}
                   onChange={(e) =>
                     setDataVisita(
                       e.target.value
@@ -927,8 +936,7 @@ export default function ElevadorPage() {
                 />
 
                 <p className="mt-2 text-xs text-gray-500">
-                  Selecione a data de hoje ou uma
-                  data futura.
+                  Última data disponível: 11/12/2026. Datas posteriores estão bloqueadas preventivamente.
                 </p>
 
               </Campo>
@@ -1087,7 +1095,7 @@ export default function ElevadorPage() {
               onClick={
                 continuarParaResumo
               }
-              disabled={salvando}
+              disabled={salvando || dataElevadorBloqueada(dataVisita) || dataMinimaVisita >= INICIO_BLOQUEIO_ELEVADOR}
               className="w-full rounded-2xl bg-green-600 px-5 py-4 text-lg font-bold text-white shadow-lg transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
 

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, getDocsFromServer, onSnapshot, orderBy, query } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { classificarAcessoManutencao, quantidadeElevadorNoPedido } from "@/lib/preco-elevador";
+import { auth, db } from "@/lib/firebase";
 import { documentosPedidosVisiveisNoAdmin, pedidoReembolsado } from "@/lib/pedidos";
 import { useRouter } from "next/navigation";
 
@@ -27,11 +29,91 @@ type Pedido = {
   updatedAt?: string;
 };
 
+type AcessoManutencao = {
+  id: string; tipo: "pedido" | "reserva"; nome: string; email: string; telefone: string;
+  data: string; codigo: string; quantidade: number | null; pagamento: string; operacional: string;
+  cortesia: boolean; saldo: number | null; validade: string; motivo: string; pedidoId?: string;
+};
+
 export default function AdminPedidosPage() {
   const router = useRouter();
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [sessao, setSessao] = useState(false);
+  const [consultandoManutencao, setConsultandoManutencao] = useState(false);
+  const [afetados, setAfetados] = useState<AcessoManutencao[] | null>(null);
+  const [erroManutencao, setErroManutencao] = useState("");
+  useEffect(() => onAuthStateChanged(auth, (usuario) => {
+    setSessao(Boolean(usuario));
+    if (!usuario) setAfetados(null);
+  }), []);
+
+  async function consultarManutencao() {
+    const uid = auth.currentUser?.uid;
+    if (!uid || consultandoManutencao) return;
+    setConsultandoManutencao(true);
+    setErroManutencao("");
+    setAfetados(null);
+    try {
+      // Leitura completa sob demanda: inclui documentos legados sem datas e
+      // ingressos anteriores ainda válidos. Não cria listener adicional.
+      const [pedidosSnap, reservasSnap] = await Promise.all([
+        getDocsFromServer(collection(db, "pedidos")),
+        getDocsFromServer(collection(db, "reservas_agencias")),
+      ]);
+      const pedidosPorId = new Map(pedidosSnap.docs.map(d => [d.id, d.data()]));
+      const idsReservas = new Set(reservasSnap.docs.filter(d => quantidadeElevadorNoPedido(d.data()) !== 0).map(d => d.id));
+      const pedidosVinculados = new Set(reservasSnap.docs.filter(d => idsReservas.has(d.id)).map(d => String(d.data().pedidoId || "")).filter(Boolean));
+      const resultado: AcessoManutencao[] = [];
+      for (const d of pedidosSnap.docs) {
+        const p = d.data();
+        const analise = classificarAcessoManutencao(p);
+        if (!analise || idsReservas.has(String(p.reservaAgenciaId || "")) || pedidosVinculados.has(d.id)) continue;
+        resultado.push({
+          id: d.id, tipo: "pedido", nome: String(p.nome || "-"), email: String(p.email || ""), telefone: String(p.telefone || ""),
+          data: analise.visita, codigo: String(p.codigoIngressoElevador || p.qrCodeIngressoElevador || p.codigoIngresso || "-"),
+          quantidade: analise.quantidade, saldo: analise.saldo, validade: analise.validade, motivo: analise.motivo,
+          pagamento: String(p.statusPagamento || "pendente"), operacional: String(p.statusOperacional || "ativo"),
+          cortesia: p.cortesia === true,
+        });
+      }
+      for (const d of reservasSnap.docs) {
+        const r = d.data();
+        const quantidade = quantidadeElevadorNoPedido(r);
+        if (quantidade === 0) continue;
+        const pedidoId = String(r.pedidoId || "");
+        const p = pedidosPorId.get(pedidoId);
+        const pagamento = String(p?.statusPagamento === "reembolsado" || r.statusPagamento === "reembolsado" ? "reembolsado" : p?.statusPagamento || r.statusPagamento || "pendente");
+        const analise = classificarAcessoManutencao({ ...r, statusPagamento: pagamento }, true);
+        if (!analise) continue;
+        // Uma reserva e seu pedido de pagamento representam o mesmo grupo.
+        resultado.push({
+          id: d.id, tipo: "reserva", nome: String(r.agenciaNome || r.agenciaResponsavel || "-"),
+          email: String(r.agenciaEmail || p?.email || ""), telefone: String(r.agenciaWhatsapp || p?.telefone || ""),
+          data: analise.visita, codigo: String(r.codigoGrupo || "-"), quantidade: analise.quantidade,
+          saldo: analise.saldo, validade: analise.validade, motivo: analise.motivo, pagamento,
+          operacional: String(r.statusOperacional || "reservado"), cortesia: p?.cortesia === true, pedidoId: pedidoId || undefined,
+        });
+      }
+      if (auth.currentUser?.uid === uid) setAfetados(resultado.sort((a,b) => a.data.localeCompare(b.data)));
+    } catch (error) {
+      console.error("Consulta manutenção:", error);
+      setErroManutencao("Não foi possível consultar todos os registros. Confira a conexão e as permissões e tente novamente. Nenhum resultado parcial foi exibido.");
+    } finally {
+      setConsultandoManutencao(false);
+    }
+  }
+
+  const pagosAfetados = (afetados || []).filter(p => p.pagamento === "pago" && !p.cortesia && ["agendado", "validade_aberta"].includes(p.motivo));
+  const quantidadePagaConhecida = pagosAfetados.reduce((soma, p) => soma + (p.saldo ?? 0), 0);
+  const [filtroManutencao, setFiltroManutencao] = useState("todos");
+  const registrosExibidos = (afetados || []).filter(p => filtroManutencao === "todos" ||
+    (filtroManutencao === "revisar" ? p.motivo.startsWith("revisar") : p.motivo === filtroManutencao));
+  const nomesMotivo: Record<string, string> = {
+    agendado: "Agendado a partir de 12/12", validade_aberta: "Data anterior / validade aberta",
+    revisar_validade: "Conferir validade", revisar_bloqueio: "Conferir bloqueio/cancelamento",
+  };
 
   const [busca, setBusca] = useState("");
   const [filtroProduto, setFiltroProduto] = useState("todos");
@@ -221,6 +303,51 @@ export default function AdminPedidosPage() {
             </div>
           </div>
         </section>
+
+        {sessao && (
+          <section className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm sm:p-6">
+            <h2 className="text-xl font-black">Manutenção do Elevador — acessos possíveis a partir de 12/12/2026</h2>
+            <p className="mt-2 text-sm">Consulte todos os ingressos e reservas com saldo no elevador, inclusive compras anteriores ainda válidas, combos e casos antigos que exigem conferência. Nenhum pedido será alterado.</p>
+            <button type="button" disabled={consultandoManutencao} onClick={consultarManutencao}
+              className="mt-4 rounded-xl bg-amber-800 px-4 py-3 font-bold text-white disabled:opacity-50">
+              {consultandoManutencao ? "Consultando Firestore..." : "Consultar ingressos e reservas afetados"}
+            </button>
+            {erroManutencao && <p role="alert" className="mt-3 font-bold text-red-800">{erroManutencao}</p>}
+            {afetados !== null && (
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Pagos no período / validade aberta</p><p className="text-2xl font-black">{pagosAfetados.length}</p></div>
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Saldo pago conhecido no período</p><p className="text-2xl font-black">{quantidadePagaConhecida}</p>{pagosAfetados.some(p => p.saldo === null) && <p className="text-xs">Há registros sem quantidade informada.</p>}</div>
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Outros registros / revisar</p><p className="text-2xl font-black">{afetados.length - pagosAfetados.length}</p></div>
+                </div>
+                <p className="text-xs">A validade é estimada em seis meses da compra, ou da visita para reservas e pedidos legados sem data de compra. O validador exclusivo não confere a validade; por isso casos antigos ou sem data aparecem para revisão. Ingressos totalmente usados e reembolsados são excluídos. A consulta lê as duas coleções completas somente quando solicitada.</p>
+                <label className="block text-sm font-bold">Exibir
+                  <select value={filtroManutencao} onChange={e => setFiltroManutencao(e.target.value)} className="ml-2 rounded-lg border bg-white p-2">
+                    <option value="todos">Todos</option><option value="agendado">Agendados a partir de 12/12</option>
+                    <option value="validade_aberta">Validade aberta</option><option value="revisar">Casos para revisar</option>
+                  </select>
+                </label>
+                {registrosExibidos.length === 0 ? <p className="font-semibold">Nenhum registro encontrado neste filtro.</p> : (
+                  <div className="overflow-x-auto rounded-xl bg-white">
+                    <table className="w-full min-w-[800px] text-left text-sm text-gray-900">
+                      <thead className="bg-amber-100"><tr>{["Visita", "Validade estimada", "Cliente / agência", "Código", "Saldo / comprado", "Pagamento", "Operacional", "Situação"].map(t => <th key={t} className="p-3">{t}</th>)}</tr></thead>
+                      <tbody>{registrosExibidos.map(p => <tr key={p.tipo + p.id} className="border-b border-gray-200">
+                        <td className="p-3 whitespace-nowrap">{formatarData(p.data)}</td>
+                        <td className="p-3 whitespace-nowrap">{formatarData(p.validade)}</td>
+                        <td className="p-3"><strong>{p.nome}</strong><div>{p.telefone}</div><div>{p.email}</div></td>
+                        <td className="p-3 font-bold">{p.codigo}</td>
+                        <td className="p-3">{p.saldo ?? "Conferir"} / {p.quantidade ?? "?"}</td>
+                        <td className="p-3">{p.cortesia ? "Cortesia" : p.pagamento}</td>
+                        <td className="p-3">{p.operacional}</td>
+                        <td className="p-3">{nomesMotivo[p.motivo]}<div className="text-xs text-gray-600">{p.tipo === "reserva" ? "Agência / guia" : "Pedido"}</div></td>
+                      </tr>)}</tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         <section
           style={{

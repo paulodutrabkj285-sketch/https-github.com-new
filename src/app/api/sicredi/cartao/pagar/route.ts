@@ -1,5 +1,5 @@
 import { pedidoComboValidoNoServidor } from "@/lib/combo-parque-elevador-server";
-import { valorPromocionalValido } from "@/lib/preco-elevador";
+import { AVISO_MANUTENCAO_ELEVADOR, valorPromocionalValido } from "@/lib/preco-elevador";
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -15,6 +15,7 @@ import {
 import {
   atualizarPedido,
   buscarPedidoPorId,
+  pagamentoElevadorBloqueado,
 } from "@/lib/pedidos";
 
 import {
@@ -424,9 +425,7 @@ export async function POST(
 
     const pedido:
       any =
-      await buscarPedidoPorId(
-        pedidoId
-      );
+      await buscarPedidoPorId(pedidoId, { consultarServidor: true });
 
     if (
       !pedido
@@ -547,6 +546,8 @@ export async function POST(
         }
       );
     }
+
+    if (await pagamentoElevadorBloqueado(pedido)) return respostaErro(AVISO_MANUTENCAO_ELEVADOR, 409, { codigo: "ELEVADOR_MANUTENCAO" });
 
     /* =====================================================
        VALOR REAL DO PEDIDO
