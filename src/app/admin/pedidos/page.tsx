@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocsFromServer, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { collection, getDocsFromServer, onSnapshot, orderBy, query } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-import { INICIO_BLOQUEIO_ELEVADOR, quantidadeElevadorNoPedido } from "@/lib/preco-elevador";
+import { classificarAcessoManutencao, quantidadeElevadorNoPedido } from "@/lib/preco-elevador";
 import { auth, db } from "@/lib/firebase";
 import { documentosPedidosVisiveisNoAdmin, pedidoReembolsado } from "@/lib/pedidos";
 import { useRouter } from "next/navigation";
@@ -32,7 +32,7 @@ type Pedido = {
 type AcessoManutencao = {
   id: string; tipo: "pedido" | "reserva"; nome: string; email: string; telefone: string;
   data: string; codigo: string; quantidade: number | null; pagamento: string; operacional: string;
-  cortesia: boolean; elevadorValidado: boolean; pedidoId?: string;
+  cortesia: boolean; saldo: number | null; validade: string; motivo: string; pedidoId?: string;
 };
 
 export default function AdminPedidosPage() {
@@ -56,25 +56,26 @@ export default function AdminPedidosPage() {
     setErroManutencao("");
     setAfetados(null);
     try {
-      // Consulta operacional por data de visita; não depende dos filtros de vendas
-      // nem de createdAt. Inclui todos os meios de pagamento.
+      // Leitura completa sob demanda: inclui documentos legados sem datas e
+      // ingressos anteriores ainda válidos. Não cria listener adicional.
       const [pedidosSnap, reservasSnap] = await Promise.all([
-        getDocsFromServer(query(collection(db, "pedidos"), where("dataVisita", ">=", INICIO_BLOQUEIO_ELEVADOR))),
-        getDocsFromServer(query(collection(db, "reservas_agencias"), where("dataVisita", ">=", INICIO_BLOQUEIO_ELEVADOR))),
+        getDocsFromServer(collection(db, "pedidos")),
+        getDocsFromServer(collection(db, "reservas_agencias")),
       ]);
       const pedidosPorId = new Map(pedidosSnap.docs.map(d => [d.id, d.data()]));
-      const idsReservas = new Set(reservasSnap.docs.map(d => d.id));
-      const pedidosVinculados = new Set(reservasSnap.docs.map(d => String(d.data().pedidoId || "")).filter(Boolean));
+      const idsReservas = new Set(reservasSnap.docs.filter(d => quantidadeElevadorNoPedido(d.data()) !== 0).map(d => d.id));
+      const pedidosVinculados = new Set(reservasSnap.docs.filter(d => idsReservas.has(d.id)).map(d => String(d.data().pedidoId || "")).filter(Boolean));
       const resultado: AcessoManutencao[] = [];
       for (const d of pedidosSnap.docs) {
         const p = d.data();
-        const quantidade = quantidadeElevadorNoPedido(p);
-        if (quantidade === 0 || idsReservas.has(String(p.reservaAgenciaId || "")) || pedidosVinculados.has(d.id)) continue;
+        const analise = classificarAcessoManutencao(p);
+        if (!analise || idsReservas.has(String(p.reservaAgenciaId || "")) || pedidosVinculados.has(d.id)) continue;
         resultado.push({
           id: d.id, tipo: "pedido", nome: String(p.nome || "-"), email: String(p.email || ""), telefone: String(p.telefone || ""),
-          data: String(p.dataVisita), codigo: String(p.codigoIngressoElevador || p.qrCodeIngressoElevador || p.codigoIngresso || "-"),
-          quantidade, pagamento: String(p.statusPagamento || "pendente"), operacional: String(p.statusOperacional || "ativo"),
-          cortesia: p.cortesia === true, elevadorValidado: p.elevadorValidado === true,
+          data: analise.visita, codigo: String(p.codigoIngressoElevador || p.qrCodeIngressoElevador || p.codigoIngresso || "-"),
+          quantidade: analise.quantidade, saldo: analise.saldo, validade: analise.validade, motivo: analise.motivo,
+          pagamento: String(p.statusPagamento || "pendente"), operacional: String(p.statusOperacional || "ativo"),
+          cortesia: p.cortesia === true,
         });
       }
       for (const d of reservasSnap.docs) {
@@ -83,14 +84,16 @@ export default function AdminPedidosPage() {
         if (quantidade === 0) continue;
         const pedidoId = String(r.pedidoId || "");
         const p = pedidosPorId.get(pedidoId);
+        const pagamento = String(p?.statusPagamento === "reembolsado" || r.statusPagamento === "reembolsado" ? "reembolsado" : p?.statusPagamento || r.statusPagamento || "pendente");
+        const analise = classificarAcessoManutencao({ ...r, statusPagamento: pagamento }, true);
+        if (!analise) continue;
         // Uma reserva e seu pedido de pagamento representam o mesmo grupo.
         resultado.push({
           id: d.id, tipo: "reserva", nome: String(r.agenciaNome || r.agenciaResponsavel || "-"),
           email: String(r.agenciaEmail || p?.email || ""), telefone: String(r.agenciaWhatsapp || p?.telefone || ""),
-          data: String(r.dataVisita), codigo: String(r.codigoGrupo || "-"), quantidade,
-          pagamento: String(p?.statusPagamento || r.statusPagamento || "pendente"),
-          operacional: String(r.statusOperacional || "reservado"), cortesia: p?.cortesia === true,
-          elevadorValidado: r.elevadorValidado === true, pedidoId: pedidoId || undefined,
+          data: analise.visita, codigo: String(r.codigoGrupo || "-"), quantidade: analise.quantidade,
+          saldo: analise.saldo, validade: analise.validade, motivo: analise.motivo, pagamento,
+          operacional: String(r.statusOperacional || "reservado"), cortesia: p?.cortesia === true, pedidoId: pedidoId || undefined,
         });
       }
       if (auth.currentUser?.uid === uid) setAfetados(resultado.sort((a,b) => a.data.localeCompare(b.data)));
@@ -102,8 +105,15 @@ export default function AdminPedidosPage() {
     }
   }
 
-  const pagosAfetados = (afetados || []).filter(p => p.pagamento === "pago" && !p.cortesia);
-  const quantidadePagaConhecida = pagosAfetados.reduce((soma, p) => soma + (p.quantidade ?? 0), 0);
+  const pagosAfetados = (afetados || []).filter(p => p.pagamento === "pago" && !p.cortesia && ["agendado", "validade_aberta"].includes(p.motivo));
+  const quantidadePagaConhecida = pagosAfetados.reduce((soma, p) => soma + (p.saldo ?? 0), 0);
+  const [filtroManutencao, setFiltroManutencao] = useState("todos");
+  const registrosExibidos = (afetados || []).filter(p => filtroManutencao === "todos" ||
+    (filtroManutencao === "revisar" ? p.motivo.startsWith("revisar") : p.motivo === filtroManutencao));
+  const nomesMotivo: Record<string, string> = {
+    agendado: "Agendado a partir de 12/12", validade_aberta: "Data anterior / validade aberta",
+    revisar_validade: "Conferir validade", revisar_bloqueio: "Conferir bloqueio/cancelamento",
+  };
 
   const [busca, setBusca] = useState("");
   const [filtroProduto, setFiltroProduto] = useState("todos");
@@ -296,8 +306,8 @@ export default function AdminPedidosPage() {
 
         {sessao && (
           <section className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm sm:p-6">
-            <h2 className="text-xl font-black">Manutenção do Elevador — visitas a partir de 12/12/2026</h2>
-            <p className="mt-2 text-sm">Consulte ingressos e reservas já registrados para o período preventivo, incluindo Parque + Elevador. Nenhum pedido será alterado ou cancelado.</p>
+            <h2 className="text-xl font-black">Manutenção do Elevador — acessos possíveis a partir de 12/12/2026</h2>
+            <p className="mt-2 text-sm">Consulte todos os ingressos e reservas com saldo no elevador, inclusive compras anteriores ainda válidas, combos e casos antigos que exigem conferência. Nenhum pedido será alterado.</p>
             <button type="button" disabled={consultandoManutencao} onClick={consultarManutencao}
               className="mt-4 rounded-xl bg-amber-800 px-4 py-3 font-bold text-white disabled:opacity-50">
               {consultandoManutencao ? "Consultando Firestore..." : "Consultar ingressos e reservas afetados"}
@@ -306,23 +316,30 @@ export default function AdminPedidosPage() {
             {afetados !== null && (
               <div className="mt-4 space-y-3">
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Registros pagos (sem cortesias)</p><p className="text-2xl font-black">{pagosAfetados.length}</p></div>
-                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Acessos pagos — quantidade conhecida</p><p className="text-2xl font-black">{quantidadePagaConhecida}</p>{pagosAfetados.some(p => p.quantidade === null) && <p className="text-xs">Há registros sem quantidade informada.</p>}</div>
-                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Outros registros (inclui pendentes e cortesias)</p><p className="text-2xl font-black">{afetados.length - pagosAfetados.length}</p></div>
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Pagos no período / validade aberta</p><p className="text-2xl font-black">{pagosAfetados.length}</p></div>
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Saldo pago conhecido no período</p><p className="text-2xl font-black">{quantidadePagaConhecida}</p>{pagosAfetados.some(p => p.saldo === null) && <p className="text-xs">Há registros sem quantidade informada.</p>}</div>
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Outros registros / revisar</p><p className="text-2xl font-black">{afetados.length - pagosAfetados.length}</p></div>
                 </div>
-                <p className="text-xs">Conferência pela data de visita cadastrada. Inclui registros de todos os status; verifique cancelamentos, reembolsos e uso antes de contatar os clientes. Ingressos com data anterior e validade futura não aparecem nesta consulta.</p>
-                {afetados.length === 0 ? <p className="font-semibold">Nenhum registro com elevador encontrado nas datas consultadas.</p> : (
+                <p className="text-xs">A validade é estimada em seis meses da compra, ou da visita para reservas e pedidos legados sem data de compra. O validador exclusivo não confere a validade; por isso casos antigos ou sem data aparecem para revisão. Ingressos totalmente usados e reembolsados são excluídos. A consulta lê as duas coleções completas somente quando solicitada.</p>
+                <label className="block text-sm font-bold">Exibir
+                  <select value={filtroManutencao} onChange={e => setFiltroManutencao(e.target.value)} className="ml-2 rounded-lg border bg-white p-2">
+                    <option value="todos">Todos</option><option value="agendado">Agendados a partir de 12/12</option>
+                    <option value="validade_aberta">Validade aberta</option><option value="revisar">Casos para revisar</option>
+                  </select>
+                </label>
+                {registrosExibidos.length === 0 ? <p className="font-semibold">Nenhum registro encontrado neste filtro.</p> : (
                   <div className="overflow-x-auto rounded-xl bg-white">
                     <table className="w-full min-w-[800px] text-left text-sm text-gray-900">
-                      <thead className="bg-amber-100"><tr>{["Data", "Cliente / agência", "Código", "Qtd. elevador", "Pagamento", "Operacional", "Tipo"].map(t => <th key={t} className="p-3">{t}</th>)}</tr></thead>
-                      <tbody>{afetados.map(p => <tr key={p.tipo + p.id} className="border-b border-gray-200">
+                      <thead className="bg-amber-100"><tr>{["Visita", "Validade estimada", "Cliente / agência", "Código", "Saldo / comprado", "Pagamento", "Operacional", "Situação"].map(t => <th key={t} className="p-3">{t}</th>)}</tr></thead>
+                      <tbody>{registrosExibidos.map(p => <tr key={p.tipo + p.id} className="border-b border-gray-200">
                         <td className="p-3 whitespace-nowrap">{formatarData(p.data)}</td>
+                        <td className="p-3 whitespace-nowrap">{formatarData(p.validade)}</td>
                         <td className="p-3"><strong>{p.nome}</strong><div>{p.telefone}</div><div>{p.email}</div></td>
                         <td className="p-3 font-bold">{p.codigo}</td>
-                        <td className="p-3">{p.quantidade ?? "Conferir"}</td>
+                        <td className="p-3">{p.saldo ?? "Conferir"} / {p.quantidade ?? "?"}</td>
                         <td className="p-3">{p.cortesia ? "Cortesia" : p.pagamento}</td>
-                        <td className="p-3">{p.operacional}{p.elevadorValidado ? " / elevador validado" : ""}</td>
-                        <td className="p-3">{p.tipo === "reserva" ? "Agência / guia" : "Pedido"}</td>
+                        <td className="p-3">{p.operacional}</td>
+                        <td className="p-3">{nomesMotivo[p.motivo]}<div className="text-xs text-gray-600">{p.tipo === "reserva" ? "Agência / guia" : "Pedido"}</div></td>
                       </tr>)}</tbody>
                     </table>
                   </div>
