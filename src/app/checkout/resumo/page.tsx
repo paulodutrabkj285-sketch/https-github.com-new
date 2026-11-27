@@ -1,4 +1,5 @@
 "use client";
+import { AVISO_MANUTENCAO_ELEVADOR, pedidoElevadorBloqueado } from "@/lib/preco-elevador";
 
 import Link from "next/link";
 import { buscarPedidoPorId } from "@/lib/pedidos";
@@ -353,6 +354,7 @@ export default function ResumoPage() {
 
   const dataPrincipal =
     dataVisita || dataEntrada || "";
+  const bloqueadoManutencao = pedidoElevadorBloqueado({ tipo, produto, quantidade, quantidadeElevador, dataVisita: dataPrincipal });
 
   const valorParqueFormatado =
     valorParque.toLocaleString("pt-BR", {
@@ -696,7 +698,8 @@ export default function ResumoPage() {
               </p>
             )}
 
-            {pedidoCarregado && (
+            {bloqueadoManutencao && <div role="alert" className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950"><p className="font-bold">Elevador temporariamente indisponível para esta visita.</p><p className="mt-2 text-sm">{AVISO_MANUTENCAO_ELEVADOR}</p><Link href="/ingressos/parque" className="mt-3 inline-block font-bold underline">Escolher outra data ou comprar somente Parque</Link></div>}
+            {pedidoCarregado && !bloqueadoManutencao && (
               <Link
                 href={`/checkout/pagamento?${queryPagamento}`}
                 className="block w-full rounded-2xl bg-green-600 px-5 py-4 text-center text-lg font-bold text-white shadow-lg transition hover:bg-green-500"
