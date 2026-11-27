@@ -311,3 +311,18 @@ test('manutenção: avulso e combo bloqueados a partir de 12/12; Parque permanec
   assert.equal(resposta.status, 409);
   assert.equal(c.pedidos.size, 0);
 });
+
+
+test('consulta manutenção inclui validade aberta, saldo parcial, legado e datas desconhecidas', () => {
+  const base = { tipo: 'elevador', quantidade: 3, statusPagamento: 'pago', dataVisita: '2026-11-01', createdAt: '2026-10-01T15:00:00Z' };
+  assert.equal(preco.classificarAcessoManutencao(base).motivo, 'validade_aberta');
+  assert.equal(preco.classificarAcessoManutencao({...base, dataVisita:'2026-12-12'}).motivo, 'agendado');
+  assert.equal(preco.classificarAcessoManutencao({...base, elevadorQuantidadeValidada:1}).saldo, 2);
+  assert.equal(preco.classificarAcessoManutencao({...base, elevadorValidado:true}), null);
+  assert.equal(preco.classificarAcessoManutencao({...base, statusOperacional:'utilizado'}), null);
+  assert.equal(preco.classificarAcessoManutencao({...base,tipo:'carrinho',quantidadeParque:3,quantidadeElevador:3,statusOperacional:'utilizado'}).saldo, 3);
+  assert.equal(preco.classificarAcessoManutencao({...base,statusPagamento:'reembolsado'}), null);
+  assert.equal(preco.classificarAcessoManutencao({...base,createdAt:'2026-01-01T15:00:00Z'}).motivo, 'revisar_validade');
+  assert.equal(preco.classificarAcessoManutencao({...base,dataVisita:'',createdAt:''}).motivo, 'revisar_validade');
+  assert.equal(preco.classificarAcessoManutencao({...base,statusOperacional:'bloqueado'}).motivo, 'revisar_bloqueio');
+});
