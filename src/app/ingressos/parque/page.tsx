@@ -1,4 +1,5 @@
 "use client";
+import { DATA_LIMITE_ELEVADOR, INICIO_BLOQUEIO_ELEVADOR, AVISO_MANUTENCAO_ELEVADOR, dataElevadorBloqueada } from "@/lib/preco-elevador";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -230,12 +231,18 @@ export default function ParquePage() {
 
     );
 
+  const elevadorIndisponivel = dataElevadorBloqueada(dataVisita) || dataMinimaVisita >= INICIO_BLOQUEIO_ELEVADOR;
+  useEffect(() => {
+    if (elevadorIndisponivel && !comboPromocional) setQuantidadeElevador(0);
+  }, [elevadorIndisponivel, comboPromocional]);
+
   function alterarQuantidadeParque(novaQuantidade: number) {
     setQuantidade(novaQuantidade);
     if (comboPromocional) setQuantidadeElevador(novaQuantidade);
   }
 
   function alterarQuantidadeElevador(novaQuantidade: number) {
+    if (elevadorIndisponivel && novaQuantidade > 0) return;
     if (comboPromocional) {
       alterarQuantidadeParque(Math.max(1, novaQuantidade));
     } else {
@@ -720,6 +727,7 @@ export default function ParquePage() {
 
   async function continuarParaResumo() {
     if (verificandoCombo || erroCombo) return;
+    if ((comboPromocional || quantidadeElevador > 0) && elevadorIndisponivel) { alert(AVISO_MANUTENCAO_ELEVADOR); return; }
 
 
     const nomeFinal =
@@ -1484,6 +1492,11 @@ export default function ParquePage() {
 
         </section>
 
+<div role="status" className="mt-5 rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 text-amber-950 shadow-sm sm:p-5">
+            <p className="text-base font-black">⚠️ Aviso importante — Elevador Panorâmico</p>
+            <p className="mt-2 text-sm leading-relaxed">{AVISO_MANUTENCAO_ELEVADOR}</p>
+            <p className="mt-2 text-sm font-bold">O Parque Mundo Novo permanece aberto normalmente.</p>
+          </div>
         {erroCombo && (
           <div role="alert" className="mt-6 rounded-2xl bg-amber-50 p-5 font-semibold text-amber-950">
             <p>{erroCombo}</p>
@@ -2076,6 +2089,7 @@ export default function ParquePage() {
                     dataMinimaVisita
 
                   }
+                  max={comboPromocional ? DATA_LIMITE_ELEVADOR : undefined}
 
                   onChange={(e) =>
 
@@ -2182,6 +2196,7 @@ export default function ParquePage() {
                     🛗 Elevador Panorâmico
 
                   </h3>
+                  {elevadorIndisponivel && <p role="alert" className="mt-3 rounded-xl bg-amber-100 p-3 font-bold text-amber-950">Elevador indisponível para esta data. {comboPromocional ? "Escolha uma data até 11/12 ou compre somente o Parque." : "Você pode continuar com o ingresso do Parque."} {comboPromocional && <Link className="underline" href="/ingressos/parque">Comprar somente Parque</Link>}</p>}
 
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">
 
@@ -2270,8 +2285,8 @@ export default function ParquePage() {
                       alterarQuantidadeElevador(quantidadeElevador + 1)
 
                     }
-
-                    className={contadorClass}
+                    disabled={elevadorIndisponivel}
+                    className={contadorClass + " disabled:opacity-40"}
 
                   >
 
@@ -2575,7 +2590,7 @@ export default function ParquePage() {
 
               disabled={
 
-                salvando || verificandoCombo || Boolean(erroCombo) ||
+                salvando || verificandoCombo || Boolean(erroCombo) || ((comboPromocional || quantidadeElevador > 0) && elevadorIndisponivel) ||
 
                 !aceiteNaturalExtremo
 
