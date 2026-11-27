@@ -425,9 +425,7 @@ export async function POST(
 
     const pedido:
       any =
-      await buscarPedidoPorId(
-        pedidoId
-      );
+      await buscarPedidoPorId(pedidoId, { consultarServidor: true });
 
     if (
       !pedido
