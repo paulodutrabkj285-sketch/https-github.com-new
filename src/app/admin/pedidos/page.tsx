@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, getDocsFromServer, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { INICIO_BLOQUEIO_ELEVADOR, quantidadeElevadorNoPedido } from "@/lib/preco-elevador";
+import { auth, db } from "@/lib/firebase";
 import { documentosPedidosVisiveisNoAdmin, pedidoReembolsado } from "@/lib/pedidos";
 import { useRouter } from "next/navigation";
 
@@ -27,11 +29,81 @@ type Pedido = {
   updatedAt?: string;
 };
 
+type AcessoManutencao = {
+  id: string; tipo: "pedido" | "reserva"; nome: string; email: string; telefone: string;
+  data: string; codigo: string; quantidade: number | null; pagamento: string; operacional: string;
+  cortesia: boolean; elevadorValidado: boolean; pedidoId?: string;
+};
+
 export default function AdminPedidosPage() {
   const router = useRouter();
 
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [sessao, setSessao] = useState(false);
+  const [consultandoManutencao, setConsultandoManutencao] = useState(false);
+  const [afetados, setAfetados] = useState<AcessoManutencao[] | null>(null);
+  const [erroManutencao, setErroManutencao] = useState("");
+  useEffect(() => onAuthStateChanged(auth, (usuario) => {
+    setSessao(Boolean(usuario));
+    if (!usuario) setAfetados(null);
+  }), []);
+
+  async function consultarManutencao() {
+    const uid = auth.currentUser?.uid;
+    if (!uid || consultandoManutencao) return;
+    setConsultandoManutencao(true);
+    setErroManutencao("");
+    setAfetados(null);
+    try {
+      // Consulta operacional por data de visita; não depende dos filtros de vendas
+      // nem de createdAt. Inclui todos os meios de pagamento.
+      const [pedidosSnap, reservasSnap] = await Promise.all([
+        getDocsFromServer(query(collection(db, "pedidos"), where("dataVisita", ">=", INICIO_BLOQUEIO_ELEVADOR))),
+        getDocsFromServer(query(collection(db, "reservas_agencias"), where("dataVisita", ">=", INICIO_BLOQUEIO_ELEVADOR))),
+      ]);
+      const pedidosPorId = new Map(pedidosSnap.docs.map(d => [d.id, d.data()]));
+      const idsReservas = new Set(reservasSnap.docs.map(d => d.id));
+      const pedidosVinculados = new Set(reservasSnap.docs.map(d => String(d.data().pedidoId || "")).filter(Boolean));
+      const resultado: AcessoManutencao[] = [];
+      for (const d of pedidosSnap.docs) {
+        const p = d.data();
+        const quantidade = quantidadeElevadorNoPedido(p);
+        if (quantidade === 0 || idsReservas.has(String(p.reservaAgenciaId || "")) || pedidosVinculados.has(d.id)) continue;
+        resultado.push({
+          id: d.id, tipo: "pedido", nome: String(p.nome || "-"), email: String(p.email || ""), telefone: String(p.telefone || ""),
+          data: String(p.dataVisita), codigo: String(p.codigoIngressoElevador || p.qrCodeIngressoElevador || p.codigoIngresso || "-"),
+          quantidade, pagamento: String(p.statusPagamento || "pendente"), operacional: String(p.statusOperacional || "ativo"),
+          cortesia: p.cortesia === true, elevadorValidado: p.elevadorValidado === true,
+        });
+      }
+      for (const d of reservasSnap.docs) {
+        const r = d.data();
+        const quantidade = quantidadeElevadorNoPedido(r);
+        if (quantidade === 0) continue;
+        const pedidoId = String(r.pedidoId || "");
+        const p = pedidosPorId.get(pedidoId);
+        // Uma reserva e seu pedido de pagamento representam o mesmo grupo.
+        resultado.push({
+          id: d.id, tipo: "reserva", nome: String(r.agenciaNome || r.agenciaResponsavel || "-"),
+          email: String(r.agenciaEmail || p?.email || ""), telefone: String(r.agenciaWhatsapp || p?.telefone || ""),
+          data: String(r.dataVisita), codigo: String(r.codigoGrupo || "-"), quantidade,
+          pagamento: String(p?.statusPagamento || r.statusPagamento || "pendente"),
+          operacional: String(r.statusOperacional || "reservado"), cortesia: p?.cortesia === true,
+          elevadorValidado: r.elevadorValidado === true, pedidoId: pedidoId || undefined,
+        });
+      }
+      if (auth.currentUser?.uid === uid) setAfetados(resultado.sort((a,b) => a.data.localeCompare(b.data)));
+    } catch (error) {
+      console.error("Consulta manutenção:", error);
+      setErroManutencao("Não foi possível consultar todos os registros. Confira a conexão e as permissões e tente novamente. Nenhum resultado parcial foi exibido.");
+    } finally {
+      setConsultandoManutencao(false);
+    }
+  }
+
+  const pagosAfetados = (afetados || []).filter(p => p.pagamento === "pago" && !p.cortesia);
+  const quantidadePagaConhecida = pagosAfetados.reduce((soma, p) => soma + (p.quantidade ?? 0), 0);
 
   const [busca, setBusca] = useState("");
   const [filtroProduto, setFiltroProduto] = useState("todos");
@@ -221,6 +293,44 @@ export default function AdminPedidosPage() {
             </div>
           </div>
         </section>
+
+        {sessao && (
+          <section className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm sm:p-6">
+            <h2 className="text-xl font-black">Manutenção do Elevador — visitas a partir de 12/12/2026</h2>
+            <p className="mt-2 text-sm">Consulte ingressos e reservas já registrados para o período preventivo, incluindo Parque + Elevador. Nenhum pedido será alterado ou cancelado.</p>
+            <button type="button" disabled={consultandoManutencao} onClick={consultarManutencao}
+              className="mt-4 rounded-xl bg-amber-800 px-4 py-3 font-bold text-white disabled:opacity-50">
+              {consultandoManutencao ? "Consultando Firestore..." : "Consultar ingressos e reservas afetados"}
+            </button>
+            {erroManutencao && <p role="alert" className="mt-3 font-bold text-red-800">{erroManutencao}</p>}
+            {afetados !== null && (
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Registros pagos (sem cortesias)</p><p className="text-2xl font-black">{pagosAfetados.length}</p></div>
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Acessos pagos — quantidade conhecida</p><p className="text-2xl font-black">{quantidadePagaConhecida}</p>{pagosAfetados.some(p => p.quantidade === null) && <p className="text-xs">Há registros sem quantidade informada.</p>}</div>
+                  <div className="rounded-xl bg-white p-3"><p className="text-xs font-bold">Outros registros (inclui pendentes e cortesias)</p><p className="text-2xl font-black">{afetados.length - pagosAfetados.length}</p></div>
+                </div>
+                <p className="text-xs">Conferência pela data de visita cadastrada. Inclui registros de todos os status; verifique cancelamentos, reembolsos e uso antes de contatar os clientes. Ingressos com data anterior e validade futura não aparecem nesta consulta.</p>
+                {afetados.length === 0 ? <p className="font-semibold">Nenhum registro com elevador encontrado nas datas consultadas.</p> : (
+                  <div className="overflow-x-auto rounded-xl bg-white">
+                    <table className="w-full min-w-[800px] text-left text-sm text-gray-900">
+                      <thead className="bg-amber-100"><tr>{["Data", "Cliente / agência", "Código", "Qtd. elevador", "Pagamento", "Operacional", "Tipo"].map(t => <th key={t} className="p-3">{t}</th>)}</tr></thead>
+                      <tbody>{afetados.map(p => <tr key={p.tipo + p.id} className="border-b border-gray-200">
+                        <td className="p-3 whitespace-nowrap">{formatarData(p.data)}</td>
+                        <td className="p-3"><strong>{p.nome}</strong><div>{p.telefone}</div><div>{p.email}</div></td>
+                        <td className="p-3 font-bold">{p.codigo}</td>
+                        <td className="p-3">{p.quantidade ?? "Conferir"}</td>
+                        <td className="p-3">{p.cortesia ? "Cortesia" : p.pagamento}</td>
+                        <td className="p-3">{p.operacional}{p.elevadorValidado ? " / elevador validado" : ""}</td>
+                        <td className="p-3">{p.tipo === "reserva" ? "Agência / guia" : "Pedido"}</td>
+                      </tr>)}</tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         <section
           style={{
