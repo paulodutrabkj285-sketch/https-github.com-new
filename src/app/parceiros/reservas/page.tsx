@@ -1,5 +1,5 @@
 "use client";
-import { DATA_LIMITE_ELEVADOR, INICIO_BLOQUEIO_ELEVADOR, AVISO_MANUTENCAO_ELEVADOR, dataElevadorBloqueada } from "@/lib/preco-elevador";
+import { INICIO_BLOQUEIO_ELEVADOR, AVISO_MANUTENCAO_ELEVADOR, dataElevadorBloqueada } from "@/lib/preco-elevador";
 
 import {
   Agencia,
@@ -1689,8 +1689,6 @@ ${observacoes ||
             "",
 
           dataVisita,
-          elevador: temElevador,
-          qtdElevador: temElevador ? qtdElevador : 0,
 
           quantidadePessoas:
             calculo.totalVisitantes,
