@@ -52,7 +52,6 @@ export async function POST(req: NextRequest) {
     const email = texto(body.email).toLowerCase();
     const dataVisita = texto(body.dataVisita);
     const quantidade = body.quantidade;
-    if (pedidoElevadorBloqueado({ tipo: "elevador", dataVisita })) return NextResponse.json({ ok: false, erro: AVISO_MANUTENCAO_ELEVADOR }, { status: 409 });
     const tipoDocumento = body.tipoDocumento;
     const cpf = texto(body.cpf).replace(/\D/g, "");
     const documento = tipoDocumento === "cpf" ? cpf : texto(body.documento);
@@ -74,6 +73,8 @@ export async function POST(req: NextRequest) {
         body.aceiteNaturalExtremo !== true) {
       return NextResponse.json({ ok: false, erro: "Confira os dados e selecione a mesma quantidade de Parque e Elevador." }, { status: 400 });
     }
+
+    if (pedidoElevadorBloqueado({ tipo: "elevador", dataVisita })) return NextResponse.json({ ok: false, erro: AVISO_MANUTENCAO_ELEVADOR }, { status: 409 });
 
     const ref = doc(db, "pedidos", autorizacao.pedidoId);
     await runTransaction(db, async tx => {
