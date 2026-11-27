@@ -1,4 +1,5 @@
 "use client";
+import { AVISO_MANUTENCAO_ELEVADOR } from "@/lib/preco-elevador";
 import PromocaoElevador from "@/components/PromocaoElevador";
 
 
@@ -1944,6 +1945,11 @@ export default function IngressosPage() {
               <span className="inline-flex rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-amber-200 sm:text-sm">Combo especial Parque + Elevador</span>
               <h1 id="titulo-ingressos" className="mt-6 text-4xl font-black leading-tight tracking-tight sm:text-5xl xl:text-6xl">Duas experiências.<br /><span className="text-emerald-300">Um dia inesquecível.</span></h1>
               <p className="mt-5 max-w-lg text-base leading-relaxed text-emerald-50/85 sm:text-lg">Explore o Parque Mundo Novo e viva a vista do Elevador Panorâmico sobre a Cascata do Avencal, em Urubici.</p>
+<div role="status" className="mt-5 rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 text-amber-950 shadow-sm sm:p-5">
+            <p className="text-base font-black">⚠️ Aviso importante — Elevador Panorâmico</p>
+            <p className="mt-2 text-sm leading-relaxed">{AVISO_MANUTENCAO_ELEVADOR}</p>
+            <p className="mt-2 text-sm font-bold">O Parque Mundo Novo permanece aberto normalmente.</p>
+          </div>
               <div className="mt-7 border-l-2 border-amber-300 pl-5">
                 <p className="text-sm font-semibold text-emerald-100">1 ingresso Parque + 1 ingresso Elevador</p>
                 <p className="mt-1 text-5xl font-black tracking-tight text-white sm:text-6xl"><span className="mr-2 text-2xl text-amber-200">R$</span>120,00</p>
