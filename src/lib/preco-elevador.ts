@@ -73,13 +73,14 @@ export function quantidadeElevadorNoPedido(pedido: DadosElevadorManutencao): num
   const itens = Array.isArray(pedido.itensCarrinho) ? pedido.itensCarrinho : [];
   const itensElevador = itens.filter((item) => item && (item.tipo === "elevador" || String(item.produto || "").toLowerCase().includes("elevador")));
   const avulso = String(pedido.tipo || "").toLowerCase() === "elevador" ||
-    String(pedido.produto || "").toLowerCase().includes("elevador panorâmico");
+    String(pedido.produto || "").trim().toLowerCase() === "elevador panorâmico";
+  const produtoComElevador = String(pedido.produto || "").toLowerCase().includes("elevador");
   const quantidade = Math.max(quantidadeValida(pedido.quantidadeElevador), quantidadeValida(pedido.qtdElevador),
     itensElevador.reduce((soma, item) => soma + quantidadeValida(item.quantidade), 0),
     avulso && String(pedido.tipo || "").toLowerCase() !== "carrinho" ? quantidadeValida(pedido.quantidade) : 0);
   if (quantidade > 0) return quantidade;
   // null significa que há elevador, mas a quantidade do registro é desconhecida.
-  return avulso || pedido.elevador === true || pedido.codigoIngressoElevador || pedido.qrCodeIngressoElevador || itensElevador.length ? null : 0;
+  return produtoComElevador || avulso || pedido.elevador === true || pedido.codigoIngressoElevador || pedido.qrCodeIngressoElevador || itensElevador.length ? null : 0;
 }
 
 export function pedidoElevadorBloqueado(pedido: DadosElevadorManutencao, agora = new Date()) {
