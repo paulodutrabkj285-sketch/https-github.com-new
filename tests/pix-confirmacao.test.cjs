@@ -305,7 +305,7 @@ test('atualização atrasada não devolve pedido pago a pendente', async () => {
   const mem = memoria({ 'pedidos/ficticio': { statusPagamento: 'pago', statusOperacional: 'ativo',
     emailIngressoEnviado: true } });
   const pedidos = carregar('src/lib/pedidos.ts', {
-    './preparar-pedido': {}, './firebase': { db: {} }, 'firebase/firestore': mem.firestore,
+    './preparar-pedido': {}, './preco-elevador': carregar('src/lib/preco-elevador.ts'), './firebase': { db: {} }, 'firebase/firestore': mem.firestore,
   });
   await pedidos.atualizarPedido('ficticio', { statusPagamento: 'pendente', pagbankStatus: 'WAITING' });
   const salvo = mem.store.get('pedidos/ficticio');
@@ -404,7 +404,7 @@ test('checkout usa Efí primeiro, cai para Sicredi a cada erro e só usa Sicredi
       const route = carregar('src/app/api/sicredi/criar-pix/route.ts', {
         '@/lib/pix-recuperacao': { recuperarPix() {} },
         'next/server': next, 'firebase/firestore': mem.firestore, '@/lib/firebase': { db: {} },
-        '@/lib/pedidos': { buscarPedidoPorId: async () => pedido },
+        '@/lib/pedidos': { buscarPedidoPorId: async () => pedido, pagamentoElevadorBloqueado: async () => false },
         '@/lib/preco-elevador': { valorPromocionalValido: () => true },
         '@/lib/combo-parque-elevador-server': { pedidoComboValidoNoServidor: () => true },
         '@/lib/finalizar-pagamento': {},
