@@ -57,6 +57,7 @@ import {
 
 
 import { auth, db } from "./firebase";
+import { AVISO_MANUTENCAO_ELEVADOR, dataElevadorBloqueada, hojeNoParque, pedidoElevadorBloqueado, quantidadeElevadorNoPedido, type DadosElevadorManutencao } from "./preco-elevador";
 
 
 
@@ -1428,6 +1429,7 @@ function limparCpf(
 
 
 export async function criarPedido(dados: PedidoInput) {
+  if (pedidoElevadorBloqueado(dados)) throw new Error(AVISO_MANUTENCAO_ELEVADOR);
   const ref = await addDoc(collection(db, "pedidos"), prepararPedido(dados));
   return ref.id;
 }
@@ -3523,4 +3525,15 @@ export async function registrarValidacaoPedido(
     if (pedidoReembolsado(snap.data())) throw new Error(MENSAGEM_INGRESSO_REEMBOLSADO);
     tx.update(referencia, { ...dados, updatedAt: new Date().toISOString() });
   });
+}
+
+
+// Verifica também reservas antigas que guardam os dados do elevador em outra coleção.
+export async function pagamentoElevadorBloqueado(pedido: DadosElevadorManutencao) {
+  if (pedidoElevadorBloqueado(pedido)) return true;
+  const data = pedido.dataVisita || pedido.dataEntrada;
+  if (!pedido.reservaAgenciaId || (!dataElevadorBloqueada(data) && !dataElevadorBloqueada(hojeNoParque()))) return false;
+  const reserva = await getDocFromServer(doc(db, "reservas_agencias", String(pedido.reservaAgenciaId)));
+  if (!reserva.exists()) throw new Error("Não foi possível conferir os itens da reserva. Entre em contato com o Parque.");
+  return quantidadeElevadorNoPedido(reserva.data()) !== 0;
 }
