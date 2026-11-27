@@ -33,7 +33,41 @@ type AcessoManutencao = {
   id: string; tipo: "pedido" | "reserva"; nome: string; email: string; telefone: string;
   data: string; codigo: string; quantidade: number | null; pagamento: string; operacional: string;
   cortesia: boolean; saldo: number | null; validade: string; motivo: string; pedidoId?: string;
+  compra: string; valorElevador: number | null;
 };
+
+// Valores contratados: não estimar a parcela do elevador usando o preço atual.
+function valorRegistrado(...valores: unknown[]): number | null {
+  for (const v of valores) {
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
+  }
+  return null;
+}
+
+function dataCompraRelatorio(valor: unknown): string {
+  try {
+    if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+    const objeto = valor as { toDate?: () => Date } | null;
+    const data = typeof objeto?.toDate === "function" ? objeto.toDate() :
+      typeof valor === "string" && valor.trim() ? new Date(valor) : null;
+    return data && Number.isFinite(data.getTime()) ? new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(data) : "";
+  } catch { return ""; }
+}
+
+function whatsappManutencao(telefone: string) {
+  const numero = telefone.replace(/\D/g, "");
+  const internacional = numero.length === 10 || numero.length === 11 ? "55" + numero : numero;
+  if (!/^55\d{10,11}$/.test(internacional)) return null;
+  const mensagem = "Olá! Aqui é da equipe do Parque Mundo Novo. Estamos entrando em contato sobre a manutenção programada do Elevador Panorâmico, prevista a partir de 19/12/2026. Gostaríamos de verificar sua visita e orientar sobre as opções disponíveis.";
+  return "https://wa.me/" + internacional + "?text=" + encodeURIComponent(mensagem);
+}
+
+// Protege a abertura de campos fornecidos por clientes no Excel contra fórmulas.
+function celulaCsv(valor: unknown): string {
+  let texto = String(valor ?? "");
+  if (/^[\s\u0000-\u001f]*[=+@-]/.test(texto) || /^[\t\r\n]/.test(texto)) texto = "'" + texto;
+  return '"' + texto.replace(/"/g, '""') + '"';
+}
 
 export default function AdminPedidosPage() {
   const router = useRouter();
@@ -46,7 +80,7 @@ export default function AdminPedidosPage() {
   const [erroManutencao, setErroManutencao] = useState("");
   useEffect(() => onAuthStateChanged(auth, (usuario) => {
     setSessao(Boolean(usuario));
-    if (!usuario) setAfetados(null);
+    setAfetados(null);
   }), []);
 
   async function consultarManutencao() {
@@ -68,6 +102,7 @@ export default function AdminPedidosPage() {
       const resultado: AcessoManutencao[] = [];
       for (const d of pedidosSnap.docs) {
         const p = d.data();
+        if (p.testeEfi === true) continue;
         const analise = classificarAcessoManutencao(p);
         if (!analise || idsReservas.has(String(p.reservaAgenciaId || "")) || pedidosVinculados.has(d.id)) continue;
         resultado.push({
@@ -76,6 +111,8 @@ export default function AdminPedidosPage() {
           quantidade: analise.quantidade, saldo: analise.saldo, validade: analise.validade, motivo: analise.motivo,
           pagamento: String(p.statusPagamento || "pendente"), operacional: String(p.statusOperacional || "ativo"),
           cortesia: p.cortesia === true,
+          compra: dataCompraRelatorio(p.createdAt),
+          valorElevador: p.cortesia === true ? 0 : valorRegistrado(p.valorElevador, p.tipo === "elevador" ? p.valorTotal : undefined),
         });
       }
       for (const d of reservasSnap.docs) {
@@ -94,6 +131,8 @@ export default function AdminPedidosPage() {
           data: analise.visita, codigo: String(r.codigoGrupo || "-"), quantidade: analise.quantidade,
           saldo: analise.saldo, validade: analise.validade, motivo: analise.motivo, pagamento,
           operacional: String(r.statusOperacional || "reservado"), cortesia: p?.cortesia === true, pedidoId: pedidoId || undefined,
+          compra: dataCompraRelatorio(p?.createdAt || r.createdAt),
+          valorElevador: p?.cortesia === true ? 0 : valorRegistrado(r.valorElevadorFinal, p?.valorElevador),
         });
       }
       if (auth.currentUser?.uid === uid) setAfetados(resultado.sort((a,b) => a.data.localeCompare(b.data)));
@@ -108,12 +147,40 @@ export default function AdminPedidosPage() {
   const pagosAfetados = (afetados || []).filter(p => p.pagamento === "pago" && !p.cortesia && ["agendado", "validade_aberta"].includes(p.motivo));
   const quantidadePagaConhecida = pagosAfetados.reduce((soma, p) => soma + (p.saldo ?? 0), 0);
   const [filtroManutencao, setFiltroManutencao] = useState("todos");
-  const registrosExibidos = (afetados || []).filter(p => filtroManutencao === "todos" ||
-    (filtroManutencao === "revisar" ? p.motivo.startsWith("revisar") : p.motivo === filtroManutencao));
+  const [pagamentoManutencao, setPagamentoManutencao] = useState("todos");
+  const [origemManutencao, setOrigemManutencao] = useState("todos");
+  const [buscaManutencao, setBuscaManutencao] = useState("");
+  const registrosExibidos = (afetados || []).filter(p =>
+    (filtroManutencao === "todos" || (filtroManutencao === "revisar" ? p.motivo.startsWith("revisar") : p.motivo === filtroManutencao)) &&
+    (pagamentoManutencao === "todos" || (pagamentoManutencao === "cortesia" ? p.cortesia : !p.cortesia && p.pagamento === pagamentoManutencao)) &&
+    (origemManutencao === "todos" || p.tipo === origemManutencao) &&
+    [p.nome, p.email, p.telefone, p.codigo, p.id, p.pedidoId].some(v => String(v || "").toLowerCase().includes(buscaManutencao.trim().toLowerCase()))
+  );
   const nomesMotivo: Record<string, string> = {
     agendado: "Agendado a partir de 12/12", validade_aberta: "Data anterior / validade aberta",
     revisar_validade: "Conferir validade", revisar_bloqueio: "Conferir bloqueio/cancelamento",
   };
+
+  function exportarManutencao() {
+    if (!auth.currentUser || !registrosExibidos.length) return;
+    const colunas = ["Pedido / reserva", "Origem", "Nome", "Telefone", "E-mail", "Código", "Compra", "Visita", "Validade estimada", "Quantidade", "Saldo", "Pagamento", "Operacional", "Valor contratado do elevador (R$)", "Motivo", "Atendimento (preencher manualmente)"];
+    const linhas = registrosExibidos.map(p => [
+      p.pedidoId || p.id, p.tipo, p.nome, p.telefone ? "'" + p.telefone : "", p.email, p.codigo,
+      p.compra, p.data, p.validade, p.quantidade ?? "Conferir", p.saldo ?? "Conferir",
+      p.cortesia ? "Cortesia" : p.pagamento, p.operacional,
+      p.valorElevador === null ? "Conferir" : p.valorElevador.toFixed(2).replace(".", ","),
+      nomesMotivo[p.motivo], "",
+    ]);
+    const csv = [colunas, ...linhas].map(linha => linha.map(celulaCsv).join(";")).join("\r\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "manutencao-elevador-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   const [busca, setBusca] = useState("");
   const [filtroProduto, setFiltroProduto] = useState("todos");
@@ -327,17 +394,38 @@ export default function AdminPedidosPage() {
                     <option value="validade_aberta">Validade aberta</option><option value="revisar">Casos para revisar</option>
                   </select>
                 </label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <label className="text-sm font-bold">Pagamento
+                    <select value={pagamentoManutencao} onChange={e => setPagamentoManutencao(e.target.value)} className="mt-1 w-full rounded-lg border bg-white p-2">
+                      <option value="todos">Todos</option><option value="pago">Pagos</option><option value="pendente">Pendentes</option><option value="expirado">Expirados</option><option value="cortesia">Cortesias</option>
+                    </select>
+                  </label>
+                  <label className="text-sm font-bold">Origem
+                    <select value={origemManutencao} onChange={e => setOrigemManutencao(e.target.value)} className="mt-1 w-full rounded-lg border bg-white p-2">
+                      <option value="todos">Todas</option><option value="pedido">Pedidos</option><option value="reserva">Agências e guias</option>
+                    </select>
+                  </label>
+                  <label className="text-sm font-bold">Buscar cliente ou código
+                    <input value={buscaManutencao} onChange={e => setBuscaManutencao(e.target.value)} className="mt-1 w-full rounded-lg border bg-white p-2" placeholder="Nome, telefone, e-mail..." />
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={exportarManutencao} disabled={!registrosExibidos.length} className="rounded-lg bg-emerald-800 px-4 py-2 font-bold text-white disabled:opacity-50">Exportar Excel (CSV)</button>
+                  <span className="text-sm font-semibold">{registrosExibidos.length} registros no filtro</span>
+                </div>
+                <p className="text-xs">O valor informado é o valor contratado do elevador, não um cálculo de reembolso. O CSV contém dados pessoais: mantenha o arquivo restrito à equipe autorizada. Registre o atendimento na coluna própria do arquivo exportado; isso não modifica os pedidos.</p>
                 {registrosExibidos.length === 0 ? <p className="font-semibold">Nenhum registro encontrado neste filtro.</p> : (
                   <div className="overflow-x-auto rounded-xl bg-white">
                     <table className="w-full min-w-[800px] text-left text-sm text-gray-900">
-                      <thead className="bg-amber-100"><tr>{["Visita", "Validade estimada", "Cliente / agência", "Código", "Saldo / comprado", "Pagamento", "Operacional", "Situação"].map(t => <th key={t} className="p-3">{t}</th>)}</tr></thead>
+                      <thead className="bg-amber-100"><tr>{["Compra / visita", "Validade estimada", "Cliente / agência", "Código", "Saldo / comprado", "Pagamento", "Valor elevador", "Operacional", "Situação"].map(t => <th key={t} className="p-3">{t}</th>)}</tr></thead>
                       <tbody>{registrosExibidos.map(p => <tr key={p.tipo + p.id} className="border-b border-gray-200">
-                        <td className="p-3 whitespace-nowrap">{formatarData(p.data)}</td>
+                        <td className="p-3 whitespace-nowrap"><div>Compra: {p.compra ? formatarData(p.compra) : "—"}</div><div>Visita: {p.data ? formatarData(p.data) : "—"}</div></td>
                         <td className="p-3 whitespace-nowrap">{formatarData(p.validade)}</td>
-                        <td className="p-3"><strong>{p.nome}</strong><div>{p.telefone}</div><div>{p.email}</div></td>
-                        <td className="p-3 font-bold">{p.codigo}</td>
+                        <td className="p-3"><strong>{p.nome}</strong><div>{p.telefone}</div><div>{p.email}</div>{whatsappManutencao(p.telefone) && <a className="inline-block mt-1 font-semibold text-emerald-800 underline" href={whatsappManutencao(p.telefone) || undefined} target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>}</td>
+                        <td className="p-3 font-bold">{p.codigo}<div className="text-xs font-normal break-all">{p.pedidoId || p.id}</div></td>
                         <td className="p-3">{p.saldo ?? "Conferir"} / {p.quantidade ?? "?"}</td>
                         <td className="p-3">{p.cortesia ? "Cortesia" : p.pagamento}</td>
+                        <td className="p-3 whitespace-nowrap">{p.valorElevador === null ? "Conferir" : formatarMoeda(p.valorElevador)}</td>
                         <td className="p-3">{p.operacional}</td>
                         <td className="p-3">{nomesMotivo[p.motivo]}<div className="text-xs text-gray-600">{p.tipo === "reserva" ? "Agência / guia" : "Pedido"}</div></td>
                       </tr>)}</tbody>
