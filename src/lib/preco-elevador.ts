@@ -88,3 +88,56 @@ export function pedidoElevadorBloqueado(pedido: DadosElevadorManutencao, agora =
   const data = String(pedido.dataVisita || pedido.dataEntrada || "");
   return !/^\d{4}-\d{2}-\d{2}$/.test(data) || dataElevadorBloqueada(data) || dataElevadorBloqueada(hojeNoParque(agora));
 }
+
+
+export type DadosConsultaElevador = DadosElevadorManutencao & {
+  createdAt?: unknown; statusOperacional?: unknown; statusPagamento?: unknown;
+  quantidadeParque?: unknown; elevadorValidado?: unknown; elevadorQuantidadeValidada?: unknown;
+};
+
+function dataCivilConsulta(valor: unknown): string {
+  try {
+    if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+      const d = new Date(valor + "T12:00:00Z");
+      return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === valor ? valor : "";
+    }
+    const objeto = valor as { toDate?: () => Date } | null;
+    const d = typeof objeto?.toDate === "function" ? objeto.toDate() :
+      typeof valor === "string" && valor.trim() ? new Date(valor) : null;
+    return d && Number.isFinite(d.getTime()) ? hojeNoParque(d) : "";
+  } catch { return ""; }
+}
+
+// Estimativa da política comercial; não altera nem substitui a validação do ingresso.
+export function classificarAcessoManutencao(pedido: DadosConsultaElevador, reserva = false) {
+  const quantidade = quantidadeElevadorNoPedido(pedido);
+  if (quantidade === 0) return null;
+  const visita = dataCivilConsulta(pedido.dataVisita || pedido.dataEntrada);
+  const compra = reserva ? "" : dataCivilConsulta(pedido.createdAt);
+  const base = compra || visita;
+  const fim = base ? new Date(base + "T12:00:00Z") : null;
+  if (fim) fim.setUTCMonth(fim.getUTCMonth() + 6);
+  const validade = fim ? fim.toISOString().slice(0, 10) : "";
+  const tipo = String(pedido.tipo || "").toLowerCase();
+  const produto = String(pedido.produto || "").toLowerCase();
+  const operacional = String(pedido.statusOperacional || "").toLowerCase();
+  const pagamento = String(pedido.statusPagamento || "").toLowerCase();
+  const numeroUsado = Number(pedido.elevadorQuantidadeValidada);
+  const acessoParque = reserva || ["ingresso", "parque", "idoso", "camping"].includes(tipo) ||
+    Number(pedido.quantidadeParque) > 0 || (tipo !== "elevador" && /ingresso parque|parque \+|meia entrada idoso|camping/.test(produto));
+  const usoLegado = !reserva && !acessoParque && operacional === "utilizado" && pedido.elevadorValidado !== true;
+  let saldo: number | null = quantidade;
+  if (Number.isSafeInteger(numeroUsado) && numeroUsado > 0) {
+    saldo = quantidade === null ? null : Math.max(0, quantidade - numeroUsado);
+  } else if (pedido.elevadorValidado === true || usoLegado) {
+    saldo = 0;
+  }
+  if (saldo === 0 || pagamento === "reembolsado") return null;
+  const bloqueado = ["cancelado", "bloqueado", "reembolsado", "cancelada", "bloqueada"].includes(operacional);
+  // O validador exclusivo do elevador não verifica datas. Preservar também
+  // os registros com prazo vencido ou incerto em uma categoria de revisão.
+  const motivo = bloqueado ? "revisar_bloqueio" :
+    !visita || !validade || validade < INICIO_BLOQUEIO_ELEVADOR ? "revisar_validade" :
+    visita >= INICIO_BLOQUEIO_ELEVADOR ? "agendado" : "validade_aberta";
+  return { quantidade, saldo, visita, validade, motivo } as const;
+}
