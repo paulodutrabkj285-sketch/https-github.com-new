@@ -24,7 +24,11 @@ function carregar(file, mocks = {}, globals = {}) {
   return module.exports;
 }
 
-const preco = carregar('src/lib/preco-elevador.ts');
+class DataAntesManutencao extends Date {
+  constructor(...args) { super(...(args.length ? args : ['2026-11-27T15:00:00Z'])); }
+  static now() { return Date.parse('2026-11-27T15:00:00Z'); }
+}
+const preco = carregar('src/lib/preco-elevador.ts', {}, { Date: DataAntesManutencao });
 const servidor = carregar('src/lib/combo-parque-elevador-server.ts', { './preco-elevador': preco });
 const preparar = carregar('src/lib/preparar-pedido.ts', { './preco-elevador': preco });
 const next = { NextResponse: {
@@ -37,7 +41,7 @@ const next = { NextResponse: {
 const dados = {
   nome: 'Visitante Teste', telefone: '48999999999', email: 'teste@example.invalid',
   tipoDocumento: 'cpf', cpf: '12345678901', documento: '12345678901',
-  dataVisita: '2999-01-01', quantidade: 1, quantidadeParque: 1, quantidadeElevador: 1,
+  dataVisita: '2026-12-11', quantidade: 1, quantidadeParque: 1, quantidadeElevador: 1,
   aceiteNaturalExtremo: true,
 };
 
@@ -57,7 +61,7 @@ function cenario() {
     'next/server': next, 'firebase/firestore': firestore, '@/lib/firebase': { db: {} },
     '@/lib/preparar-pedido': preparar, '@/lib/preco-elevador': preco,
     '@/lib/combo-parque-elevador-server': servidor,
-  });
+  }, { Date: DataAntesManutencao });
   const request = (body = dados, token, path = '/api/ingressos/combo', origin = 'https://parque.test') => ({
     url: 'https://parque.test' + path, nextUrl: new URL('https://parque.test' + path),
     headers: { get: name => name === 'origin' ? origin : null },
@@ -189,7 +193,7 @@ test('rotas de cobrança recusam combo salvo adulterado antes de acessar o prove
   const { pedido, pedidoId } = await cenario().criar();
   let chamadasExternas = 0;
   const proibido = () => { chamadasExternas++; throw new Error('Provedor não deve ser chamado'); };
-  const pedidos = { buscarPedidoPorId: async () => ({ ...pedido, valorTotal: 1 }), atualizarPedido: proibido };
+  const pedidos = { buscarPedidoPorId: async () => ({ ...pedido, valorTotal: 1 }), pagamentoElevadorBloqueado: async p => preco.pedidoElevadorBloqueado(p), atualizarPedido: proibido };
   const comum = { 'next/server': next, '@/lib/pedidos': pedidos,
     '@/lib/preco-elevador': preco, '@/lib/combo-parque-elevador-server': servidor };
   const pix = carregar('src/app/api/sicredi/criar-pix/route.ts', {
@@ -291,4 +295,19 @@ test('Purchase usa valorPago do pedido confirmado; pendente não dispara evento'
     assert.equal(eventos.length, pago ? 1 : 0);
     if (pago) { assert.equal(eventos[0][1], 'Purchase'); assert.equal(eventos[0][2].value, 120); }
   }
+});
+
+
+test('manutenção: avulso e combo bloqueados a partir de 12/12; Parque permanece disponível', async () => {
+  const agora = new Date('2026-11-27T15:00:00Z');
+  assert.equal(preco.pedidoElevadorBloqueado({ tipo: 'elevador', quantidade: 1, dataVisita: '2026-12-11' }, agora), false);
+  assert.equal(preco.pedidoElevadorBloqueado({ tipo: 'elevador', quantidade: 1, dataVisita: '2026-12-12' }, agora), true);
+  assert.equal(preco.pedidoElevadorBloqueado({ tipo: 'carrinho', quantidadeElevador: 2, dataVisita: '2027-01-01' }, agora), true);
+  assert.equal(preco.pedidoElevadorBloqueado({ tipo: 'ingresso', quantidade: 2, dataVisita: '2026-12-19' }, agora), false);
+  assert.equal(preco.pedidoElevadorBloqueado({ tipo: 'elevador', quantidade: 1, dataVisita: '2026-12-11' }, new Date('2026-12-12T03:00:00Z')), true);
+  const c = cenario();
+  const token = servidor.iniciarAutorizacaoCombo();
+  const resposta = await c.route.POST(c.request({ ...dados, dataVisita: '2026-12-12' }, token));
+  assert.equal(resposta.status, 409);
+  assert.equal(c.pedidos.size, 0);
 });
