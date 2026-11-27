@@ -3,7 +3,7 @@ import { randomInt } from "node:crypto";
 import { doc, runTransaction } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { prepararPedido } from "@/lib/preparar-pedido";
-import { PROMOCAO_PARQUE_ELEVADOR } from "@/lib/preco-elevador";
+import { AVISO_MANUTENCAO_ELEVADOR, pedidoElevadorBloqueado, PROMOCAO_PARQUE_ELEVADOR } from "@/lib/preco-elevador";
 import {
   assinarPedidoCombo, COOKIE_COMBO, DURACAO_COMBO_SEGUNDOS,
   iniciarAutorizacaoCombo, lerAutorizacaoCombo, pedidoComboValidoNoServidor,
@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
     const email = texto(body.email).toLowerCase();
     const dataVisita = texto(body.dataVisita);
     const quantidade = body.quantidade;
+    if (pedidoElevadorBloqueado({ tipo: "elevador", dataVisita })) return NextResponse.json({ ok: false, erro: AVISO_MANUTENCAO_ELEVADOR }, { status: 409 });
     const tipoDocumento = body.tipoDocumento;
     const cpf = texto(body.cpf).replace(/\D/g, "");
     const documento = tipoDocumento === "cpf" ? cpf : texto(body.documento);
